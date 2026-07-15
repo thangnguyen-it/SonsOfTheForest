@@ -1,0 +1,49 @@
+using System;
+using SonsOfTheForest.Core;
+
+namespace SonsOfTheForest.Gameplay.Items
+{
+    public readonly struct ItemId : IEquatable<ItemId>
+    {
+        private readonly StableStringId _id;
+
+        public ItemId(string value)
+        {
+            _id = new StableStringId(value);
+        }
+
+        public string Value => _id.Value;
+
+        public bool IsValid => _id.IsValid;
+
+        public static bool operator ==(ItemId left, ItemId right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(ItemId left, ItemId right)
+        {
+            return !left.Equals(right);
+        }
+
+        public bool Equals(ItemId other)
+        {
+            return _id.Equals(other._id);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ItemId other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return _id.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return _id.ToString();
+        }
+    }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "SonsOfTheForest.Infrastructure.Persistence",
+  "rootNamespace": "SonsOfTheForest.Infrastructure.Persistence",
+  "references": [
+    "SonsOfTheForest.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

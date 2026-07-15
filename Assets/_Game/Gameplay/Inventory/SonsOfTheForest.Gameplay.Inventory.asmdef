@@ -1,0 +1,17 @@
+{
+  "name": "SonsOfTheForest.Gameplay.Inventory",
+  "rootNamespace": "SonsOfTheForest.Gameplay.Inventory",
+  "references": [
+    "SonsOfTheForest.Core",
+    "SonsOfTheForest.Gameplay.Items"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

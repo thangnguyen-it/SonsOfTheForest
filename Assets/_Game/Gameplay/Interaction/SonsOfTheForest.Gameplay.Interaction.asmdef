@@ -1,0 +1,16 @@
+{
+  "name": "SonsOfTheForest.Gameplay.Interaction",
+  "rootNamespace": "SonsOfTheForest.Gameplay.Interaction",
+  "references": [
+    "SonsOfTheForest.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

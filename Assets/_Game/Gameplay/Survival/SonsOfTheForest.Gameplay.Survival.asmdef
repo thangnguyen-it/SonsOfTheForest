@@ -1,0 +1,16 @@
+{
+  "name": "SonsOfTheForest.Gameplay.Survival",
+  "rootNamespace": "SonsOfTheForest.Gameplay.Survival",
+  "references": [
+    "SonsOfTheForest.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
