@@ -1,0 +1,38 @@
+# Unity generated directories
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+/[Cc]rash[Rr]eports/
+/ExportedObj/
+
+# IDE and editor generated files
+/.vs/
+/.idea/
+/.vscode/
+/.gradle/
+/.consulo/
+*.csproj
+*.sln
+*.user
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Build and export artifacts
+*.apk
+*.aab
+*.unitypackage
+
+# Operating system files
+.DS_Store
+Thumbs.db
