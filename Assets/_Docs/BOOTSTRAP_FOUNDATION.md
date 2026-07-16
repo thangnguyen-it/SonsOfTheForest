@@ -56,3 +56,7 @@ A long-term survival project must avoid random `MonoBehaviour` manager order and
 ## 9. Next Step
 
 R0-D should create folder-level architecture guards and possibly test/validation scaffolding, or R1 should start Player Foundation only after the foundation is approved.
+
+## R0-D Guardrail Extension
+
+R0-D adds EditMode tests and architecture guards to ensure bootstrap/service contracts remain implementation-free and do not depend on scene order.
