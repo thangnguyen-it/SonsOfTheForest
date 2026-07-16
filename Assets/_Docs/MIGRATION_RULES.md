@@ -21,3 +21,10 @@ Every migrated feature must be reviewed by domain and assigned one outcome:
 - Discard
 
 Migration must happen feature by feature, not folder by folder.
+
+## Old Script Audit Policy
+
+- Old scripts are reference material.
+- Migration decisions must follow OLD_PROJECT_MIGRATION_AUDIT.md.
+- No old script may be copied wholesale without a specific migration task.
+- Implementation must target the new SonsOfTheForest contracts.
