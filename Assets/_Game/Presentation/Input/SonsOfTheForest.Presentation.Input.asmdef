@@ -1,0 +1,17 @@
+{
+  "name": "SonsOfTheForest.Presentation.Input",
+  "rootNamespace": "SonsOfTheForest.Presentation.Input",
+  "references": [
+    "SonsOfTheForest.Gameplay.Player",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

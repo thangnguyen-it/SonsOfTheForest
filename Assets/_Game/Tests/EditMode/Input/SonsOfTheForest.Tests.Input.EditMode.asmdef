@@ -1,0 +1,24 @@
+{
+  "name": "SonsOfTheForest.Tests.Input.EditMode",
+  "rootNamespace": "SonsOfTheForest.Tests.Input.EditMode",
+  "references": [
+    "SonsOfTheForest.Gameplay.Player",
+    "SonsOfTheForest.Presentation.Input",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

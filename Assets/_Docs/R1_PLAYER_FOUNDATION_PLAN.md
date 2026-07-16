@@ -430,3 +430,7 @@ Additional risks:
 ## R1-A Completion Note
 
 R1-A creates the approved Player contracts/types and tests from this plan. Runtime movement implementation remains deferred.
+
+## R1-B Completion Note
+
+R1-B adds the approved Player intent source and Presentation/Input adapter while movement, camera application, prefab, and scene composition remain deferred.
