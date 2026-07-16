@@ -426,3 +426,7 @@ Additional risks:
 - Adding external modifiers before a deterministic composition contract will recreate old PlayerController branches.
 - Player identity, respawn, teleport, and scene transitions are intentionally unresolved.
 - Swimming, climbing, carrying, block movement, injury, cold, stealth scoring, footstep surfaces, combat, and all old numeric tuning are deferred.
+
+## R1-A Completion Note
+
+R1-A creates the approved Player contracts/types and tests from this plan. Runtime movement implementation remains deferred.

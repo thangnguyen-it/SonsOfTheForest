@@ -7,6 +7,7 @@
     "SonsOfTheForest.Gameplay.Items",
     "SonsOfTheForest.Gameplay.Inventory",
     "SonsOfTheForest.Gameplay.Survival",
+    "SonsOfTheForest.Gameplay.Player",
     "SonsOfTheForest.Infrastructure.Persistence",
     "SonsOfTheForest.Infrastructure.SceneBootstrap"
   ],
