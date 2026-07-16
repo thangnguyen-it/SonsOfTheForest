@@ -434,3 +434,13 @@ R1-A creates the approved Player contracts/types and tests from this plan. Runti
 ## R1-B Completion Note
 
 R1-B adds the approved Player intent source and Presentation/Input adapter while movement, camera application, prefab, and scene composition remain deferred.
+
+## R1-C0 Research Foundation
+
+- Build reference introduced.
+- Evidence grades introduced.
+- Evidence matrix introduced.
+- Measurement protocol introduced.
+- No gameplay defaults selected.
+- R1-C implementation remains blocked.
+- R1-D physics driver remains undecided.
