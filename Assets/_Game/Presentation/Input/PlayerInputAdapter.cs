@@ -229,11 +229,11 @@ namespace SonsOfTheForest.Presentation.Input
         {
             if (context.control.device is Pointer)
             {
-                buffer.SetPointerDelta(Vector2.zero);
+                buffer.ClearPointerDelta();
             }
             else
             {
-                buffer.SetGamepadLookRate(Vector2.zero);
+                buffer.ClearGamepadLookRate();
             }
         }
 

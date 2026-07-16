@@ -94,11 +94,21 @@ namespace SonsOfTheForest.Presentation.Input
             activeLookKind = LookInputKind.Rate;
         }
 
+        public void ClearPointerDelta()
+        {
+            pointerDelta = Vector2.zero;
+        }
+
+        public void ClearGamepadLookRate()
+        {
+            gamepadLookRate = Vector2.zero;
+        }
+
         public void ClearLookAndJumpTransientState()
         {
             jumpQueued = false;
-            pointerDelta = Vector2.zero;
-            gamepadLookRate = Vector2.zero;
+            ClearPointerDelta();
+            ClearGamepadLookRate();
             activeLookKind = LookInputKind.Delta;
         }
 
@@ -115,6 +125,7 @@ namespace SonsOfTheForest.Presentation.Input
 
         public void ResetAll()
         {
+            gameplayInputEnabled = true;
             move = Vector2.zero;
             sprintHeld = false;
             crouchDesired = false;

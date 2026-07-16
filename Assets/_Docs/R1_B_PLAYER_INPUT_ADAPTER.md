@@ -57,3 +57,11 @@ R1-B creates no PlayerController, motor, CharacterController adapter, camera con
 ## 14. Next step
 
 R1-C should implement pure player motor and look logic with tests, not Unity collision yet. CharacterController application, camera transforms, prefab creation, and scene composition remain deferred to their approved tasks.
+
+## External Review Corrections
+
+- Source-specific look clear operations clear only their value and do not switch the active look kind.
+- Full reset restores the buffer to its initial enabled state and clears all retained input.
+- Suspend remains distinct from full reset: it disables gameplay input, clears movement and transient input, and preserves crouch desired.
+- Integration tests use Unity's real component lifecycle after normal GameObject activation rather than invoking Unity messages through reflection.
+- Cross-source cancel selection is covered deterministically at the pure-buffer boundary. The existing single `Look` Value action and PlayerInput control-scheme switching do not expose deterministic per-binding cancel callbacks while the other look binding remains active, so no production-only test hook was added.
