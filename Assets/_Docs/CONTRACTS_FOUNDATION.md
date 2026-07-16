@@ -44,3 +44,7 @@ R0-B establishes stable contracts before gameplay implementation. These types de
 ## 6. Next Step
 
 R0-C should create bootstrap/service contracts and validation helpers, still avoiding gameplay implementation.
+
+## R0-C Extension
+
+R0-C adds bootstrap, service lifecycle, runtime tick, and validation contracts while still avoiding implementation.
