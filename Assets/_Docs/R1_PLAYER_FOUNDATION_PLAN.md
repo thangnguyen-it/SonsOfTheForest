@@ -444,3 +444,12 @@ R1-B adds the approved Player intent source and Presentation/Input adapter while
 - No gameplay defaults selected.
 - R1-C implementation remains blocked.
 - R1-D physics driver remains undecided.
+
+## R1-C0 Physics-Driver Supersession Notice
+
+1. Earlier references to `CharacterControllerPlayerMotor`, R1-D as a Unity CharacterController adapter, and “start with CharacterController adapter” are historical proposals from before the evidence-driven locomotion investigation.
+2. They are not approved implementation decisions.
+3. Until the R1-C8 physics-driver decision gate is complete, use neutral terminology: `IPlayerMotionDriver`, physics-driver candidate, Rigidbody candidate, and CharacterController candidate.
+4. No CharacterController or Rigidbody implementation may begin solely from the earlier sections.
+5. The final driver decision remains OPEN.
+6. Pure movement contracts must remain independent of either candidate.

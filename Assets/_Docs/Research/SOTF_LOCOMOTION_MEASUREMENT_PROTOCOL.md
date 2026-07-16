@@ -60,6 +60,29 @@ Ranked future methods:
 
 Prefer the highest-ranked lawful, non-modifying method available and record the acquisition method per source recording.
 
+## Raw data layers
+
+1. `SOTF_LOCOMOTION_RAW_RESULTS.csv`
+
+   One row per completed trial. It stores trial conditions and summary metrics.
+
+2. `SOTF_LOCOMOTION_FRAME_SAMPLES.csv`
+
+   Zero or more ordered sample rows per trial. It stores frame/time-level input, position, velocity, look, ground, and stamina observations.
+
+The composite key `experiment_id + trial_id` must identify the same trial in both files.
+
+Requirements:
+
+- acceleration-model fitting requires frame samples;
+- ascent/descent gravity fitting requires frame samples;
+- look acceleration/smoothing fitting requires frame samples;
+- a trial without frame samples may support coarse speed corroboration but cannot validate dynamic-response models;
+- `sample_index` must start at 0 and increase without duplicates per trial;
+- `sample_time_seconds` must be monotonic;
+- `acquisition_method` must identify telemetry, calibrated video, visual estimate, or manual observation;
+- missing values remain empty, never fabricated as zero.
+
 ## 4. Speed experiments
 
 Conditions: forward walk, backward walk, left/right strafe, diagonal walk, forward sprint, sideways sprint attempt, backward sprint attempt, crouch forward, and crouch strafe.
@@ -70,13 +93,13 @@ For every condition use a warm-up, fixed input duration, and at least 3 valid tr
 
 Test standing-to-walk, standing-to-sprint, walk-to-sprint, sprint-to-release, walk-to-release, forward-to-backward reversal, forward-to-strafe transition, and airborne input response.
 
-Capture frame-level displacement samples where possible. Do not choose a response model before data collection. Future analysis must compare linear acceleration, exponential response, capped velocity delta, and force/drag response using common intervals and residuals.
+Capture ordered displacement, velocity, and input samples in `SOTF_LOCOMOTION_FRAME_SAMPLES.csv`. Do not choose a response model before data collection. Future analysis must compare linear acceleration, exponential response, capped velocity delta, and force/drag response using common intervals and residuals. Trial-summary start/end values alone are insufficient for model fitting.
 
 ## 6. Jump experiments
 
 Test standing jump, walking jump, sprint jump, short tap, full hold, jump at slope, repeated jump input before landing, and input shortly before landing.
 
-Record takeoff, apex, and landing frames; start and apex heights; horizontal displacement; and input press/release frames. Retain raw height-over-time samples when possible. Candidate ballistic equations may be fitted, but are not assumed to be confirmed behavior.
+Record takeoff, apex, and landing frames; start and apex heights; horizontal displacement; and input press/release frames. Store ordered height, velocity, grounded, and jump-input samples in `SOTF_LOCOMOTION_FRAME_SAMPLES.csv`. Candidate ballistic equations may be fitted from frame samples, but are not assumed to be confirmed behavior.
 
 ## 7. Sprint and stamina experiments
 
@@ -107,7 +130,7 @@ Gamepad protocol:
 - measure yaw/pitch degrees per second;
 - estimate deadzone, response curve, and acceleration ramp.
 
-Keep frame cap and device identity fixed, and test step inputs to distinguish immediate response from smoothing.
+Keep frame cap and device identity fixed, and test step inputs to distinguish immediate response from smoothing. Store ordered look input, camera yaw, camera pitch, and sample times in `SOTF_LOCOMOTION_FRAME_SAMPLES.csv`; summary angular values alone cannot establish acceleration or smoothing.
 
 ## 11. Statistical acceptance
 

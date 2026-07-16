@@ -8,6 +8,17 @@ NOT STARTED — awaiting current-build measurements.
 
 See [SOTF_BUILD_REFERENCE.md](SOTF_BUILD_REFERENCE.md). No local build is locked in R1-C0, so quantitative analysis cannot begin.
 
+## Data provenance
+
+Record before future analysis:
+
+- summary CSV commit and file hash;
+- frame-sample CSV commit and file hash;
+- locked build ID;
+- measurement session IDs;
+- acquisition methods;
+- included and excluded trials with reasons.
+
 ## 3. Speed analysis
 
 | Direction/mode | Build ID | Trials | Mean (m/s) | SD | CV | Status |
@@ -28,6 +39,8 @@ See [SOTF_BUILD_REFERENCE.md](SOTF_BUILD_REFERENCE.md). No local build is locked
 | Capped delta velocity | — | — | — | No decision |
 | Force/drag | — | — | — | No decision |
 
+RMSE and residual patterns must be calculated from ordered frame samples. Trial-summary start/end values are insufficient for model selection.
+
 ## 5. Jump analysis
 
 | Field | Result |
@@ -42,6 +55,8 @@ See [SOTF_BUILD_REFERENCE.md](SOTF_BUILD_REFERENCE.md). No local build is locked
 | Horizontal momentum retention | — |
 
 The standard ballistic model is only a candidate to test against measurements; it is not confirmed Sons of the Forest behavior.
+
+Inferred ascent/descent gravity requires height-over-time frame samples. Apex and airtime summary values alone are insufficient to prove the gravity model.
 
 ## 6. Sprint analysis
 
@@ -85,6 +100,8 @@ The standard ballistic model is only a candidate to test against measurements; i
 | Gamepad response curve | — |
 | Acceleration | — |
 | Pitch bounds | — |
+
+Acceleration, smoothing, and stick response curves require ordered angular samples; summary angles or rates alone are insufficient.
 
 ## 10. Physics-driver decision gate
 

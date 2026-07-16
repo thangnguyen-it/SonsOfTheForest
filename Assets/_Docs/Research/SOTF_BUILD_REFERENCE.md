@@ -58,6 +58,29 @@ Examples:
 
 Grade E is useful for discovering what to measure. Grade E must never lock a production default by itself.
 
+### Grade applicability
+
+- Grades A–E apply only to evidence concerning Sons of the Forest.
+- A row with no evidence yet uses Grade `N/A`.
+- `N/A` is not an evidence grade.
+- Current-project contracts are design context, not SOTF evidence, and must not receive Grades A–E.
+
+### Evidence Type vocabulary
+
+Allowed Evidence Type values are:
+
+- `Direct Measurement`;
+- `Local Manifest`;
+- `Current Metadata`;
+- `Official Statement`;
+- `Historical Dump`;
+- `Historical Community Tool`;
+- `Visual Observation`;
+- `Engineering Hypothesis`;
+- `Research Question`.
+
+`Research Question` means that no current supporting evidence exists. The required future acquisition method belongs in `Next Verification`. A row cannot use `Direct Measurement` unless a measurement has actually been performed and recorded.
+
 ## 3. Local installed build
 
 | Property | Result |
@@ -83,7 +106,7 @@ Steam registry paths and `libraryfolders.vdf` were readable. They resolved only 
 
 ## 4. Public Steam identity
 
-The [official Steam product page](https://store.steampowered.com/app/1326470/Sons_Of_The_Forest/) identifies:
+The [official Steam product page](https://store.steampowered.com/app/1326470/Sons_Of_The_Forest/) provides these official developer/store facts:
 
 - App ID: 1326470;
 - title: Sons Of The Forest;
@@ -91,9 +114,12 @@ The [official Steam product page](https://store.steampowered.com/app/1326470/Son
 - publisher: Newnight;
 - full release date: 22 February 2024;
 - Early Access release date: 23 February 2023;
-- official product scope: first-person open-world survival horror with single-player and online cooperative play.
+- official description: open-world survival horror playable alone or with friends;
+- official feature support: single-player and online co-op.
 
-These are Grade C product facts. They do not establish locomotion algorithms or numerical movement defaults.
+The same Steam page lists `First-Person` as a popular user-defined tag. That tag is store/user metadata, not an official developer statement. Store tags are useful experience-context evidence but do not provide hidden algorithms or numerical defaults.
+
+The official facts above are Grade C product evidence. Neither those facts nor the user-defined tag establishes locomotion algorithms or numerical movement defaults.
 
 ## 5. Public build metadata
 
@@ -127,6 +153,7 @@ A pinned [uniref historical community-tool example](https://github.com/in1nit1t/
 - A new build invalidates unverified numerical assumptions.
 - Every raw measurement row must contain `build_id`.
 - An unknown build ID means the row cannot receive Grade A.
+- BUILD-005 remains Status `BLOCKED` and Grade `N/A` while no local manifest exists; it becomes Grade A only after direct local-manifest evidence exists.
 - Tracker build IDs and historical commit IDs must never be substituted for the local manifest build ID.
 
 ## 8. Current conclusion
