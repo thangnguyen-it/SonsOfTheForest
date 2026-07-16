@@ -146,6 +146,34 @@ namespace SonsOfTheForest.Tests.Input.EditMode
         }
 
         [Test]
+        public void ClearPointerDeltaDoesNotOverrideActiveGamepadRate()
+        {
+            var buffer = new PlayerInputBuffer();
+            var rate = new Vector2(0.25f, -0.5f);
+            buffer.SetGamepadLookRate(rate);
+
+            buffer.ClearPointerDelta();
+
+            LookIntent intent = buffer.ConsumeLookIntent();
+            Assert.That(intent.Value, Is.EqualTo(rate));
+            Assert.That(intent.InputKind, Is.EqualTo(LookInputKind.Rate));
+        }
+
+        [Test]
+        public void ClearGamepadRateDoesNotOverridePendingPointerDelta()
+        {
+            var buffer = new PlayerInputBuffer();
+            var delta = new Vector2(5f, 7f);
+            buffer.SetPointerDelta(delta);
+
+            buffer.ClearGamepadLookRate();
+
+            LookIntent intent = buffer.ConsumeLookIntent();
+            Assert.That(intent.Value, Is.EqualTo(delta));
+            Assert.That(intent.InputKind, Is.EqualTo(LookInputKind.Delta));
+        }
+
+        [Test]
         public void SuspendClearsMoveSprintJumpAndLook()
         {
             var buffer = new PlayerInputBuffer();
@@ -234,6 +262,25 @@ namespace SonsOfTheForest.Tests.Input.EditMode
             LookIntent look = buffer.ConsumeLookIntent();
             Assert.That(movement.Move, Is.EqualTo(Vector2.zero));
             Assert.That(movement.SprintRequested, Is.False);
+            Assert.That(movement.JumpRequested, Is.False);
+            Assert.That(look.Value, Is.EqualTo(Vector2.zero));
+            Assert.That(look.InputKind, Is.EqualTo(LookInputKind.Delta));
+        }
+
+        [Test]
+        public void FullResetRestoresGameplayInputEnabled()
+        {
+            var buffer = new PlayerInputBuffer();
+            buffer.SetGameplayInputEnabled(false);
+
+            buffer.ResetAll();
+
+            Assert.That(buffer.GameplayInputEnabled, Is.True);
+            MovementIntent movement = buffer.ConsumeMovementIntent();
+            LookIntent look = buffer.ConsumeLookIntent();
+            Assert.That(movement.Move, Is.EqualTo(Vector2.zero));
+            Assert.That(movement.SprintRequested, Is.False);
+            Assert.That(movement.CrouchRequested, Is.False);
             Assert.That(movement.JumpRequested, Is.False);
             Assert.That(look.Value, Is.EqualTo(Vector2.zero));
             Assert.That(look.InputKind, Is.EqualTo(LookInputKind.Delta));

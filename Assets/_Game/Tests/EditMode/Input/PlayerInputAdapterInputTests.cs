@@ -1,5 +1,4 @@
 using System.IO;
-using System.Reflection;
 using NUnit.Framework;
 using SonsOfTheForest.Gameplay.Player;
 using SonsOfTheForest.Presentation.Input;
@@ -48,20 +47,17 @@ namespace SonsOfTheForest.Tests.Input.EditMode
             playerInput.defaultControlScheme = "Keyboard&Mouse";
             playerInput.neverAutoSwitchControlSchemes = false;
             playerInput.notificationBehavior = PlayerNotifications.InvokeCSharpEvents;
+            playerInput.runInEditMode = true;
 
             adapter = playerObject.AddComponent<PlayerInputAdapter>();
+            adapter.runInEditMode = true;
             playerObject.SetActive(true);
-            InvokeLifecycle(adapter, "Awake");
-            InvokeLifecycle(playerInput, "OnEnable");
-            InvokeLifecycle(adapter, "OnEnable");
         }
 
         public override void TearDown()
         {
             if (playerObject != null)
             {
-                InvokeLifecycle(adapter, "OnDisable");
-                InvokeLifecycle(playerInput, "OnDisable");
                 Object.DestroyImmediate(playerObject);
             }
 
@@ -369,26 +365,42 @@ namespace SonsOfTheForest.Tests.Input.EditMode
             }
         }
 
+        [Test]
+        public void DisableAndReenableAdapterRestoresCleanOperationalState()
+        {
+            Press(keyboard.cKey);
+            Press(keyboard.spaceKey);
+            Set(mouse.delta, new Vector2(4f, 5f));
+            adapter.SetGameplayInputEnabled(false);
+
+            adapter.enabled = false;
+            adapter.enabled = true;
+
+            Assert.That(adapter.GameplayInputEnabled, Is.True);
+            Press(keyboard.wKey);
+            MovementIntent movement = adapter.ConsumeMovementIntent();
+            LookIntent look = adapter.ConsumeLookIntent();
+            Assert.That(movement.Move, Is.EqualTo(Vector2.up));
+            Assert.That(movement.CrouchRequested, Is.False);
+            Assert.That(movement.JumpRequested, Is.False);
+            Assert.That(look.Value, Is.EqualTo(Vector2.zero));
+        }
+
+        [Test]
+        public void AdapterInitializesWithoutReflectedLifecycleCalls()
+        {
+            Assert.That(adapter.GameplayInputEnabled, Is.True);
+
+            Press(keyboard.wKey);
+
+            Assert.That(
+                adapter.ConsumeMovementIntent().Move,
+                Is.EqualTo(Vector2.up));
+        }
+
         private void UseGamepad()
         {
             playerInput.SwitchCurrentControlScheme("Gamepad", gamepad);
-        }
-
-        private static void InvokeLifecycle(Object target, string methodName)
-        {
-            if (target == null)
-            {
-                return;
-            }
-
-            MethodInfo method = target.GetType().GetMethod(
-                methodName,
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(
-                method,
-                Is.Not.Null,
-                $"Could not invoke {target.GetType().Name}.{methodName} in EditMode.");
-            method.Invoke(target, null);
         }
     }
 }
