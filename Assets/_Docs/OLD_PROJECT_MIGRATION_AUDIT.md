@@ -231,3 +231,7 @@ Each phase should add pure EditMode tests before scene composition or presentati
 - AI perception, navigation, authoring, and behavior priority remain open.
 - Building needs a product-approved minimum slice.
 - Multiplayer authority/prediction/reconnect must not shape domains prematurely.
+
+## 11. R1 Player Planning Follow-up
+
+R1_PLAYER_FOUNDATION_PLAN.md refines the Player migration strategy into a test-first boundary for movement intent, pure motor/look logic, Unity adapters, state reporting, and future anchors. The old Player scripts remain read-only reference material and are not copy targets.
