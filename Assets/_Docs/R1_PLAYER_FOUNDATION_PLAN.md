@@ -442,8 +442,8 @@ R1-B adds the approved Player intent source and Presentation/Input adapter while
 - Evidence matrix introduced.
 - Measurement protocol introduced.
 - No gameplay defaults selected.
-- R1-C implementation remains blocked.
-- R1-D physics driver remains undecided.
+- At the end of R1-C0, R1-C implementation remained blocked.
+- The physics-driver decision was undecided and remains open.
 
 ## R1-C0 Physics-Driver Supersession Notice
 
@@ -453,3 +453,20 @@ R1-B adds the approved Player intent source and Presentation/Input adapter while
 4. No CharacterController or Rigidbody implementation may begin solely from the earlier sections.
 5. The final driver decision remains OPEN.
 6. Pure movement contracts must remain independent of either candidate.
+
+## R1-C1 Pure Movement/Look Completion Note
+
+R1-C1 was later opened under separate authorization and completed only the pure movement/look architecture implementation: `PlayerMovementModel`, `PlayerLookModel`, their documentation, and EditMode coverage.
+
+- Exact Sons of the Forest fidelity and final tuning remain blocked on controlled evidence and measurements.
+- The physics-driver decision remains OPEN.
+- Physics application and queries, camera application, player model, animation, prefab composition, and scene integration remain deferred.
+
+### R1-C1 Test Reconciliation
+
+- Previous full-suite baseline: 126 EditMode test cases.
+- New movement-model cases: 20.
+- New look-model cases: 10.
+- Total new cases: 30.
+- Final full suite: 156 passed, 0 failed, 0 skipped.
+- The earlier focused run reported 29 because it ran only the new model tests before the final sprint-constraint movement case was added. The final full-suite count includes the 126 baseline cases and all 30 finalized model cases.
