@@ -1,0 +1,25 @@
+{
+  "name": "SonsOfTheForest.Tests.Player.PlayMode",
+  "rootNamespace": "SonsOfTheForest.Tests.Player.PlayMode",
+  "references": [
+    "SonsOfTheForest.Application.Player",
+    "SonsOfTheForest.Gameplay.Player",
+    "SonsOfTheForest.Infrastructure.PlayerPhysics",
+    "SonsOfTheForest.Presentation.Input",
+    "SonsOfTheForest.Presentation.Player",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

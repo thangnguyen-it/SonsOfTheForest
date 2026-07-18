@@ -1,0 +1,17 @@
+{
+  "name": "SonsOfTheForest.Application.Player",
+  "rootNamespace": "SonsOfTheForest.Application.Player",
+  "references": [
+    "SonsOfTheForest.Core",
+    "SonsOfTheForest.Gameplay.Player"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

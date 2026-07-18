@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef4ac93d763d05440942a2d19062f1c5, type: 3}
+  m_Name: CFG_PlayerFoundation
+  m_EditorClassIdentifier: SonsOfTheForest.Application.Player::SonsOfTheForest.Application.Player.PlayerFoundationSettings
+  walkSpeed: 4
+  sprintSpeed: 7
+  crouchSpeed: 2
+  acceleration: 20
+  deceleration: 25
+  gravity: -19.62
+  jumpHeight: 1.2
+  groundSnapVelocity: -2
+  standingHeight: 2
+  crouchingHeight: 1.2
+  capsuleRadius: 0.35
+  stepOffset: 0.3
+  slopeLimitDegrees: 45
+  crouchPolicy: 0
+  mouseSensitivity: 0.1
+  stickSensitivity: 120
+  minimumPitch: -89
+  maximumPitch: 89
+  invertY: 0
