@@ -1,0 +1,8 @@
+Poly Haven assets in this directory and their matching textures under
+Assets/_Game/Art/Textures/World/PolyHaven are released under CC0 1.0.
+
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Poly Haven license summary: https://polyhaven.com/license
+
+No attribution is legally required. Source details are retained in
+README_SOURCE.md for provenance and maintenance.

@@ -1,0 +1,27 @@
+{
+  "name": "SonsOfTheForest.Tests.ForestCamp.PlayMode",
+  "rootNamespace": "SonsOfTheForest.Tests.ForestCamp.PlayMode",
+  "references": [
+    "SonsOfTheForest.Application.ForestCamp",
+    "SonsOfTheForest.Application.Player",
+    "SonsOfTheForest.Core",
+    "SonsOfTheForest.Gameplay.Interaction",
+    "SonsOfTheForest.Gameplay.Inventory",
+    "SonsOfTheForest.Gameplay.Items",
+    "SonsOfTheForest.Infrastructure.SceneComposition",
+    "SonsOfTheForest.Presentation.ForestCamp",
+    "Unity.InputSystem"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

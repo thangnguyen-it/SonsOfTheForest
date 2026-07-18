@@ -1,0 +1,20 @@
+{
+  "name": "SonsOfTheForest.Application.ForestCamp",
+  "rootNamespace": "SonsOfTheForest.Application.ForestCamp",
+  "references": [
+    "SonsOfTheForest.Core",
+    "SonsOfTheForest.Gameplay.Building",
+    "SonsOfTheForest.Gameplay.Interaction",
+    "SonsOfTheForest.Gameplay.Inventory",
+    "SonsOfTheForest.Gameplay.Items"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

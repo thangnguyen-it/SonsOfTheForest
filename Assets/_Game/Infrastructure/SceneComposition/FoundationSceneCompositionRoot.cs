@@ -111,8 +111,8 @@ namespace SonsOfTheForest.Infrastructure.SceneComposition
             ValidateRuntimeState(report);
 
             report.AddInfo(
-                "SCENE.PLAYGROUND_PROVISIONAL",
-                "The foundation playground and spawn are engineering fixtures, not measured Sons of the Forest world fidelity.");
+                "SCENE.FOREST_CAMP_PROVISIONAL",
+                "The playable forest camp is a production vertical slice; world scale, density, interaction range, and campfire recipe remain configurable fidelity targets.");
         }
 
         private void Awake()

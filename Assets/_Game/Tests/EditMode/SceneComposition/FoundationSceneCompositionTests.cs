@@ -23,7 +23,8 @@ namespace SonsOfTheForest.Tests.SceneComposition.EditMode
             "Assets/_Game/Prefabs/Player/PRF_PlayerFoundation.prefab";
 
         private const string PlaygroundPrefabPath =
-            "Assets/_Game/Prefabs/World/PRF_FoundationPlayground.prefab";
+            "Assets/_Game/Prefabs/World/ForestCamp/" +
+            "PRF_ForestCampPlayground.prefab";
 
         [Test]
         public void OfficialScene_ComposesValidatedPlayerAndPlaygroundPrefabs()

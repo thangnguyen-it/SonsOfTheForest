@@ -1,0 +1,29 @@
+{
+  "name": "SonsOfTheForest.Tests.ForestCamp.EditMode",
+  "rootNamespace": "SonsOfTheForest.Tests.ForestCamp.EditMode",
+  "references": [
+    "SonsOfTheForest.Application.ForestCamp",
+    "SonsOfTheForest.Core",
+    "SonsOfTheForest.Gameplay.Building",
+    "SonsOfTheForest.Gameplay.Interaction",
+    "SonsOfTheForest.Gameplay.Inventory",
+    "SonsOfTheForest.Gameplay.Items",
+    "SonsOfTheForest.Presentation.ForestCamp",
+    "Unity.InputSystem",
+    "Unity.ugui"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
