@@ -470,3 +470,13 @@ R1-C1 was later opened under separate authorization and completed only the pure 
 - Total new cases: 30.
 - Final full suite: 156 passed, 0 failed, 0 skipped.
 - The earlier focused run reported 29 because it ran only the new model tests before the final sprint-constraint movement case was added. The final full-suite count includes the 126 baseline cases and all 30 finalized model cases.
+
+## R1-F Foundation Scene Composition Completion Note
+
+R1-F now composes the approved `PRF_PlayerFoundation` into `SCN_Foundation` through an explicit, validated scene composition root and a replaceable provisional playground prefab.
+
+- Player contracts, pure models, input, physics, view, animation, and visual responsibilities remain in their existing assemblies.
+- The original scene camera remains available as an inactive fallback; the player prefab owns the only active camera and Audio Listener.
+- Spawn position, ground size, material, and world presentation remain provisional and configurable.
+- Interaction, survival, world terrain, persistence, multiplayer spawning, camera effects, and exact fidelity remain deferred.
+- Validation adds 5 EditMode cases and 2 project PlayMode cases; the resulting project totals are 183 EditMode and 7 PlayMode cases.

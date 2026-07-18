@@ -1,0 +1,24 @@
+{
+  "name": "SonsOfTheForest.Tests.SceneComposition.EditMode",
+  "rootNamespace": "SonsOfTheForest.Tests.SceneComposition.EditMode",
+  "references": [
+    "SonsOfTheForest.Application.Player",
+    "SonsOfTheForest.Core",
+    "SonsOfTheForest.Infrastructure.SceneBootstrap",
+    "SonsOfTheForest.Infrastructure.SceneComposition"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
