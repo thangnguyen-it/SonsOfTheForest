@@ -82,6 +82,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCamp
             CreateWorld(prefabs, stick, stone, campfire, materials.Ground);
             UpdatePlayerPrefab();
             IntegrateOfficialScene();
+            ForestFidelityContentBuilder.BuildAll();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("Forest Camp vertical slice content built successfully.");
