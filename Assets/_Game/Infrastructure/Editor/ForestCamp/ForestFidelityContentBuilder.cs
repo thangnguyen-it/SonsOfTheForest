@@ -261,7 +261,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCamp
                 renderer.sharedMaterials = assigned;
                 renderer.shadowCastingMode = ShadowCastingMode.On;
                 renderer.receiveShadows = true;
-                renderer.motionVectorGenerationMode = MotionVectorGenerationMode.Object;
+                renderer.motionVectorGenerationMode = MotionVectorGenerationMode.Camera;
             }
         }
 
@@ -466,8 +466,10 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCamp
             foreach (GameObject tree in trees)
             {
                 MeshFilter[] filters = tree.GetComponentsInChildren<MeshFilter>(true);
+                long vertexCount = filters.Sum(value => (long)value.sharedMesh.vertexCount);
                 if (filters.Length != 2 ||
-                    filters.Sum(value => (long)value.sharedMesh.vertexCount) < 2_000_000L ||
+                    vertexCount < 500_000L ||
+                    vertexCount > 800_000L ||
                     filters.Any(value => value.name.Contains("Plane")))
                 {
                     throw new InvalidOperationException(

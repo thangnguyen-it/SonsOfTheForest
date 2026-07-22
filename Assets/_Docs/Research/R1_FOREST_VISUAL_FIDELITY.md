@@ -30,17 +30,20 @@ Scope: near-field conifer, grass, and fern geometry in the playable forest camp.
 23. `IMPLEMENTED`: all foliage materials are opaque HDRP/Lit; alpha clipping, transparency, and double-sided card rendering are disabled.
 24. `IMPLEMENTED`: the forest-camp rebuild command reapplies this fidelity pass, preventing the old card trees from returning.
 25. `PROVISIONAL`: species, crown profile, needle dimensions, material colors, and exact biome density are independent engineering baselines.
-26. `PROVISIONAL`: the current clearing keeps eight multi-million-triangle trees to prioritize near-field fidelity without claiming a final performance budget.
-27. `UNKNOWN`: exact current-game species mix, per-species dimensions, seasonal variation, wind response, and density distribution remain unmeasured.
-28. `UNKNOWN`: exact HDRP-equivalent exposure, fog, sky scattering, wetness, and subsurface response remain unmeasured.
-29. Close views must test for visible planes, black/white card flipping, scale consistency, silhouette repetition, and ground intersection.
-30. Asset tests must also reject alpha cutout, double-sided foliage, mesh compression, CPU-readable model copies, and accidental old-tree restoration.
-31. Later terrain work owns elevation, forest-floor blending, litter, roots, wet areas, decals, and soft transitions around trees and rocks.
-32. Later rock work owns fractured macro-shapes, embedded placement, moss masks, and construction-stone variants.
-33. Later atmosphere work owns sky, exposure, ambient response, volumetric fog, and distance-layer continuity.
-34. Later VFX work owns campfire flame volumes, embers, smoke, light flicker, dying-fire state, and audio.
-35. Later profiling may add geometry LODs or streaming only when measured changes preserve the approved near-field appearance.
-36. No Sons of the Forest source code, model, texture, or extracted game asset is copied into this implementation.
+26. `CORRECTED`: the first pass used 3.2-4.4 million triangles per tree and caused a reproducible D3D11 device reset/TDR when Unity opened the scene on target hardware.
+27. `IMPLEMENTED`: the corrected trees retain closed 3D needles and real branch generations at 0.83-1.09 million triangles per source tree.
+28. `IMPLEMENTED`: the eight-tree clearing now presents approximately 7.5 million tree triangles instead of approximately 30 million.
+29. `PROVISIONAL`: this is a measured stability boundary, not permission to replace near-field geometry with cards.
+30. `UNKNOWN`: exact current-game species mix, per-species dimensions, seasonal variation, wind response, and density distribution remain unmeasured.
+31. `UNKNOWN`: exact HDRP-equivalent exposure, fog, sky scattering, wetness, and subsurface response remain unmeasured.
+32. Close views must test for visible planes, black/white card flipping, scale consistency, silhouette repetition, and ground intersection.
+33. Asset tests reject alpha cutout, double-sided foliage, unbounded tree triangle counts, mesh compression, CPU-readable copies, and accidental old-tree restoration.
+34. Later terrain work owns elevation, forest-floor blending, litter, roots, wet areas, decals, and soft transitions around trees and rocks.
+35. Later rock work owns fractured macro-shapes, embedded placement, moss masks, and construction-stone variants.
+36. Later atmosphere work owns sky, exposure, ambient response, volumetric fog, and distance-layer continuity.
+37. Later VFX work owns campfire flame volumes, embers, smoke, light flicker, dying-fire state, and audio.
+38. Later profiling may add geometry LODs or streaming only when measured changes preserve the approved near-field appearance.
+39. No Sons of the Forest source code, model, texture, or extracted game asset is copied into this implementation.
 
 ## Sources
 

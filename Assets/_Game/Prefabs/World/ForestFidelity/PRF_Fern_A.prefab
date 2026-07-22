@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8269386276047009772}
   - component: {fileID: 6765602280581542497}
   - component: {fileID: 6169005285136241175}
+  - component: {fileID: 4583227898858774053}
   m_Layer: 0
   m_Name: PRF_Fern_A
   m_TagString: Untagged
@@ -49,11 +50,11 @@ MeshRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8227270522334534668}
   m_Enabled: 1
-  m_CastShadows: 1
+  m_CastShadows: 0
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
-  m_MotionVectors: 1
+  m_MotionVectors: 0
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
@@ -91,3 +92,22 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!205 &4583227898858774053
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8227270522334534668}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: 0.027279794, y: -0.12672055, z: 0.27946246}
+  m_Size: 1.6184123
+  m_FadeMode: 1
+  m_AnimateCrossFading: 1
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.025
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 6169005285136241175}
+  m_Enabled: 1

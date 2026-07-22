@@ -247,12 +247,13 @@ def create_tree(spec: TreeSpec, materials):
 
     trunk_points = []
     trunk_radii = []
-    for segment in range(25):
-        height = spec.height * segment / 24.0
+    for segment in range(26):
+        height = spec.height * segment / 24.0 if segment < 25 else spec.height + 0.3
         trunk_points.append(trunk_center(spec, height))
-        radius = spec.base_radius * (1.0 - 0.76 * (height / spec.height))
+        ratio = min(1.0, height / spec.height)
+        radius = spec.base_radius * (1.0 - 0.9 * ratio)
         radius *= 1.0 + 0.035 * math.sin(segment * 1.71 + spec.seed)
-        trunk_radii.append(max(0.055, radius))
+        trunk_radii.append(0.006 if segment == 25 else max(0.035, radius))
     woody.add_closed_tube(trunk_points, trunk_radii, 14, 0, phase=0.13)
 
     for root_index in range(8):
@@ -309,7 +310,10 @@ def create_tree(spec: TreeSpec, materials):
                 phase=rng.random() * TAU,
             )
 
-            secondary_count = max(5, int(branch_length * 2.45))
+            # Dense branching carries the silhouette. Needle count is intentionally
+            # bounded so the three shared source meshes fit comfortably in GPU
+            # memory on the project's entry-level target hardware.
+            secondary_count = max(4, int(branch_length * 1.65))
             for secondary_index in range(secondary_count):
                 along = 0.25 + 0.67 * (secondary_index + 0.35) / secondary_count
                 base = polyline_point(branch_points, along)
@@ -339,12 +343,12 @@ def create_tree(spec: TreeSpec, materials):
                     twig_points,
                     rng,
                     material_index=1 if (level + branch_index + secondary_index) % 3 else 2,
-                    density=20,
+                    density=8,
                 )
 
                 twig_tangent = (secondary_tip - base).normalized()
                 twig_axis_a, twig_axis_b = perpendicular_axes(twig_tangent)
-                for tertiary_index, tertiary_t in enumerate((0.32, 0.58, 0.82)):
+                for tertiary_index, tertiary_t in enumerate((0.38, 0.72)):
                     tertiary_base = polyline_point(twig_points, tertiary_t)
                     tertiary_angle = (
                         tertiary_index * math.pi * 0.88
@@ -375,7 +379,7 @@ def create_tree(spec: TreeSpec, materials):
                         tertiary_points,
                         rng,
                         material_index=1 if tertiary_index % 3 else 2,
-                        density=11,
+                        density=4,
                     )
 
             populate_needles(
@@ -383,13 +387,13 @@ def create_tree(spec: TreeSpec, materials):
                 branch_points[1:],
                 rng,
                 material_index=1 if level % 4 else 2,
-                density=max(10, int(branch_length * 5.0)),
+                density=max(7, int(branch_length * 1.55)),
             )
 
     leader_start = trunk_center(spec, spec.height * 0.91)
     leader_end = trunk_center(spec, spec.height) + Vector((0.0, 0.0, 0.2))
     leader_points = [leader_start, leader_start.lerp(leader_end, 0.5), leader_end]
-    populate_needles(foliage, leader_points, rng, 1, density=38)
+    populate_needles(foliage, leader_points, rng, 1, density=14)
     for apical_level in range(7):
         height_ratio = 0.84 + apical_level * 0.022
         apical_height = spec.height * height_ratio
@@ -415,7 +419,7 @@ def create_tree(spec: TreeSpec, materials):
                 0,
                 phase=rng.random() * TAU,
             )
-            populate_needles(foliage, apical_points, rng, 1 if apical_branch % 3 else 2, density=18)
+            populate_needles(foliage, apical_points, rng, 1 if apical_branch % 3 else 2, density=9)
 
     parent = bpy.data.objects.new(spec.name, None)
     bpy.context.collection.objects.link(parent)
@@ -459,8 +463,8 @@ def populate_needles(builder, twig_points, rng, material_index, density):
             angle = TAU * around / needles_around + rng.uniform(-0.18, 0.18)
             outward = axis_a * math.cos(angle) + axis_b * math.sin(angle)
             direction = (outward * rng.uniform(0.82, 1.0) + tangent * rng.uniform(0.18, 0.42)).normalized()
-            length = rng.uniform(0.105, 0.175)
-            width = rng.uniform(0.008, 0.0125)
+            length = rng.uniform(0.16, 0.24)
+            width = rng.uniform(0.014, 0.02)
             builder.add_needle(base, direction, length, width, material_index)
 
 

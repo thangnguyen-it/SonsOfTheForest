@@ -41,6 +41,8 @@ namespace SonsOfTheForest.Presentation.ForestCamp
         private MonoBehaviour focusedBehaviour;
         private IInteractable focusedInteractable;
         private bool subscribed;
+        private bool enabledInteractActionForSubscription;
+        private int lastInteractionFrame = -1;
 
         public IInteractable FocusedInteractable => focusedInteractable;
 
@@ -67,6 +69,10 @@ namespace SonsOfTheForest.Presentation.ForestCamp
         private void LateUpdate()
         {
             RefreshFocus();
+            if (interactAction != null && interactAction.WasPressedThisFrame())
+            {
+                TryInteractOnceThisFrame();
+            }
         }
 
         public void RefreshFocus()
@@ -138,6 +144,12 @@ namespace SonsOfTheForest.Presentation.ForestCamp
             }
 
             interactAction.performed += OnInteractPerformed;
+            if (!interactAction.enabled)
+            {
+                interactAction.Enable();
+                enabledInteractActionForSubscription = true;
+            }
+
             subscribed = true;
         }
 
@@ -149,11 +161,28 @@ namespace SonsOfTheForest.Presentation.ForestCamp
             }
 
             interactAction.performed -= OnInteractPerformed;
+            if (enabledInteractActionForSubscription && interactAction.enabled)
+            {
+                interactAction.Disable();
+            }
+
+            enabledInteractActionForSubscription = false;
             subscribed = false;
         }
 
         private void OnInteractPerformed(InputAction.CallbackContext context)
         {
+            TryInteractOnceThisFrame();
+        }
+
+        private void TryInteractOnceThisFrame()
+        {
+            if (lastInteractionFrame == Time.frameCount)
+            {
+                return;
+            }
+
+            lastInteractionFrame = Time.frameCount;
             TryInteract();
         }
 

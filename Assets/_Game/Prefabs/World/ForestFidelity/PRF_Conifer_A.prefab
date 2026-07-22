@@ -53,10 +53,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.5020198
-  m_Height: 16.194187
+  m_Radius: 0.50806653
+  m_Height: 16.389244
   m_Direction: 1
-  m_Center: {x: 0.062636375, y: -0.011440277, z: 8.097093}
+  m_Center: {x: -0.29560232, y: 0.12545204, z: 8.194621}
 --- !u!1 &4397035329295779324
 GameObject:
   m_ObjectHideFlags: 0
@@ -110,7 +110,7 @@ MeshRenderer:
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
-  m_MotionVectors: 1
+  m_MotionVectors: 0
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
@@ -201,7 +201,7 @@ MeshRenderer:
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
-  m_MotionVectors: 1
+  m_MotionVectors: 0
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2

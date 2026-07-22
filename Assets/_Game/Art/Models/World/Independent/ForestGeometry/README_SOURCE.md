@@ -17,12 +17,12 @@ meshes, cameras, lights, animation, or armatures.
 
 | Model | Vertices | Triangles |
 |---|---:|---:|
-| Conifer A woody | 92,443 | 164,702 |
-| Conifer A needles | 2,329,392 | 3,494,088 |
-| Conifer B woody | 111,593 | 198,750 |
-| Conifer B needles | 2,828,776 | 4,243,164 |
-| Conifer C woody | 84,554 | 150,688 |
-| Conifer C needles | 2,120,008 | 3,180,012 |
+| Conifer A woody | 53,430 | 95,616 |
+| Conifer A needles | 545,992 | 818,988 |
+| Conifer B woody | 63,408 | 113,416 |
+| Conifer B needles | 649,392 | 974,088 |
+| Conifer C woody | 48,618 | 87,032 |
+| Conifer C needles | 496,120 | 744,180 |
 | Grass A/B/C | generated closed meshes | 2,304 / 1,856 / 2,688 |
 | Fern A/B/C | generated closed meshes | 4,752 / 3,536 / 5,808 |
 
@@ -37,3 +37,6 @@ https://polyhaven.com/license
 
 The current species profile, needle dimensions, colors, density, and material
 response remain provisional and replaceable as stronger evidence is collected.
+The bounded density is intentional: the initial 3.2-4.4 million-triangle trees
+caused a D3D11 device reset on target hardware. The corrected meshes retain
+closed 3D needles while keeping each complete tree below 1.1 million triangles.
