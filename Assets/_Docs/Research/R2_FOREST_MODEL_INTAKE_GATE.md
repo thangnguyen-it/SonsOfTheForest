@@ -53,6 +53,14 @@ The report is written outside Assets:
 
 This keeps raw/manual acquisition files out of Git while still recording the technical decision.
 
+For the user-acquired Mayo Games free sample package, use the local-only helper:
+
+- `Sons Of The Forest > Forest Models > Mayo Local Trial > Build Comparison Scene`
+- `Sons Of The Forest > Forest Models > Mayo Local Trial > Build 60 FPS Benchmark Scene`
+- `Sons Of The Forest > Forest Models > Mayo Local Trial > Write Intake Report`
+
+These tools read `Assets/pineForset_MayoGames_free/`, create ignored local wrappers under `Assets/pineForset_MayoGames_free/SOTF_LocalWrappers/`, and write reports under `Benchmarks/`. None of those generated package-derived assets are public-repository deliverables.
+
 ## Implementation impact
 
 - Marketplace/Fab/Sketchfab models are not imported automatically unless license and acquisition are clear.
@@ -122,15 +130,25 @@ Policy consequence:
 
 The user imported `Pine forest set [Free sample]` from the Unity Asset Store at `Assets/pineForset_MayoGames_free/` on 2026-07-23.
 
-Technical result after local HDRP material conversion:
+Technical result after local wrapper generation and HDRP material conversion:
 
-- `furTree`: LOD0 1,334 tris, LOD1 224 tris, LOD2 224 tris, 2 colliders.
-- `furTreeSmall`: LOD0 620 tris, LOD1 286 tris, LOD2 286 tris, 2 colliders.
-- `furTree_dead`: LOD0 516 tris, LOD1 152 tris, LOD2 152 tris, 2 colliders.
-- `fern`: 176 tris at each LOD.
-- `rock_1`: 56 tris at each LOD.
-- All measured prefabs had LODGroups.
+- `PRF_TRIAL_furTree_SOTFWrapper`: LOD0 1,334 tris, LOD1 224 tris, LOD2 224 tris, 2 colliders, PASS with warnings.
+- `PRF_TRIAL_furTreeSmall_SOTFWrapper`: LOD0 620 tris, LOD1 286 tris, LOD2 286 tris, 2 colliders, PASS with warnings.
+- `PRF_TRIAL_furTree_dead_SOTFWrapper`: LOD0 516 tris, LOD1 152 tris, LOD2 152 tris, 2 colliders, PASS.
+- `PRF_TRIAL_fern_SOTFWrapper`: 176 tris at each LOD, 0 colliders, PASS with warnings.
+- `PRF_TRIAL_rock_1_SOTFWrapper`: 56 tris at each LOD, 0 colliders, PASS.
+- All measured wrappers had LODGroups.
+- Final LOD realtime shadows are disabled by the wrapper pass.
 - The original URP/ShaderGraph material setup produced HDRP shader errors for some materials; local trial conversion to HDRP/Lit cleared the technical shader gate.
+
+Local benchmark-scene static geometry result:
+
+| Group | Renderers | Colliders | LODGroups | Total mesh tris | LOD0 tris |
+|---|---:|---:|---:|---:|---:|
+| `MayoBenchmark_Near_10` | 20 | 20 | 10 | 10,954 | 8,744 |
+| `MayoBenchmark_Mid_50` | 100 | 0 | 50 | 52,576 | 41,474 |
+| `MayoBenchmark_Far_300` | 600 | 0 | 300 | 313,200 | 247,000 |
+| `MayoBenchmark_GroundCover` | 150 | 0 | 150 | 13,680 | 13,680 |
 
 Decision:
 

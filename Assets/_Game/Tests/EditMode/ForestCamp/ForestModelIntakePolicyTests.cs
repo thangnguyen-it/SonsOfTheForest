@@ -14,6 +14,8 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             "Assets/_Docs/Research/R2_FOREST_MODEL_INTAKE_GATE.md";
         private const string WorldPath =
             "Assets/_Game/Prefabs/World/ForestCamp/PRF_ForestCampPlayground.prefab";
+        private const string MayoTrialBuilderPath =
+            "Assets/_Game/Infrastructure/Editor/ForestModelIntake/MayoPineForestTrialBuilder.cs";
 
         private const long PreferredNearHeroLod0Budget = 120_000L;
         private const long HardNearExceptionalLimit = 200_000L;
@@ -61,12 +63,36 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             string intakeGate = File.ReadAllText(IntakeGatePath);
 
             Assert.That(catalog, Does.Contain("Unity Asset Store local trial - Mayo Games Pine forest set Free sample"));
-            Assert.That(catalog, Does.Contain("`furTree` | yes | 1,334"));
+            Assert.That(catalog, Does.Contain("`PRF_TRIAL_furTree_SOTFWrapper` | yes | 1,334"));
             Assert.That(catalog, Does.Contain("60 FPS prototyping"));
             Assert.That(catalog, Does.Contain("not the final Sons-of-the-Forest-like forest art target"));
             Assert.That(intakeGate, Does.Contain("Mayo Games Pine forest free sample local trial"));
             Assert.That(intakeGate, Does.Contain("PASS as a 60 FPS prototype candidate"));
             Assert.That(intakeGate, Does.Contain("HOLD as final forest art"));
+        }
+
+        [Test]
+        public void MayoLocalTrialWorkflow_RemainsLocalAndBenchmarkFocused()
+        {
+            string builder = File.ReadAllText(MayoTrialBuilderPath);
+            string catalog = File.ReadAllText(CatalogPath);
+            string intakeGate = File.ReadAllText(IntakeGatePath);
+
+            Assert.That(builder, Does.Contain("Pine forest set [Free sample]"));
+            Assert.That(builder, Does.Contain("Assets/pineForset_MayoGames_free"));
+            Assert.That(builder, Does.Contain("SOTF_LocalWrappers"));
+            Assert.That(builder, Does.Contain("Build 60 FPS Benchmark Scene"));
+            Assert.That(builder, Does.Contain("Write Intake Report"));
+            Assert.That(builder, Does.Contain("ShadowCastingMode.Off"));
+            Assert.That(
+                catalog,
+                Does.Contain("Build 60 FPS Benchmark Scene"),
+                "The catalog must document the local benchmark workflow.");
+            Assert.That(
+                intakeGate,
+                Does.Contain("None of those generated package-derived assets are public-repository deliverables"),
+                "The intake gate must keep generated Asset Store wrappers out of public Git.");
+            Assert.That(intakeGate, Does.Contain("MayoBenchmark_Far_300"));
         }
 
         [Test]

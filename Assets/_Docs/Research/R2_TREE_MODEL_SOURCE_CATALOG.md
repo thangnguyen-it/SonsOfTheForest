@@ -204,32 +204,43 @@ User-acquired local package, 2026-07-23:
 - Local import path: `Assets/pineForset_MayoGames_free/`.
 - Package notes visible in Package Manager: URP compatibility, LODs and collision meshes, prefab library, low-poly models.
 - Repository policy: raw package files are ignored and must not be committed to the public repository unless license/redistribution permission is explicitly resolved. Commit only this evaluation, attribution/source manifests, or curated project-authored wrapper outputs when safe.
+- Local tool: `Sons Of The Forest > Forest Models > Mayo Local Trial`, including `Build Comparison Scene`, `Build 60 FPS Benchmark Scene`, and `Write Intake Report`. This builds ignored comparison and 60 FPS benchmark scenes from the user-acquired local package without making the public repository depend on raw Asset Store GUIDs.
+- Local wrapper path: `Assets/pineForset_MayoGames_free/SOTF_LocalWrappers/`. Wrappers convert materials to HDRP/Lit, keep tree colliders only for near-tree trials, remove ground-cover colliders, and disable realtime shadows on final LODs.
 
-Unity intake measurement after temporary HDRP material conversion:
+Unity intake measurement after local wrapper generation:
 
 | Prefab | LODGroup | LOD0 tris | LOD1 tris | LOD2 tris | Colliders | Shaders after conversion | Technical gate |
 |---|---|---:|---:|---:|---:|---|---|
-| `furTree` | yes | 1,334 | 224 | 224 | 2 | HDRP/Lit | PASS |
-| `furTreeSmall` | yes | 620 | 286 | 286 | 2 | HDRP/Lit | PASS |
-| `furTree_dead` | yes | 516 | 152 | 152 | 2 | HDRP/Lit | PASS |
-| `fern` | yes | 176 | 176 | 176 | 0 | HDRP/Lit | PASS |
-| `brunch_1` | yes | 32 | 32 | 0 | 0 | HDRP/Lit | PASS |
-| `brunch_2` | yes | 64 | 64 | 0 | 0 | HDRP/Lit | PASS |
-| `brunch_3` | yes | 128 | 128 | 0 | 0 | HDRP/Lit | PASS |
-| `rock_1` | yes | 56 | 56 | 56 | 1 | HDRP/Lit | PASS |
+| `PRF_TRIAL_furTree_SOTFWrapper` | yes | 1,334 | 224 | 224 | 2 | HDRP/Lit | PASS |
+| `PRF_TRIAL_furTreeSmall_SOTFWrapper` | yes | 620 | 286 | 286 | 2 | HDRP/Lit | PASS |
+| `PRF_TRIAL_furTree_dead_SOTFWrapper` | yes | 516 | 152 | 152 | 2 | HDRP/Lit | PASS |
+| `PRF_TRIAL_fern_SOTFWrapper` | yes | 176 | 176 | 176 | 0 | HDRP/Lit | PASS |
+| `PRF_TRIAL_brunch_1_SOTFWrapper` | yes | 32 | 32 | 0 | 0 | HDRP/Lit | PASS |
+| `PRF_TRIAL_brunch_2_SOTFWrapper` | yes | 64 | 64 | 0 | 0 | HDRP/Lit | PASS |
+| `PRF_TRIAL_brunch_3_SOTFWrapper` | yes | 128 | 128 | 0 | 0 | HDRP/Lit | PASS |
+| `PRF_TRIAL_rock_1_SOTFWrapper` | yes | 56 | 56 | 56 | 0 | HDRP/Lit | PASS |
+
+Local 60 FPS benchmark-scene static geometry check:
+
+| Group | Renderers | Colliders | LODGroups | Total mesh tris | LOD0 tris |
+|---|---:|---:|---:|---:|---:|
+| `MayoBenchmark_Near_10` | 20 | 20 | 10 | 10,954 | 8,744 |
+| `MayoBenchmark_Mid_50` | 100 | 0 | 50 | 52,576 | 41,474 |
+| `MayoBenchmark_Far_300` | 600 | 0 | 300 | 313,200 | 247,000 |
+| `MayoBenchmark_GroundCover` | 150 | 0 | 150 | 13,680 | 13,680 |
 
 Assessment:
 
 - This is the first externally acquired tree pack that passes the model intake performance budget by a very large margin.
 - It solves the "raw model is too heavy" problem and is appropriate for 60 FPS prototyping.
 - It does not yet solve final visual realism. The package is visibly low-poly/stylized and should be treated as a gameplay-performance prototype candidate, not the final Sons-of-the-Forest-like forest art target.
-- The URP material/shader setup does not work directly in this HDRP project. A local HDRP/Lit conversion removed `Hidden/InternalErrorShader` in the trial, but a committed production import would need deliberate HDRP materials under project-owned paths.
+- The URP material/shader setup does not work directly in this HDRP project. The local wrapper workflow converts materials to HDRP/Lit for trial scenes, but a committed production import would still need deliberate project-owned HDRP materials and license/redistribution approval.
 
 Implementation impact:
 
-- Use this pack for a small local benchmark lineup or prototype replacement only if the user accepts the stylized look as temporary.
+- Use this pack for local benchmark lineups and prototype replacement experiments only if the user accepts the stylized look as temporary.
 - Do not replace the current forest art target with this pack as "final".
-- If promoted, create project-owned wrapper prefabs and an attribution/license manifest; keep raw package files local/ignored unless redistribution permission is confirmed.
+- If promoted into committed gameplay content, create project-owned wrapper prefabs and an attribution/license manifest under project paths; keep raw package files local/ignored unless redistribution permission is confirmed.
 
 Fab game-ready candidate pass, 2026-07-23:
 
