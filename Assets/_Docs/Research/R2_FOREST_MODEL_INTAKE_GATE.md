@@ -57,6 +57,7 @@ For the user-acquired Mayo Games free sample package, use the local-only helper:
 
 - `Sons Of The Forest > Forest Models > Mayo Local Trial > Build Comparison Scene`
 - `Sons Of The Forest > Forest Models > Mayo Local Trial > Build 60 FPS Benchmark Scene`
+- `Sons Of The Forest > Forest Models > Mayo Local Trial > Run Runtime FPS Benchmark`
 - `Sons Of The Forest > Forest Models > Mayo Local Trial > Write Intake Report`
 
 These tools read `Assets/pineForset_MayoGames_free/`, create ignored local wrappers under `Assets/pineForset_MayoGames_free/SOTF_LocalWrappers/`, and write reports under `Benchmarks/`. None of those generated package-derived assets are public-repository deliverables.
@@ -150,9 +151,30 @@ Local benchmark-scene static geometry result:
 | `MayoBenchmark_Far_300` | 600 | 0 | 300 | 313,200 | 247,000 |
 | `MayoBenchmark_GroundCover` | 150 | 0 | 150 | 13,680 | 13,680 |
 
+Runtime FPS promotion gate:
+
+- Run `Sons Of The Forest > Forest Models > Mayo Local Trial > Run Runtime FPS Benchmark` after static intake passes.
+- Store the resulting local-only report as `Benchmarks/forest_benchmark_mayo_pine_local.{json,md}`.
+- Do not promote the pack into a committed gameplay scene until the runtime benchmark or a standalone build benchmark supports the 60 FPS target.
+
+Current local Editor benchmark, 2026-07-23:
+
+| Scenario | Avg FPS | Avg ms | Tris (M) | Batches | Gate |
+|---|---:|---:|---:|---:|---|
+| `baseline_orbit` | 8.6 | 116.00 | 0.02 | 147 | FAIL |
+| `shadows_off_orbit` | 16.4 | 60.88 | 0.02 | 123 | FAIL |
+| `walkthrough_camp` | 15.2 | 65.81 | 0.03 | 168 | FAIL |
+
+Interpretation:
+
+- The Mayo wrapper cluster is lightweight on geometry, but the Editor runtime benchmark still missed the 60 FPS target.
+- Do not integrate the Mayo pack into a committed gameplay scene as a performance-approved replacement.
+- Before rejecting the pack solely on this number, repeat the test in a foreground Game View or standalone development build because the result may include Editor/runtime measurement overhead.
+
 Decision:
 
-- PASS as a 60 FPS prototype candidate.
+- PASS as a static-geometry prototype candidate.
+- FAIL as a runtime 60 FPS promotion candidate until a reliable runtime/build benchmark passes.
 - HOLD as final forest art because the pack is low-poly/stylized and does not yet satisfy the desired realistic survival-forest look.
 - Raw Asset Store package files remain ignored and should not be committed to the public repository without explicit license/redistribution review.
 

@@ -64,10 +64,11 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
 
             Assert.That(catalog, Does.Contain("Unity Asset Store local trial - Mayo Games Pine forest set Free sample"));
             Assert.That(catalog, Does.Contain("`PRF_TRIAL_furTree_SOTFWrapper` | yes | 1,334"));
-            Assert.That(catalog, Does.Contain("60 FPS prototyping"));
+            Assert.That(catalog, Does.Contain("static 60 FPS budget prototyping"));
             Assert.That(catalog, Does.Contain("not the final Sons-of-the-Forest-like forest art target"));
             Assert.That(intakeGate, Does.Contain("Mayo Games Pine forest free sample local trial"));
-            Assert.That(intakeGate, Does.Contain("PASS as a 60 FPS prototype candidate"));
+            Assert.That(intakeGate, Does.Contain("PASS as a static-geometry prototype candidate"));
+            Assert.That(intakeGate, Does.Contain("FAIL as a runtime 60 FPS promotion candidate"));
             Assert.That(intakeGate, Does.Contain("HOLD as final forest art"));
         }
 
@@ -82,17 +83,20 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(builder, Does.Contain("Assets/pineForset_MayoGames_free"));
             Assert.That(builder, Does.Contain("SOTF_LocalWrappers"));
             Assert.That(builder, Does.Contain("Build 60 FPS Benchmark Scene"));
+            Assert.That(builder, Does.Contain("Run Runtime FPS Benchmark"));
+            Assert.That(builder, Does.Contain("mayo_pine_local"));
             Assert.That(builder, Does.Contain("Write Intake Report"));
             Assert.That(builder, Does.Contain("ShadowCastingMode.Off"));
             Assert.That(
                 catalog,
-                Does.Contain("Build 60 FPS Benchmark Scene"),
+                Does.Contain("Run Runtime FPS Benchmark"),
                 "The catalog must document the local benchmark workflow.");
             Assert.That(
                 intakeGate,
                 Does.Contain("None of those generated package-derived assets are public-repository deliverables"),
                 "The intake gate must keep generated Asset Store wrappers out of public Git.");
             Assert.That(intakeGate, Does.Contain("MayoBenchmark_Far_300"));
+            Assert.That(intakeGate, Does.Contain("Runtime FPS promotion gate"));
         }
 
         [Test]

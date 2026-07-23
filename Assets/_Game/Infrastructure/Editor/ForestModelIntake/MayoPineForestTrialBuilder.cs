@@ -166,6 +166,25 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             Debug.Log("[MayoPineTrial] Wrote local intake report: " + markdownPath);
         }
 
+        [MenuItem("Sons Of The Forest/Forest Models/Mayo Local Trial/Run Runtime FPS Benchmark")]
+        public static void RunRuntimeBenchmark()
+        {
+            EnsurePackageAvailable();
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                Debug.LogWarning("[MayoPineTrial] Runtime benchmark cancelled because the current scene was not saved.");
+                return;
+            }
+
+            BuildBenchmarkScene();
+            EditorSceneManager.OpenScene(BenchmarkScenePath, OpenSceneMode.Single);
+            SessionState.SetString(
+                MayoPineForestRuntimeBenchmark.RunRequestedKey,
+                MayoPineForestRuntimeBenchmark.PhaseName);
+            Debug.Log("[MayoPineTrial] Starting runtime FPS benchmark in Play Mode...");
+            EditorApplication.EnterPlaymode();
+        }
+
         public static void ConvertLocalMaterialsToHdrp()
         {
             EnsurePackageAvailable();
@@ -672,6 +691,47 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
                 {
                     throw new InvalidOperationException("Missing Mayo prefab: " + prefabPath);
                 }
+            }
+        }
+    }
+
+    [InitializeOnLoad]
+    public static class MayoPineForestRuntimeBenchmark
+    {
+        public const string PhaseName = "mayo_pine_local";
+        public const string RunRequestedKey = "SOTF.MayoPineTrial.RuntimeBenchmarkPhase";
+
+        static MayoPineForestRuntimeBenchmark()
+        {
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+        }
+
+        private static void OnPlayModeStateChanged(PlayModeStateChange change)
+        {
+            if (change == PlayModeStateChange.EnteredPlayMode)
+            {
+                string phase = SessionState.GetString(RunRequestedKey, string.Empty);
+                if (string.IsNullOrEmpty(phase))
+                {
+                    return;
+                }
+
+                if (UnityEngine.Object.FindFirstObjectByType<
+                        SonsOfTheForest.Infrastructure.Benchmark.ForestBenchmarkRunner>() != null)
+                {
+                    return;
+                }
+
+                var host = new GameObject("MayoForestBenchmarkHost");
+                var runner = host.AddComponent<SonsOfTheForest.Infrastructure.Benchmark.ForestBenchmarkRunner>();
+                runner.phase = phase;
+                runner.warmupSeconds = 0.6f;
+                runner.sampleSeconds = 3f;
+            }
+            else if (change == PlayModeStateChange.EnteredEditMode)
+            {
+                SessionState.EraseString(RunRequestedKey);
             }
         }
     }

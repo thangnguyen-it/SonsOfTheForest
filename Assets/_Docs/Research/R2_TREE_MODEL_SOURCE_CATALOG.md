@@ -204,7 +204,7 @@ User-acquired local package, 2026-07-23:
 - Local import path: `Assets/pineForset_MayoGames_free/`.
 - Package notes visible in Package Manager: URP compatibility, LODs and collision meshes, prefab library, low-poly models.
 - Repository policy: raw package files are ignored and must not be committed to the public repository unless license/redistribution permission is explicitly resolved. Commit only this evaluation, attribution/source manifests, or curated project-authored wrapper outputs when safe.
-- Local tool: `Sons Of The Forest > Forest Models > Mayo Local Trial`, including `Build Comparison Scene`, `Build 60 FPS Benchmark Scene`, and `Write Intake Report`. This builds ignored comparison and 60 FPS benchmark scenes from the user-acquired local package without making the public repository depend on raw Asset Store GUIDs.
+- Local tool: `Sons Of The Forest > Forest Models > Mayo Local Trial`, including `Build Comparison Scene`, `Build 60 FPS Benchmark Scene`, `Run Runtime FPS Benchmark`, and `Write Intake Report`. This builds ignored comparison and 60 FPS benchmark scenes from the user-acquired local package without making the public repository depend on raw Asset Store GUIDs.
 - Local wrapper path: `Assets/pineForset_MayoGames_free/SOTF_LocalWrappers/`. Wrappers convert materials to HDRP/Lit, keep tree colliders only for near-tree trials, remove ground-cover colliders, and disable realtime shadows on final LODs.
 
 Unity intake measurement after local wrapper generation:
@@ -229,10 +229,17 @@ Local 60 FPS benchmark-scene static geometry check:
 | `MayoBenchmark_Far_300` | 600 | 0 | 300 | 313,200 | 247,000 |
 | `MayoBenchmark_GroundCover` | 150 | 0 | 150 | 13,680 | 13,680 |
 
+Runtime FPS benchmark:
+
+- Menu: `Sons Of The Forest > Forest Models > Mayo Local Trial > Run Runtime FPS Benchmark`.
+- Output: `Benchmarks/forest_benchmark_mayo_pine_local.{json,md}`.
+- Current local Editor run, 2026-07-23: baseline orbit averaged 8.6 FPS; shadows-off orbit averaged 16.4 FPS; walkthrough averaged 15.2 FPS. Visible triangle load stayed around 0.02-0.03M in most scenarios.
+- Interpretation: this does not pass the 60 FPS target and therefore does not promote the pack into committed gameplay content. Because geometry is already very light, the result should be treated as an Editor/runtime-environment warning rather than proof that the Mayo meshes are too heavy. A foreground Game View or standalone development-build benchmark is required before making a final performance call.
+
 Assessment:
 
 - This is the first externally acquired tree pack that passes the model intake performance budget by a very large margin.
-- It solves the "raw model is too heavy" problem and is appropriate for 60 FPS prototyping.
+- It solves the "raw model is too heavy" problem and is appropriate for static 60 FPS budget prototyping.
 - It does not yet solve final visual realism. The package is visibly low-poly/stylized and should be treated as a gameplay-performance prototype candidate, not the final Sons-of-the-Forest-like forest art target.
 - The URP material/shader setup does not work directly in this HDRP project. The local wrapper workflow converts materials to HDRP/Lit for trial scenes, but a committed production import would still need deliberate project-owned HDRP materials and license/redistribution approval.
 
