@@ -11,8 +11,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
 {
     /// <summary>
     /// Builds the forest LOD layer without reintroducing flat near-field foliage.
-    /// LOD0 uses the existing volumetric conifer prefab; LOD1-LOD3 use closed,
-    /// opaque proxy geometry for distance rendering.
+    /// LOD0 is now a game-ready opaque geometry tree under the 60 FPS intake
+    /// gate; LOD1-LOD3 use closed proxy geometry for distance rendering.
     /// </summary>
     public static class ForestLodContentBuilder
     {
@@ -34,8 +34,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
         private const int BarkSubMesh = 0;
         private const int CanopySubMesh = 1;
 
-        private static readonly float[] LodThresholds = { 0.99f, 0.35f, 0.10f, 0.005f };
-        private static readonly long[] LodMaxTriangles = { 1_250_000L, 12_000L, 3_000L, 220L };
+        private static readonly float[] LodThresholds = { 0.40f, 0.16f, 0.05f, 0.005f };
+        private static readonly long[] LodMaxTriangles = { 120_000L, 20_000L, 3_000L, 500L };
 
         private sealed class VariantSpec
         {
@@ -70,10 +70,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
                 for (int index = 0; index < Variants.Length; index++)
                 {
                     VariantSpec spec = Variants[index];
-                    GameObject source = Load<GameObject>(
-                        SourcePrefabRoot + "PRF_Conifer_" + spec.Suffix + ".prefab");
-                    EnableInstancingOnMaterials(source);
-                    prefabs[index] = BuildVariantPrefab(spec, source, bark, canopy, details);
+                    prefabs[index] = BuildVariantPrefab(spec, bark, canopy, details);
                 }
 
                 UpdateWorldPrefab(prefabs, performanceVolumeProfile, details);
@@ -82,10 +79,11 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
 
                 Validate(prefabs);
                 AssetDatabase.SaveAssets();
-                WriteBuildLog(true, "Volumetric forest LOD pass built successfully.", details);
+                WriteBuildLog(true, "Game-ready forest LOD pass built successfully.", details);
                 Debug.Log(
-                    "[ForestLod] Built volumetric LOD forest pass: high-detail LOD0, " +
-                    "opaque solid proxy LOD1-LOD3, shared instanced materials, and distance shadow policy.");
+                    "[ForestLod] Built game-ready LOD forest pass: opaque 3D LOD0 under " +
+                    "the 60 FPS intake gate, solid proxy LOD1-LOD3, shared instanced materials, " +
+                    "and distance shadow policy.");
             }
             catch (Exception exception)
             {
@@ -96,11 +94,11 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
 
         private static GameObject BuildVariantPrefab(
             VariantSpec spec,
-            GameObject sourcePrefab,
             Material bark,
             Material canopy,
             List<string> details)
         {
+            Mesh lod0Mesh = SaveMesh(BuildLod0(spec), MeshName(spec, "LOD0_GameReadyBranchCanopy"));
             Mesh lod1Mesh = SaveMesh(BuildLod1(spec), MeshName(spec, "LOD1_SolidProxy"));
             Mesh lod2Mesh = SaveMesh(BuildLod2(spec), MeshName(spec, "LOD2_SolidProxy"));
             Mesh lod3Mesh = SaveMesh(BuildLod3(spec), MeshName(spec, "LOD3_HorizonProxy"));
@@ -108,36 +106,13 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
             var root = new GameObject("PRF_ConiferLod_" + spec.Suffix);
             try
             {
-                var lod0Object = PrefabUtility.InstantiatePrefab(sourcePrefab) as GameObject;
-                if (lod0Object == null)
-                {
-                    throw new InvalidOperationException(
-                        $"Could not instantiate source prefab {sourcePrefab.name}.");
-                }
-
-                lod0Object.name = "LOD0_Volumetric_" + spec.Suffix;
-                lod0Object.transform.SetParent(root.transform, false);
-                lod0Object.transform.localPosition = Vector3.zero;
-                lod0Object.transform.localRotation = Quaternion.identity;
-                lod0Object.transform.localScale = Vector3.one;
-                RemoveColliders(lod0Object);
-
-                Renderer[] lod0Renderers = lod0Object.GetComponentsInChildren<Renderer>(true);
-                foreach (Renderer renderer in lod0Renderers)
-                {
-                    renderer.shadowCastingMode = ShadowCastingMode.On;
-                    renderer.receiveShadows = true;
-                    renderer.motionVectorGenerationMode = MotionVectorGenerationMode.Camera;
-                    foreach (Material material in renderer.sharedMaterials)
-                    {
-                        if (material != null)
-                        {
-                            material.enableInstancing = true;
-                            EditorUtility.SetDirty(material);
-                        }
-                    }
-                }
-
+                Renderer lod0 = AddLodChild(
+                    root,
+                    "LOD0_GameReadyBranchCanopy",
+                    lod0Mesh,
+                    new[] { bark, canopy },
+                    ShadowCastingMode.On,
+                    true);
                 Renderer lod1 = AddLodChild(
                     root,
                     "LOD1_SolidBranchCanopy",
@@ -163,7 +138,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
                 var lodGroup = root.AddComponent<LODGroup>();
                 lodGroup.SetLODs(new[]
                 {
-                    new LOD(LodThresholds[0], lod0Renderers),
+                    new LOD(LodThresholds[0], new[] { lod0 }),
                     new LOD(LodThresholds[1], new[] { lod1 }),
                     new LOD(LodThresholds[2], new[] { lod2 }),
                     new LOD(LodThresholds[3], new[] { lod3 }),
@@ -187,7 +162,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
                 }
 
                 details.Add(
-                    $"PRF_ConiferLod_{spec.Suffix}: LOD0 {TriangleCount(lod0Renderers)} tris, " +
+                    $"PRF_ConiferLod_{spec.Suffix}: LOD0 {TriangleCount(lod0Mesh)} tris, " +
                     $"LOD1 {TriangleCount(lod1Mesh)} tris, LOD2 {TriangleCount(lod2Mesh)} tris, " +
                     $"LOD3 {TriangleCount(lod3Mesh)} tris");
                 return AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
@@ -201,6 +176,62 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
         private static string MeshName(VariantSpec spec, string lodLabel)
         {
             return MeshRoot + "MSH_ConiferLod_" + spec.Suffix + "_" + lodLabel + ".asset";
+        }
+
+        private static Mesh BuildLod0(VariantSpec spec)
+        {
+            var random = new System.Random(spec.Seed);
+            var accumulator = new MeshAccumulator(2);
+            float height = spec.Height;
+            accumulator.AddVerticalTube(
+                Vector3.zero,
+                height * 0.034f,
+                0.055f,
+                height * 0.98f,
+                12,
+                8,
+                BarkSubMesh);
+
+            for (int whorl = 0; whorl < 14; whorl++)
+            {
+                float t = Mathf.Lerp(0.12f, 0.94f, whorl / 13f);
+                int branches = Mathf.RoundToInt(Mathf.Lerp(11f, 4f, t));
+                float branchLength = BranchLength(height, t);
+                for (int branch = 0; branch < branches; branch++)
+                {
+                    float yaw = branch * (360f / branches) + NextSigned(random) * 19f;
+                    Vector3 radial = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+                    Vector3 start = radial * (height * 0.018f) + Vector3.up * (height * t);
+                    Vector3 end = start + radial * branchLength;
+                    end.y += Mathf.Lerp(-0.42f, 0.16f, t);
+                    accumulator.AddTube(
+                        start,
+                        end,
+                        Mathf.Lerp(0.095f, 0.035f, t),
+                        Mathf.Lerp(0.035f, 0.012f, t),
+                        7,
+                        BarkSubMesh);
+
+                    Vector3 crownCenter = Vector3.Lerp(start, end, 0.74f);
+                    accumulator.AddEllipsoid(
+                        crownCenter,
+                        new Vector3(branchLength * 0.30f, height * 0.030f, branchLength * 0.19f),
+                        9,
+                        5,
+                        CanopySubMesh);
+
+                    AddNeedleClusterTriplet(
+                        accumulator,
+                        random,
+                        crownCenter,
+                        branchLength,
+                        height,
+                        radial);
+                }
+            }
+
+            AddCanopyBands(accumulator, height, 0.62f, 9, 5);
+            return accumulator.Build("MSH_ConiferLod_" + spec.Suffix + "_LOD0_GameReadyBranchCanopy");
         }
 
         private static Mesh BuildLod1(VariantSpec spec)
@@ -325,6 +356,39 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
             return (float)(random.NextDouble() * 2d - 1d);
         }
 
+        private static void AddNeedleClusterTriplet(
+            MeshAccumulator accumulator,
+            System.Random random,
+            Vector3 center,
+            float branchLength,
+            float height,
+            Vector3 radial)
+        {
+            Vector3 tangent = Vector3.Cross(Vector3.up, radial).normalized;
+            if (tangent.sqrMagnitude < 0.01f)
+            {
+                tangent = Vector3.right;
+            }
+
+            for (int index = 0; index < 3; index++)
+            {
+                float along = Mathf.Lerp(-0.18f, 0.18f, index / 2f);
+                Vector3 offset =
+                    radial * (NextSigned(random) * branchLength * 0.06f) +
+                    tangent * (along * branchLength) +
+                    Vector3.up * (NextSigned(random) * height * 0.012f);
+                accumulator.AddEllipsoid(
+                    center + offset,
+                    new Vector3(
+                        branchLength * Mathf.Lerp(0.12f, 0.18f, index / 2f),
+                        height * 0.018f,
+                        branchLength * 0.08f),
+                    7,
+                    4,
+                    CanopySubMesh);
+            }
+        }
+
         private static Renderer AddLodChild(
             GameObject root,
             string name,
@@ -421,14 +485,20 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
                 AssetDatabase.CreateAsset(profile, PerformanceVolumeProfilePath);
             }
 
+            profile.components.RemoveAll(component => component == null);
             if (!profile.TryGet(out HDShadowSettings shadows))
             {
-                shadows = profile.Add<HDShadowSettings>(true);
+                shadows = ScriptableObject.CreateInstance<HDShadowSettings>();
+                shadows.name = "HDShadowSettings";
+                shadows.hideFlags = HideFlags.HideInInspector | HideFlags.HideInHierarchy;
+                AssetDatabase.AddObjectToAsset(shadows, profile);
+                profile.components.Add(shadows);
             }
 
             shadows.active = true;
             shadows.maxShadowDistance.overrideState = true;
             shadows.maxShadowDistance.value = 100f;
+            EditorUtility.SetDirty(shadows);
             EditorUtility.SetDirty(profile);
             return profile;
         }
@@ -568,10 +638,10 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
                     }
                 }
 
-                if (TriangleCount(lods[0].renderers) < 700_000L)
+                if (TriangleCount(lods[0].renderers) > 120_000L)
                 {
                     throw new InvalidOperationException(
-                        $"{prefab.name}: LOD0 no longer preserves volumetric near-field geometry.");
+                        $"{prefab.name}: LOD0 exceeds the preferred 60 FPS near-tree budget.");
                 }
 
                 if (lods[0].renderers.Any(renderer => renderer.name.Contains("Plane")) ||

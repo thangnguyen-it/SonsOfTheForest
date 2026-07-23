@@ -95,6 +95,25 @@ namespace SonsOfTheForest.Tests.SceneComposition.EditMode
         }
 
         [Test]
+        public void OfficialScene_HasExactlyOneForestCampPlaygroundInstance()
+        {
+            WithFoundationScene(scene =>
+            {
+                GameObject[] playgrounds = scene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<Transform>(true))
+                    .Where(transform => transform.name == "PRF_ForestCampPlayground")
+                    .Select(transform => transform.gameObject)
+                    .ToArray();
+
+                Assert.That(playgrounds, Has.Length.EqualTo(1));
+                Assert.That(
+                    PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(
+                        playgrounds[0]),
+                    Is.EqualTo(PlaygroundPrefabPath));
+            });
+        }
+
+        [Test]
         public void SceneReadinessValidation_RejectsUnexpectedSceneIdentity()
         {
             WithFoundationScene(scene =>

@@ -59,7 +59,7 @@ This keeps raw/manual acquisition files out of Git while still recording the tec
 
 ## Current conifer validation finding
 
-The existing generated conifer LOD prefabs were checked against this gate on 2026-07-23:
+The existing generated conifer LOD prefabs initially failed this gate on 2026-07-23:
 
 | Prefab | Total triangles | LOD0 triangles | Gate result |
 |---|---:|---:|---|
@@ -67,8 +67,38 @@ The existing generated conifer LOD prefabs were checked against this gate on 202
 | `PRF_ConiferLod_B` | 1,092,446 | 1,087,504 | REJECT for final 60 FPS forest |
 | `PRF_ConiferLod_C` | 836,154 | 831,212 | REJECT for final 60 FPS forest |
 
+The interim playable rebuild replaced that million-triangle LOD0 with an opaque 3D branch/canopy mesh:
+
+| Prefab | Total triangles | LOD0 triangles | LOD1 triangles | LOD2 triangles | Final LOD triangles | Gate result |
+|---|---:|---:|---:|---:|---:|---|
+| `PRF_ConiferLod_A` | 34,666 | 29,724 | 4,756 | 168 | 18 | PASS |
+| `PRF_ConiferLod_B` | 34,666 | 29,724 | 4,756 | 168 | 18 | PASS |
+| `PRF_ConiferLod_C` | 34,666 | 29,724 | 4,756 | 168 | 18 | PASS |
+
 Interpretation:
 
-- These prefabs can remain as interim visual/source experiments.
-- They should not be treated as the final tree direction.
-- The next tree art milestone should replace or decimate them before expanding forest density.
+- The current gameplay conifers now satisfy the model intake performance gate.
+- They remain an interim playable solution, not the final art target.
+- The next tree art milestone should still replace them with lawfully acquired or properly authored game-ready tree models before expanding forest density.
+
+## Scene duplicate and benchmark finding
+
+The foundation scene contained three identical active `PRF_ForestCampPlayground` instances at the same transform. This multiplied forest geometry, rocks, stumps, pickups, colliders, and interaction objects without adding design value.
+
+The scene was corrected to keep exactly one playground instance and rewire `FoundationSceneCompositionRoot` to that instance and its `ForestGround` playable surface.
+
+Editor Play Mode stress benchmark after the correction:
+
+| Scenario | Avg FPS | Avg ms | Tris (M) | Batches |
+|---|---:|---:|---:|---:|
+| `baseline_orbit` | 5.2 | 193.26 | 2.41 | 557 |
+| `shadows_off_orbit` | 10.6 | 94.19 | 1.35 | 426 |
+| `forced_lowest_lod` | 12.0 | 83.14 | 1.67 | 589 |
+| `full_rings_450_trees` | 8.7 | 115.56 | 2.72 | 720 |
+| `walkthrough_camp` | 11.9 | 83.77 | 1.12 | 243 |
+
+Interpretation:
+
+- The duplicate-scene bug and million-triangle conifer LOD0 were both real problems and are now corrected.
+- This Editor/MCP benchmark still does not meet the 60 FPS product target, so the forest should not be declared performance-complete.
+- The largest remaining render groups in the corrected scene are understorey, conifers, rocks/stumps, and shadows. The next optimization milestone should reduce understorey density/LOD cost, replace high-poly stumps/rocks where needed, and benchmark in a focused standalone build or a foreground Editor window before claiming the 60 FPS target.

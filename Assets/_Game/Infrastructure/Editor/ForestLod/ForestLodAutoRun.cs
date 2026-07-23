@@ -19,7 +19,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestLod
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
         }
 
-        [MenuItem("Sons Of The Forest/Forest LOD/Build Volumetric LOD Forest Pass")]
+        [MenuItem("Sons Of The Forest/Forest LOD/Build Game-Ready LOD Forest Pass")]
         public static void BuildOnly()
         {
             ForestLodContentBuilder.BuildAll();

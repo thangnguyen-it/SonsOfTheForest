@@ -1,3 +1,4 @@
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
@@ -12,9 +13,11 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         private const string LodPrefabRoot = "Assets/_Game/Prefabs/World/ForestLod/";
         private const string WorldPath =
             "Assets/_Game/Prefabs/World/ForestCamp/PRF_ForestCampPlayground.prefab";
+        private const string PerformanceVolumeProfilePath =
+            "Assets/_Game/Data/World/ForestLod/ForestCampPerformanceVolumeProfile.asset";
 
-        private static readonly float[] ExpectedThresholds = { 0.99f, 0.35f, 0.10f, 0.005f };
-        private static readonly long[] MaxTriangles = { 1_250_000L, 12_000L, 3_000L, 220L };
+        private static readonly float[] ExpectedThresholds = { 0.40f, 0.16f, 0.05f, 0.005f };
+        private static readonly long[] MaxTriangles = { 120_000L, 20_000L, 3_000L, 500L };
 
         [TestCase("A")]
         [TestCase("B")]
@@ -84,7 +87,7 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         [TestCase("A")]
         [TestCase("B")]
         [TestCase("C")]
-        public void ConiferLodPrefab_KeepsVolumetricLod0AndSolidDistanceLods(string suffix)
+        public void ConiferLodPrefab_UsesGameReadyLodBudgetsAndSolidDistanceLods(string suffix)
         {
             GameObject tree = Load<GameObject>(
                 LodPrefabRoot + "PRF_ConiferLod_" + suffix + ".prefab");
@@ -107,12 +110,12 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                     $"LOD{index} triangle budget");
             }
 
-            Assert.That(TriangleCount(lods[0]), Is.GreaterThanOrEqualTo(700_000L));
             Assert.That(
                 lods[0].renderers.Any(
-                    renderer => renderer.name.EndsWith("Needles3D", System.StringComparison.Ordinal)),
+                    renderer => renderer.name.Contains("GameReady", System.StringComparison.Ordinal)),
                 Is.True);
             Assert.That(lods[0].renderers.Select(renderer => renderer.name), Has.None.Contains("Plane"));
+            Assert.That(lods[0].renderers.Select(renderer => renderer.name), Has.None.Contains("Card"));
             Assert.That(lods[1].renderers.Select(renderer => renderer.name), Has.None.Contains("Card"));
             Assert.That(lods[2].renderers.Select(renderer => renderer.name), Has.None.Contains("Card"));
 
@@ -185,6 +188,18 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Transform performanceVolume = world.transform.Find("ForestPerformanceVolume");
             Assert.That(performanceVolume, Is.Not.Null);
             Assert.That(performanceVolume.GetComponent("Volume"), Is.Not.Null);
+        }
+
+        [Test]
+        public void ForestPerformanceVolumeProfile_LimitsRealtimeShadowDistance()
+        {
+            string profile = File.ReadAllText(PerformanceVolumeProfilePath);
+
+            Assert.That(profile, Does.Contain("HDShadowSettings"));
+            Assert.That(profile, Does.Not.Contain("components:\n  - {fileID: 0}"));
+            Assert.That(profile, Does.Contain("maxShadowDistance:"));
+            Assert.That(profile, Does.Contain("m_OverrideState: 1"));
+            Assert.That(profile, Does.Contain("m_Value: 100"));
         }
 
         [TestCase("GrassTuft", "A")]
