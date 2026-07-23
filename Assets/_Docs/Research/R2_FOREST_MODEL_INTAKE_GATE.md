@@ -10,6 +10,8 @@ The project should use lawfully acquired, game-ready tree models where possible,
 
 The Mantissa Japanese Maple trial proved why this distinction matters: the smallest raw FBX measured in Unity at about 2.42 million triangles. That is valuable source material, but it is far beyond the hard near-tree limit for a normal playable forest.
 
+The Poly Haven `fir_tree_01` adult conifer trial confirmed the same rule for a legally downloadable CC0 conifer source. Its raw 1K FBX import measured about 6.98 million triangles across three mesh filters, with no LODGroup. It is lawful and useful as reference/source material, but it is rejected for direct gameplay placement until a curated decimated LOD/impostor version exists.
+
 ## Acceptance gate
 
 A tree model candidate can move from external trial to playable forest only when it satisfies all hard checks:
@@ -102,3 +104,16 @@ Interpretation:
 - The duplicate-scene bug and million-triangle conifer LOD0 were both real problems and are now corrected.
 - This Editor/MCP benchmark still does not meet the 60 FPS product target, so the forest should not be declared performance-complete.
 - The largest remaining render groups in the corrected scene are understorey, conifers, rocks/stumps, and shadows. The next optimization milestone should reduce understorey density/LOD cost, replace high-poly stumps/rocks where needed, and benchmark in a focused standalone build or a foreground Editor window before claiming the 60 FPS target.
+
+## External model acquisition finding
+
+Automated source checks on 2026-07-23 found two different acquisition paths:
+
+- CC0/raw-source path: Poly Haven adult conifers can be downloaded without login, but the adult `fir_tree_01` raw import measured 6,982,937 triangles and no authored LODGroup. Use this as reference or decimation/bake input, not as a gameplay prefab.
+- Game-ready/manual path: Sketchfab game-ready pine/fir packs with LODs are visible through public metadata and use CC Attribution, but the download endpoint requires authentication. These remain the strongest next conifer candidates if acquired manually and documented with attribution.
+
+Policy consequence:
+
+- Do not replace the current playable conifers with raw adult CC0 scans.
+- Do not claim the project has final tree art until a lawfully acquired game-ready pack, or a curated decimated version of a raw source, passes the intake gate and 60 FPS cluster benchmark.
+- If a CC Attribution model is imported, add a source/attribution manifest next to the imported asset before it is allowed into any scene or prefab.

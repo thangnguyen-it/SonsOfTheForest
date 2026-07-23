@@ -16,6 +16,7 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         private const long PreferredNearHeroLod0Budget = 120_000L;
         private const long HardNearExceptionalLimit = 200_000L;
         private const long RawMantissaMapleTrialTriangles = 2_417_961L;
+        private const long RawPolyHavenAdultFirTrialTriangles = 6_982_937L;
 
         [Test]
         public void SourceCatalog_RecordsStableSixtyFpsAsModelAcceptanceGate()
@@ -41,14 +42,44 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         }
 
         [Test]
+        public void SourceCatalog_RejectsRawPolyHavenAdultFirAsGameplayPrefab()
+        {
+            string catalog = File.ReadAllText(CatalogPath);
+
+            Assert.That(catalog, Does.Contain("`fir_tree_01` adult conifer inspection"));
+            Assert.That(catalog, Does.Contain("6,982,937 triangles"));
+            Assert.That(catalog, Does.Contain("reject raw import as direct gameplay content"));
+            Assert.That(catalog, Does.Contain("temporary raw import was removed from `Assets/`"));
+        }
+
+        [Test]
         public void RuntimeBudgets_RejectMillionTriangleTreesBeforeGameplayPromotion()
         {
             Assert.That(RawMantissaMapleTrialTriangles, Is.GreaterThan(HardNearExceptionalLimit));
+            Assert.That(RawPolyHavenAdultFirTrialTriangles, Is.GreaterThan(HardNearExceptionalLimit));
             Assert.That(HardNearExceptionalLimit, Is.GreaterThan(PreferredNearHeroLod0Budget));
             Assert.That(
                 RawMantissaMapleTrialTriangles / HardNearExceptionalLimit,
                 Is.GreaterThanOrEqualTo(12L),
                 "The rejected raw Maple trial is more than an order of magnitude over the hard near-tree limit.");
+            Assert.That(
+                RawPolyHavenAdultFirTrialTriangles / HardNearExceptionalLimit,
+                Is.GreaterThanOrEqualTo(34L),
+                "The rejected raw adult Fir trial is far beyond the hard near-tree limit.");
+        }
+
+        [Test]
+        public void Assets_DoNotContainRejectedRawAdultFirImport()
+        {
+            string[] rawFirAssets = AssetDatabase.FindAssets("fir_tree_01")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(path => path.StartsWith("Assets/", System.StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.That(
+                rawFirAssets,
+                Is.Empty,
+                "Poly Haven adult fir raw source must stay outside Git/Assets until a curated LOD version exists.");
         }
 
         [Test]
@@ -67,6 +98,7 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(transformNames.Any(value => value.Contains("Mantissa")), Is.False);
             Assert.That(transformNames.Any(value => value.Contains("Fab")), Is.False);
             Assert.That(transformNames.Any(value => value.Contains("Sketchfab")), Is.False);
+            Assert.That(transformNames.Any(value => value.Contains("fir_tree_01")), Is.False);
         }
     }
 }

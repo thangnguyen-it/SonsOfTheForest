@@ -140,7 +140,23 @@ Adult Poly Haven candidates:
 | Candidate | Target role | Observed/source metadata | Decision |
 |---|---|---|---|
 | `pine_tree_01` | tall conifer silhouette reference | Poly Haven page describes a tall slender pine; API/source package is very large | Hold; too heavy for casual repo import |
-| `fir_tree_01` | conifer comparison source | relevant conifer model, smaller than pine but still large | Hold; only inspect if Mantissa conifers fail |
+| `fir_tree_01` | conifer comparison source | relevant conifer model, smaller than pine but still large | Inspected as raw source on 2026-07-23; source/reference only, rejected for direct gameplay |
+
+`fir_tree_01` adult conifer inspection, 2026-07-23:
+
+- Downloaded outside Git to `E:/knee_project/Reference/SOTF_MODEL_SOURCING/PolyHaven/fir_tree_01/`.
+- License: Poly Haven CC0.
+- Downloaded files: `fir_tree_01_1k.fbx` plus 1K bark/trunk/twig texture maps.
+- Raw FBX size: 249,300,492 bytes.
+- Temporary Unity import path: `Assets/_Game/Art/Models/World/ExternalTrials/PolyHaven/fir_tree_01_raw_import/`.
+- Raw Unity import measurement: 3 mesh filters, 3 renderers, no LODGroup, bounds about 18.78 x 18.94 x 6.51 m.
+- Raw triangle count: 6,982,937 triangles total:
+  - `fir_tree_01_a_LOD0`: 4,176,819 triangles.
+  - `fir_tree_01_b_LOD0`: 2,300,624 triangles.
+  - `fir_tree_01_c_LOD0`: 505,494 triangles.
+- Decision: reject raw import as direct gameplay content under the 60 FPS gate.
+- Implementation impact: keep the external source for lawful visual reference, future decimation/baking experiments, bark/twig material study, and silhouette comparison. Do not place it in `SCN_Foundation` or any gameplay forest prefab until a curated LOD/impostor version is produced and benchmarked.
+- Repository impact: the temporary raw import was removed from `Assets/`; only the external `Reference/` copy and this documented result remain.
 
 ### Tier 3 - potentially useful, but needs manual/license gate
 
@@ -161,6 +177,16 @@ Search result notes, 2026-07-23:
 - Sketchfab search surfaced a low-poly game-ready spruce candidate under CC Attribution.
 - Direct automated page fetch returned 403, so these are not yet license-verified or acquisition-ready.
 - Implementation impact: these are likely better aligned with the 60 FPS rule than raw CC0 photogrammetry-scale trees, but they require manual page/license inspection and probably manual download or Sketchfab API credentials.
+
+Sketchfab API metadata check, 2026-07-23:
+
+| Candidate | URL | API result | License | Acquisition result | Decision |
+|---|---|---|---|---|---|
+| `Realistic Fir Trees Pack (LODS, gameready)` | https://sketchfab.com/3d-models/realistic-fir-trees-pack-lods-gameready-f58e8b6d733e4b0586e5b7db847b89e7 | downloadable, published 2024-09-13 | CC Attribution | `/download` endpoint returned 401 Unauthorized without Sketchfab credentials | Strong manual candidate; requires attribution and authenticated/manual acquisition |
+| `Pine trees pack (lowpoly, game ready, LODs)` | https://sketchfab.com/3d-models/pine-trees-pack-lowpoly-game-ready-lods-e1e9c07b8e2e445c943fec660beefba2 | downloadable, published 2025-06-02 | CC Attribution | `/download` endpoint returned 401 Unauthorized without Sketchfab credentials | Strong manual candidate; likely better first conifer production trial than raw CC0 scans |
+| `Pine Tree [Game-ready]` | https://sketchfab.com/3d-models/pine-tree-game-ready-dc3fbd9205cf4027a4455d1f415e0478 | downloadable, published 2022-07-14 | CC Attribution | `/download` endpoint returned 401 Unauthorized without Sketchfab credentials | Smaller fallback candidate; requires attribution and visual/FPS intake |
+
+These candidates are not blocked by license in principle, but they are blocked for automatic acquisition in this session because Sketchfab requires authentication for download URLs. If acquired manually, store attribution metadata with the imported asset and run the normal intake gate before scene use.
 
 Paid/marketplace direction:
 
@@ -214,3 +240,4 @@ Next practical sourcing order:
 Expected blocker:
 
 - The best 60-FPS-suitable realistic tree packs may require manual download, account login, purchase, or private asset storage.
+- Current automated acquisition result: CC0 raw adult scans are legally downloadable but too heavy for direct gameplay, while better game-ready LOD packs are available under attribution/marketplace terms but require authenticated or manual acquisition.
