@@ -166,6 +166,21 @@ Paid/marketplace direction:
 - If free lawful sources fail visual/performance gates, marketplace packs become the practical route.
 - Marketplace assets must be stored according to their license; a public repository may need manifest-only documentation rather than raw asset redistribution.
 
+Fab game-ready candidate pass, 2026-07-23:
+
+| Candidate | Source | Evidence | License/acquisition state | Decision |
+|---|---|---|---|---|
+| Maple trees pack (lowpoly, game ready, LODs) | https://www.fab.com/listings/20abd5c9-8e44-430e-91da-a2872bd5d5ad | 12 maple models; large, medium, small, sapling variants; three LOD levels plus billboard; shared 2048 bark/branch textures; large LOD0 about 12,987-22,490 triangles; billboard about 36 triangles | Fab page requires selecting/buying a license; included format is Blender; not downloaded | Best broadleaf candidate found so far for a 60 FPS Unity trial after manual acquisition/export |
+| Fir trees pack (9 models+LODS and billboards) | https://www.fab.com/listings/0015d682-64e8-4d70-9ea6-d5f6faaa22be | 9 fir models; 4 LOD levels where LOD3 is billboard; shared bark and branch textures; large/medium LOD0 about 6,813-12,969 triangles, small about 501-599 triangles; billboard about 20 triangles | Fab page requires selecting/buying a license; included format is Blender; not downloaded | Best conifer candidate found so far for a 60 FPS Unity trial after manual acquisition/export |
+| White Pine Forest Pack | https://www.fab.com/listings/4f595cfc-819b-40c3-a665-fbbb205f7864 | 13 pine tree meshes with collision, LODs and billboards; includes ferns/plants/ground textures; about 720 MB | UE Marketplace License; Unreal Engine format; not downloaded | Good visual/ecosystem candidate but lower priority for Unity until conversion/legal storage path is clear |
+| Norway Spruce Tree Pack | https://www.fab.com/listings/cd119d0e-ec1c-4071-be37-90d5371fa3c6 | 20 spruce trees across large/medium/small/x-small; includes collision, billboards, wind shader, fallen spruce, rocks, stumps, fungi and scatter | Fab page requires selecting/buying a license; Unreal Engine format; not downloaded | Very close to the SOTF conifer target, but conversion cost makes it a later candidate unless the user wants a paid/manual Unreal-to-Unity pipeline |
+
+Assessment:
+
+- The Fab Maple and Fir packs are the strongest next trial targets because their documented triangle counts already fall inside or near the 60 FPS starting budgets.
+- The Unreal-only forest packs may look closer to a finished survival-game biome, but they add material conversion, wind shader conversion, and license-storage complexity.
+- No marketplace model is approved for repository import until its license is selected, acquisition is lawful, and the imported asset passes the same cluster benchmark as free assets.
+
 ## Implementation implications
 
 The next forest art pass should not be "find one better tree." It should build a small family set:
@@ -188,10 +203,11 @@ Do not continue with raw Mantissa imports as gameplay assets. Use Mantissa as so
 
 Next practical sourcing order:
 
-1. Find or manually inspect game-ready LOD tree packs for maple/birch/spruce/pine.
+1. Manually acquire the Fab Maple and Fir Blender packs if their license/price is acceptable, then export/import a small subset into Unity for visual and 60 FPS cluster validation.
 2. Prefer packs with per-tree LODs, billboard/impostor textures, shared materials, and documented polycounts.
 3. Use Mantissa Japanese Maple/Birch/Spruce only as visual source material for decimation, bark/leaf studies, or future bake pipelines.
-4. Reject any candidate that cannot be made to fit the 60 FPS cluster benchmark.
+4. Consider Unreal-only packs such as White Pine Forest or Norway Spruce only after deciding how to handle paid assets, format conversion, and private/non-public asset storage.
+5. Reject any candidate that cannot be made to fit the 60 FPS cluster benchmark.
 
 Expected blocker:
 
