@@ -32,6 +32,36 @@ Current project mismatch:
 
 ## Candidate source ranking
 
+## Non-negotiable 60 FPS gate
+
+Visual quality is not enough. The playable target is a stable minimum of 60 FPS, so every tree source must be evaluated as an asset source, not accepted as a gameplay prefab by default.
+
+Hard rule:
+
+- A raw downloaded tree is never approved for direct forest placement until it has passed a Unity benchmark.
+- Multi-million-triangle trees are source assets for baking, decimation, material extraction, silhouette study, and LOD generation only.
+- The final gameplay forest must use LODs, impostors, chunking/instancing, and distance-based interaction promotion.
+
+Initial performance budgets:
+
+| Layer | Starting budget | Notes |
+|---|---:|---|
+| Near hero tree LOD0 | 30k-120k tris | Only a small number visible near the player; must look good in close camera/chopping views |
+| Near exceptional tree | up to 200k tris | Requires explicit benchmark approval and limited placement |
+| Mid tree LOD1 | 5k-20k tris | Must preserve silhouette and material read, not close-up branch detail |
+| Far tree LOD2 | 500-3k tris | Can be solid proxy/impostor support |
+| Distant forest | billboard/impostor/shell | No gameplay collider or tree logic |
+| Runtime colliders/scripts | near-player only | Interactive promotion around the player; far forest is render data |
+
+Benchmark requirement before adoption:
+
+- scene preview: visual review only;
+- cluster benchmark: at least 10 near, 50 mid, and 300 far/impostor trees;
+- record FPS, frame time, batches, SetPass, triangles, vertices, and shadow impact;
+- reject or rework any candidate that cannot plausibly support 60 FPS after LOD/material optimization.
+
+This means the next acquisition pass may download large packs outside Git for inspection, but only curated, optimized Unity-ready outputs should enter the repository.
+
 ### Tier 1 - best lawful fit, but large downloads
 
 #### Mantissa / Midge Sinnaeve free resources
@@ -60,6 +90,19 @@ Recommended acquisition order:
 1. Download and inspect `CG Japanese Maple Pack` first. It is the smallest Mantissa tree pack and directly tests broadleaf/seasonal vibe.
 2. Download `CG Birch Tree Pack` second if the file budget is acceptable. Birch is the most visually important missing family.
 3. Only then evaluate conifer packs. The current project already has conifer placeholders; the missing broadleaf/birch contrast is a bigger art-direction gap.
+
+Japanese Maple inspection, 2026-07-23:
+
+- Downloaded outside Git to `E:/knee_project/Reference/SOTF_MODEL_SOURCING/Mantissa/JapaneseMaple/mantissa_japanese_maple_pack.zip`.
+- Zip contents: 5 FBX files, 4 JPG textures, 1 displacement TIF, 2 text/license files.
+- Zip size on disk: 438,241,399 bytes.
+- Uncompressed FBX total: about 395.1 MB.
+- Largest texture: `Textures/Bark_DISP.tif`, about 192 MB uncompressed.
+- Smallest FBX trial: `Mantissa_Japanese_Maple_004.FBX`, about 75.1 MB in the zip.
+- Unity raw import measurement for Maple 004: 1 renderer, 1 mesh filter, 2,417,961 triangles, 1,895,762 vertices, 8 materials, bounds about 4.12 x 6.68 x 4.00 m.
+- Decision: reject raw Maple 004 as direct gameplay forest content under the 60 FPS rule.
+- Implementation impact: Mantissa Maple remains a strong visual/source candidate for decimation, LOD generation, bark/leaf material extraction, and silhouette reference. It must not be placed directly into the playable forest at raw resolution.
+- Repository impact: raw extracted Maple files were removed from `Assets/` after measurement; only the external zip in `Reference/` and this report remain.
 
 Do not commit the full raw packs blindly. Preferred workflow:
 
@@ -109,6 +152,20 @@ Rules:
 - Do not rely on Sketchfab search snippets as final proof; inspect the asset page/license manually before acquisition.
 - Treat SpeedTree/Asset Store/Fab packs as production candidates if CC0 sources cannot meet the visual target.
 
+Search result notes, 2026-07-23:
+
+- Sketchfab search surfaced a `Maple trees pack (lowpoly, game ready, LODs)` candidate with 12 maple models and LOD levels.
+- Sketchfab search surfaced a `Pine trees pack (lowpoly, game ready, LODs)` candidate with 15 unique pine models, bark/cluster textures, and billboard textures.
+- Sketchfab search surfaced a low-poly game-ready spruce candidate under CC Attribution.
+- Direct automated page fetch returned 403, so these are not yet license-verified or acquisition-ready.
+- Implementation impact: these are likely better aligned with the 60 FPS rule than raw CC0 photogrammetry-scale trees, but they require manual page/license inspection and probably manual download or Sketchfab API credentials.
+
+Paid/marketplace direction:
+
+- A production forest should probably use a game-ready tree pack with authored LODs, billboards/impostors, wind setup, and shared atlas materials.
+- If free lawful sources fail visual/performance gates, marketplace packs become the practical route.
+- Marketplace assets must be stored according to their license; a public repository may need manifest-only documentation rather than raw asset redistribution.
+
 ## Implementation implications
 
 The next forest art pass should not be "find one better tree." It should build a small family set:
@@ -127,14 +184,15 @@ Near-field rule:
 
 ## Proposed next action
 
-Do a controlled download/import trial of the Mantissa `CG Japanese Maple Pack` first.
+Do not continue with raw Mantissa imports as gameplay assets. Use Mantissa as source/reference only unless a decimation/bake pipeline is created.
 
-Reasons:
+Next practical sourcing order:
 
-- It is the smallest high-value tree-family pack found in this pass.
-- It directly tests the missing broadleaf/autumn dimension seen in the latest SOTF references.
-- If it imports cleanly, it establishes the pipeline for Birch and Spruce/Fir.
+1. Find or manually inspect game-ready LOD tree packs for maple/birch/spruce/pine.
+2. Prefer packs with per-tree LODs, billboard/impostor textures, shared materials, and documented polycounts.
+3. Use Mantissa Japanese Maple/Birch/Spruce only as visual source material for decimation, bark/leaf studies, or future bake pipelines.
+4. Reject any candidate that cannot be made to fit the 60 FPS cluster benchmark.
 
 Expected blocker:
 
-- The pack is still about 418 MB before import. Downloading/importing should be treated as an explicit asset acquisition step, not a background cleanup task.
+- The best 60-FPS-suitable realistic tree packs may require manual download, account login, purchase, or private asset storage.
