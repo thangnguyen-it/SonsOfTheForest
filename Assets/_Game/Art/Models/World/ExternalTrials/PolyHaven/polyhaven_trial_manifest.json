@@ -1,0 +1,47 @@
+﻿[
+    {
+        "id":  "fir_sapling",
+        "name":  "Fir Sapling",
+        "source":  "https://polyhaven.com/a/fir_sapling",
+        "license":  "CC0 / Poly Haven",
+        "fbx_url":  "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/fir_sapling/fir_sapling_1k.fbx",
+        "downloaded_resolution":  "1k",
+        "downloaded_utc":  "2026-07-23T11:42:56Z"
+    },
+    {
+        "id":  "pine_sapling_small",
+        "name":  "Pine Sapling Small",
+        "source":  "https://polyhaven.com/a/pine_sapling_small",
+        "license":  "CC0 / Poly Haven",
+        "fbx_url":  "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/pine_sapling_small/pine_sapling_small_1k.fbx",
+        "downloaded_resolution":  "1k",
+        "downloaded_utc":  "2026-07-23T11:43:02Z"
+    },
+    {
+        "id":  "rock_09",
+        "name":  "Rock 09",
+        "source":  "https://polyhaven.com/a/rock_09",
+        "license":  "CC0 / Poly Haven",
+        "fbx_url":  "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/rock_09/rock_09_1k.fbx",
+        "downloaded_resolution":  "1k",
+        "downloaded_utc":  "2026-07-23T11:43:04Z"
+    },
+    {
+        "id":  "rock_moss_set_02",
+        "name":  "Rock Moss Set 02",
+        "source":  "https://polyhaven.com/a/rock_moss_set_02",
+        "license":  "CC0 / Poly Haven",
+        "fbx_url":  "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/rock_moss_set_02/rock_moss_set_02_1k.fbx",
+        "downloaded_resolution":  "1k",
+        "downloaded_utc":  "2026-07-23T11:43:07Z"
+    },
+    {
+        "id":  "stone_fire_pit",
+        "name":  "Stone Fire Pit",
+        "source":  "https://polyhaven.com/a/stone_fire_pit",
+        "license":  "CC0 / Poly Haven",
+        "fbx_url":  "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/stone_fire_pit/stone_fire_pit_1k.fbx",
+        "downloaded_resolution":  "1k",
+        "downloaded_utc":  "2026-07-23T11:43:07Z"
+    }
+]
