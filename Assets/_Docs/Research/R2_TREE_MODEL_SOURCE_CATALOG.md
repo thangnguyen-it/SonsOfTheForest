@@ -194,6 +194,43 @@ Paid/marketplace direction:
 - If free lawful sources fail visual/performance gates, marketplace packs become the practical route.
 - Marketplace assets must be stored according to their license; a public repository may need manifest-only documentation rather than raw asset redistribution.
 
+### Unity Asset Store local trial - Mayo Games Pine forest set Free sample
+
+User-acquired local package, 2026-07-23:
+
+- Package: `Pine forest set [Free sample]`.
+- Publisher: Mayo Games.
+- Source: Unity Asset Store / Package Manager.
+- Local import path: `Assets/pineForset_MayoGames_free/`.
+- Package notes visible in Package Manager: URP compatibility, LODs and collision meshes, prefab library, low-poly models.
+- Repository policy: raw package files are ignored and must not be committed to the public repository unless license/redistribution permission is explicitly resolved. Commit only this evaluation, attribution/source manifests, or curated project-authored wrapper outputs when safe.
+
+Unity intake measurement after temporary HDRP material conversion:
+
+| Prefab | LODGroup | LOD0 tris | LOD1 tris | LOD2 tris | Colliders | Shaders after conversion | Technical gate |
+|---|---|---:|---:|---:|---:|---|---|
+| `furTree` | yes | 1,334 | 224 | 224 | 2 | HDRP/Lit | PASS |
+| `furTreeSmall` | yes | 620 | 286 | 286 | 2 | HDRP/Lit | PASS |
+| `furTree_dead` | yes | 516 | 152 | 152 | 2 | HDRP/Lit | PASS |
+| `fern` | yes | 176 | 176 | 176 | 0 | HDRP/Lit | PASS |
+| `brunch_1` | yes | 32 | 32 | 0 | 0 | HDRP/Lit | PASS |
+| `brunch_2` | yes | 64 | 64 | 0 | 0 | HDRP/Lit | PASS |
+| `brunch_3` | yes | 128 | 128 | 0 | 0 | HDRP/Lit | PASS |
+| `rock_1` | yes | 56 | 56 | 56 | 1 | HDRP/Lit | PASS |
+
+Assessment:
+
+- This is the first externally acquired tree pack that passes the model intake performance budget by a very large margin.
+- It solves the "raw model is too heavy" problem and is appropriate for 60 FPS prototyping.
+- It does not yet solve final visual realism. The package is visibly low-poly/stylized and should be treated as a gameplay-performance prototype candidate, not the final Sons-of-the-Forest-like forest art target.
+- The URP material/shader setup does not work directly in this HDRP project. A local HDRP/Lit conversion removed `Hidden/InternalErrorShader` in the trial, but a committed production import would need deliberate HDRP materials under project-owned paths.
+
+Implementation impact:
+
+- Use this pack for a small local benchmark lineup or prototype replacement only if the user accepts the stylized look as temporary.
+- Do not replace the current forest art target with this pack as "final".
+- If promoted, create project-owned wrapper prefabs and an attribution/license manifest; keep raw package files local/ignored unless redistribution permission is confirmed.
+
 Fab game-ready candidate pass, 2026-07-23:
 
 | Candidate | Source | Evidence | License/acquisition state | Decision |

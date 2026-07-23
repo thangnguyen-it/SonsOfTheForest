@@ -117,3 +117,29 @@ Policy consequence:
 - Do not replace the current playable conifers with raw adult CC0 scans.
 - Do not claim the project has final tree art until a lawfully acquired game-ready pack, or a curated decimated version of a raw source, passes the intake gate and 60 FPS cluster benchmark.
 - If a CC Attribution model is imported, add a source/attribution manifest next to the imported asset before it is allowed into any scene or prefab.
+
+## Mayo Games Pine forest free sample local trial
+
+The user imported `Pine forest set [Free sample]` from the Unity Asset Store at `Assets/pineForset_MayoGames_free/` on 2026-07-23.
+
+Technical result after local HDRP material conversion:
+
+- `furTree`: LOD0 1,334 tris, LOD1 224 tris, LOD2 224 tris, 2 colliders.
+- `furTreeSmall`: LOD0 620 tris, LOD1 286 tris, LOD2 286 tris, 2 colliders.
+- `furTree_dead`: LOD0 516 tris, LOD1 152 tris, LOD2 152 tris, 2 colliders.
+- `fern`: 176 tris at each LOD.
+- `rock_1`: 56 tris at each LOD.
+- All measured prefabs had LODGroups.
+- The original URP/ShaderGraph material setup produced HDRP shader errors for some materials; local trial conversion to HDRP/Lit cleared the technical shader gate.
+
+Decision:
+
+- PASS as a 60 FPS prototype candidate.
+- HOLD as final forest art because the pack is low-poly/stylized and does not yet satisfy the desired realistic survival-forest look.
+- Raw Asset Store package files remain ignored and should not be committed to the public repository without explicit license/redistribution review.
+
+Implementation impact:
+
+- This pack is useful for proving the external-model workflow and for a fast local FPS benchmark.
+- It is not enough by itself to solve the final Sons-of-the-Forest-like visual target.
+- If promoted beyond local testing, create project-owned HDRP wrapper prefabs and source/attribution documentation rather than modifying or committing the raw package folder directly.

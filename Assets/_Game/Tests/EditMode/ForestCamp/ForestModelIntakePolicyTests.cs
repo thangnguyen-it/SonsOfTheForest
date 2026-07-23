@@ -10,6 +10,8 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
     {
         private const string CatalogPath =
             "Assets/_Docs/Research/R2_TREE_MODEL_SOURCE_CATALOG.md";
+        private const string IntakeGatePath =
+            "Assets/_Docs/Research/R2_FOREST_MODEL_INTAKE_GATE.md";
         private const string WorldPath =
             "Assets/_Game/Prefabs/World/ForestCamp/PRF_ForestCampPlayground.prefab";
 
@@ -53,6 +55,21 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         }
 
         [Test]
+        public void SourceCatalog_RecordsMayoPineForestAsPrototypeCandidateOnly()
+        {
+            string catalog = File.ReadAllText(CatalogPath);
+            string intakeGate = File.ReadAllText(IntakeGatePath);
+
+            Assert.That(catalog, Does.Contain("Unity Asset Store local trial - Mayo Games Pine forest set Free sample"));
+            Assert.That(catalog, Does.Contain("`furTree` | yes | 1,334"));
+            Assert.That(catalog, Does.Contain("60 FPS prototyping"));
+            Assert.That(catalog, Does.Contain("not the final Sons-of-the-Forest-like forest art target"));
+            Assert.That(intakeGate, Does.Contain("Mayo Games Pine forest free sample local trial"));
+            Assert.That(intakeGate, Does.Contain("PASS as a 60 FPS prototype candidate"));
+            Assert.That(intakeGate, Does.Contain("HOLD as final forest art"));
+        }
+
+        [Test]
         public void RuntimeBudgets_RejectMillionTriangleTreesBeforeGameplayPromotion()
         {
             Assert.That(RawMantissaMapleTrialTriangles, Is.GreaterThan(HardNearExceptionalLimit));
@@ -80,6 +97,17 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 rawFirAssets,
                 Is.Empty,
                 "Poly Haven adult fir raw source must stay outside Git/Assets until a curated LOD version exists.");
+        }
+
+        [Test]
+        public void GitIgnore_KeepsRawManualMarketplaceTrialsOutOfRepository()
+        {
+            string gitIgnore = File.ReadAllText(".gitignore");
+
+            Assert.That(gitIgnore, Does.Contain("/[Aa]ssets/pineForset_MayoGames_free/"));
+            Assert.That(gitIgnore, Does.Contain("/[Aa]ssets/pineForset_MayoGames_free.meta"));
+            Assert.That(gitIgnore, Does.Contain("/[Bb]enchmarks/"));
+            Assert.That(gitIgnore, Does.Contain(".vsconfig"));
         }
 
         [Test]
