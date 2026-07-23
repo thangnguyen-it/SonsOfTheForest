@@ -62,6 +62,8 @@ Benchmark requirement before adoption:
 
 This means the next acquisition pass may download large packs outside Git for inspection, but only curated, optimized Unity-ready outputs should enter the repository.
 
+The operational Unity gate for these rules is documented in `R2_FOREST_MODEL_INTAKE_GATE.md`.
+
 ### Tier 1 - best lawful fit, but large downloads
 
 #### Mantissa / Midge Sinnaeve free resources
