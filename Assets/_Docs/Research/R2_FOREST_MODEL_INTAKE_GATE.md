@@ -56,3 +56,19 @@ This keeps raw/manual acquisition files out of Git while still recording the tec
 - Marketplace/Fab/Sketchfab models are not imported automatically unless license and acquisition are clear.
 - The current playable world must not reference `ExternalTrials`, Mantissa, Fab, or Sketchfab raw trial assets.
 - The next real visual upgrade should start with a manually acquired game-ready Maple or Fir pack with documented LODs, not another raw scan import.
+
+## Current conifer validation finding
+
+The existing generated conifer LOD prefabs were checked against this gate on 2026-07-23:
+
+| Prefab | Total triangles | LOD0 triangles | Gate result |
+|---|---:|---:|---|
+| `PRF_ConiferLod_A` | 919,546 | 914,604 | REJECT for final 60 FPS forest |
+| `PRF_ConiferLod_B` | 1,092,446 | 1,087,504 | REJECT for final 60 FPS forest |
+| `PRF_ConiferLod_C` | 836,154 | 831,212 | REJECT for final 60 FPS forest |
+
+Interpretation:
+
+- These prefabs can remain as interim visual/source experiments.
+- They should not be treated as the final tree direction.
+- The next tree art milestone should replace or decimate them before expanding forest density.
