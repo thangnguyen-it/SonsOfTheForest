@@ -16,6 +16,12 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             "Assets/_Game/Prefabs/World/ForestCamp/PRF_ForestCampPlayground.prefab";
         private const string MayoTrialBuilderPath =
             "Assets/_Game/Infrastructure/Editor/ForestModelIntake/MayoPineForestTrialBuilder.cs";
+        private const string Phase1SpecPath =
+            "Assets/_Docs/Research/R2_SOTF_FOREST_PHASE1_SPEC.md";
+        private const string AttributionPath =
+            "Assets/_Docs/ThirdParty/FOREST_MODEL_ATTRIBUTION.md";
+        private const string Phase1TrialBuilderPath =
+            "Assets/_Game/Infrastructure/Editor/ForestModelIntake/SotfForestPhase1TrialBuilder.cs";
 
         private const long PreferredNearHeroLod0Budget = 120_000L;
         private const long HardNearExceptionalLimit = 200_000L;
@@ -97,6 +103,64 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 "The intake gate must keep generated Asset Store wrappers out of public Git.");
             Assert.That(intakeGate, Does.Contain("MayoBenchmark_Far_300"));
             Assert.That(intakeGate, Does.Contain("Runtime FPS promotion gate"));
+        }
+
+        [Test]
+        public void Phase1ForestSpec_ConvertsUserResearchIntoImplementationTargets()
+        {
+            string spec = File.ReadAllText(Phase1SpecPath);
+
+            Assert.That(spec, Does.Contain("Mature conifers often have long bare boles"));
+            Assert.That(spec, Does.Contain("Primary conifer skeleton"));
+            Assert.That(spec, Does.Contain("pine-trees-pack-lowpoly-game-ready-lods"));
+            Assert.That(spec, Does.Contain("realistic-fir-trees-pack-lods-gameready"));
+            Assert.That(spec, Does.Contain("five-birch-trees-pack-lowpoly-lods"));
+            Assert.That(spec, Does.Contain("maple-trees-pack-lowpoly-game-ready-lods"));
+            Assert.That(spec, Does.Contain("24-35 m"));
+            Assert.That(spec, Does.Contain("45-65%"));
+            Assert.That(spec, Does.Contain("2-4 m"));
+            Assert.That(spec, Does.Contain("10 near, 50 mid, and 300 far trees"));
+            Assert.That(spec, Does.Contain("300-tree far benchmark cluster may use only candidates that pass the hard intake gate"));
+            Assert.That(spec, Does.Contain("GPU-instanced distant/proxy cloud"));
+        }
+
+        [Test]
+        public void ThirdPartyForestModelAttribution_RecordsLocalSourceLicenses()
+        {
+            string attribution = File.ReadAllText(AttributionPath);
+
+            Assert.That(attribution, Does.Contain("LOLIPOP"));
+            Assert.That(attribution, Does.Contain("CC Attribution"));
+            Assert.That(attribution, Does.Contain("five-birch-trees-pack-lowpoly-lods-08fe5117138e4fdaa7ca440ef1201e07"));
+            Assert.That(attribution, Does.Contain("maple-trees-pack-lowpoly-game-ready-lods-b5d2833c258f4054a01ee2b4ef85adf0"));
+            Assert.That(attribution, Does.Contain("pine-trees-pack-lowpoly-game-ready-lods-e1e9c07b8e2e445c943fec660beefba2"));
+            Assert.That(attribution, Does.Contain("realistic-fir-trees-pack-lods-gameready-f58e8b6d733e4b0586e5b7db847b89e7"));
+            Assert.That(attribution, Does.Contain("Local/ignored"));
+        }
+
+        [Test]
+        public void Phase1LocalTrialWorkflow_StaysIgnoredAndRequiresRuntimeBenchmark()
+        {
+            string gitIgnore = File.ReadAllText(".gitignore");
+            string builder = File.ReadAllText(Phase1TrialBuilderPath);
+            string spec = File.ReadAllText(Phase1SpecPath);
+
+            Assert.That(gitIgnore, Does.Contain("/[Aa]ssets/five-birch-trees-pack-lowpoly-lods/"));
+            Assert.That(gitIgnore, Does.Contain("/[Aa]ssets/maple-trees-pack-lowpoly-game-ready-lods/"));
+            Assert.That(gitIgnore, Does.Contain("/[Aa]ssets/pine-trees-pack-lowpoly-game-ready-lods/"));
+            Assert.That(gitIgnore, Does.Contain("/[Aa]ssets/realistic-fir-trees-pack-lods-gameready/"));
+            Assert.That(gitIgnore, Does.Contain("/[Aa]ssets/_LocalTrials/"));
+            Assert.That(builder, Does.Contain("SOTF Phase 1 Local Trial/Build Source Wrappers"));
+            Assert.That(builder, Does.Contain("SOTF Phase 1 Local Trial/Build Visual Benchmark Scene"));
+            Assert.That(builder, Does.Contain("SOTF Phase 1 Local Trial/Run Runtime FPS Benchmark"));
+            Assert.That(builder, Does.Contain("sotf_forest_phase1_local"));
+            Assert.That(builder, Does.Contain("AcceptedWrapperPaths"));
+            Assert.That(builder, Does.Contain("MatureConiferPhase1_Far_300"));
+            Assert.That(builder, Does.Contain("PlaceInstancedFarCluster"));
+            Assert.That(builder, Does.Contain("SotfForestPhase1InstanceCloud"));
+            Assert.That(builder, Does.Contain("passesHardGate"));
+            Assert.That(builder, Does.Contain("ShadowCastingMode.Off"));
+            Assert.That(spec, Does.Contain("Runtime or standalone benchmark must be recorded"));
         }
 
         [Test]
