@@ -34,6 +34,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public float setPassCalls;
             public float triangleMillions;
             public float vertexMillions;
+            public int ignoredStartupStallFrames;
         }
 
         [Serializable]
@@ -52,6 +53,9 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         public Material farCanopyMaterial;
         public float warmupSeconds = 0.9f;
         public float sampleSeconds = 4f;
+        public int minimumWarmupFrames = 8;
+        public int maxIgnoredStartupStallFrames = 3;
+        public float startupStallFrameThresholdMs = 500f;
 
         private readonly List<GameObject> _disabledCameras = new List<GameObject>();
         private readonly List<Light> _shadowLights = new List<Light>();
@@ -177,9 +181,11 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             }
 
             float settle = 0f;
-            while (settle < warmupSeconds)
+            int warmupFrames = 0;
+            while (settle < warmupSeconds || warmupFrames < minimumWarmupFrames)
             {
                 settle += Time.unscaledDeltaTime;
+                warmupFrames++;
                 MoveCamera(0.25f);
                 yield return null;
             }
@@ -190,12 +196,24 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             double triangles = 0d;
             double vertices = 0d;
             int statSamples = 0;
+            int ignoredStartupStallFrames = 0;
             _scenarioClock = 0f;
             while (_scenarioClock < sampleSeconds)
             {
                 float dt = Time.unscaledDeltaTime;
+                float frameMs = dt * 1000f;
+                if (frameTimes.Count == 0 &&
+                    ignoredStartupStallFrames < maxIgnoredStartupStallFrames &&
+                    frameMs > startupStallFrameThresholdMs)
+                {
+                    ignoredStartupStallFrames++;
+                    MoveCamera(0f);
+                    yield return null;
+                    continue;
+                }
+
                 _scenarioClock += dt;
-                frameTimes.Add(dt * 1000f);
+                frameTimes.Add(frameMs);
                 MoveCamera(_scenarioClock / sampleSeconds);
                 if (_statBatches != null)
                 {
@@ -231,6 +249,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 p95Ms = frameTimes.Count > 0
                     ? frameTimes[Mathf.Min(frameTimes.Count - 1, Mathf.FloorToInt(frameTimes.Count * 0.95f))]
                     : 0f,
+                ignoredStartupStallFrames = ignoredStartupStallFrames,
             };
             result.avgFps = result.avgMs > 0.0001f ? 1000f / result.avgMs : 0f;
             if (statSamples > 0)
@@ -244,7 +263,8 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             report.scenarios.Add(result);
             Debug.Log(
                 $"[ForestBenchmark] {phase}/{name}: {result.avgFps:F1} fps avg, {result.avgMs:F1} ms avg, " +
-                $"{result.p95Ms:F1} ms p95, {result.triangleMillions:F2}M tris, {result.batches:F0} batches");
+                $"{result.p95Ms:F1} ms p95, {result.triangleMillions:F2}M tris, {result.batches:F0} batches, " +
+                $"{result.ignoredStartupStallFrames} startup stalls ignored");
         }
 
         private void MoveCamera(float normalizedTime)
@@ -491,15 +511,16 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             markdown.AppendLine($"- Created (UTC): {report.createdUtc}");
             markdown.AppendLine($"- Shadow distance at start: {report.shadowDistanceAtStart.ToString("F0", CultureInfo.InvariantCulture)} m");
             markdown.AppendLine();
-            markdown.AppendLine("| Scenario | Avg FPS | Avg ms | Median ms | p95 ms | Batches | SetPass | Tris (M) | Verts (M) |");
-            markdown.AppendLine("|---|---|---|---|---|---|---|---|---|");
+            markdown.AppendLine("| Scenario | Avg FPS | Avg ms | Median ms | p95 ms | Batches | SetPass | Tris (M) | Verts (M) | Ignored startup stalls |");
+            markdown.AppendLine("|---|---|---|---|---|---|---|---|---|---|");
             foreach (ScenarioResult scenario in report.scenarios)
             {
                 markdown.AppendLine(
                     $"| {scenario.name} | {Format(scenario.avgFps, 1)} | {Format(scenario.avgMs, 2)} | " +
                     $"{Format(scenario.medianMs, 2)} | {Format(scenario.p95Ms, 2)} | " +
                     $"{Format(scenario.batches, 0)} | {Format(scenario.setPassCalls, 0)} | " +
-                    $"{Format(scenario.triangleMillions, 2)} | {Format(scenario.vertexMillions, 2)} |");
+                    $"{Format(scenario.triangleMillions, 2)} | {Format(scenario.vertexMillions, 2)} | " +
+                    $"{scenario.ignoredStartupStallFrames} |");
             }
 
             File.WriteAllText(Path.Combine(directory, $"forest_benchmark_{report.phase}.md"), markdown.ToString());

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using SonsOfTheForest.Infrastructure.Benchmark;
 using UnityEditor;
+using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -31,6 +32,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
         public const string RuntimeBenchmarkPhase = "sotf_forest_phase1_local";
 
         private const string ReportDirectory = "Benchmarks";
+        private const string StandaloneBuildDirectory = "Builds/Benchmarks/SOTF_ForestPhase1";
+        private const string StandaloneBenchmarkExecutable = "SOTF_ForestPhase1Benchmark.exe";
         private const float MatureConiferMinHeight = 24f;
         private const float MatureConiferMaxHeight = 35f;
         private const float FirFillMinHeight = 16f;
@@ -131,6 +134,11 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
         [MenuItem("Sons Of The Forest/Forest Models/SOTF Phase 1 Local Trial/Build Visual Benchmark Scene")]
         public static void BuildVisualBenchmarkScene()
         {
+            BuildVisualBenchmarkSceneInternal(false);
+        }
+
+        private static void BuildVisualBenchmarkSceneInternal(bool includeStandaloneBenchmarkRunner)
+        {
             BuildSourceWrappers();
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -152,10 +160,55 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             GameObject far = CreateChild(root.transform, "MatureConiferPhase1_Far_300");
             GameObject accents = CreateChild(root.transform, "Phase1_BroadleafAccent_24");
 
-            PlaceCluster(near.transform, scene, runtimeConifers, 10, 8f, 24f, true, 1101, MatureConiferMinHeight, MatureConiferMaxHeight);
-            PlaceCluster(mid.transform, scene, runtimeConifers, 50, 30f, 78f, false, 2202, 18f, 30f);
-            PlaceInstancedFarCluster(far.transform, runtimeConifers, 300, 82f, 150f, 3303, 12f, 28f);
-            PlaceCluster(accents.transform, scene, broadleafAccents, 24, 16f, 64f, false, 4404, MapleMinHeight, MapleMaxHeight);
+            PlaceCluster(
+                near.transform,
+                scene,
+                runtimeConifers,
+                ProductionForestPerformancePolicy.NearPlayableTreeCount,
+                8f,
+                24f,
+                true,
+                true,
+                1101,
+                MatureConiferMinHeight,
+                MatureConiferMaxHeight);
+            PlaceCluster(
+                mid.transform,
+                scene,
+                runtimeConifers,
+                ProductionForestPerformancePolicy.MidStaticTreeCount,
+                30f,
+                78f,
+                false,
+                false,
+                2202,
+                18f,
+                30f);
+            PlaceInstancedFarCluster(
+                far.transform,
+                runtimeConifers,
+                ProductionForestPerformancePolicy.FarInstancedTreeCount,
+                82f,
+                150f,
+                3303,
+                12f,
+                28f);
+            PlaceCluster(
+                accents.transform,
+                scene,
+                broadleafAccents,
+                24,
+                16f,
+                64f,
+                false,
+                false,
+                4404,
+                MapleMinHeight,
+                MapleMaxHeight);
+            if (includeStandaloneBenchmarkRunner)
+            {
+                AddBenchmarkRunner(root.transform, RuntimeBenchmarkPhase + "_standalone", 3f, 6f);
+            }
 
             SaveScene(scene, BenchmarkScenePath);
             WriteSceneMetricsReport(scene, "sotf_phase1_forest_benchmark_scene_metrics.md");
@@ -201,6 +254,52 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             SessionState.SetString(SotfForestPhase1RuntimeBenchmark.RunRequestedKey, RuntimeBenchmarkPhase);
             Debug.Log("[SOTFForestPhase1] Starting runtime FPS benchmark in Play Mode...");
             EditorApplication.EnterPlaymode();
+        }
+
+        [MenuItem("Sons Of The Forest/Forest Models/SOTF Phase 1 Local Trial/Build Standalone Benchmark Player")]
+        public static void BuildStandaloneBenchmarkPlayer()
+        {
+            BuildStandaloneBenchmarkPlayer(false);
+        }
+
+        [MenuItem("Sons Of The Forest/Forest Models/SOTF Phase 1 Local Trial/Build And Run Standalone Benchmark Player")]
+        public static void BuildAndRunStandaloneBenchmarkPlayer()
+        {
+            BuildStandaloneBenchmarkPlayer(true);
+        }
+
+        private static void BuildStandaloneBenchmarkPlayer(bool autoRun)
+        {
+            EnsureSourcesAvailable();
+            BuildVisualBenchmarkSceneInternal(true);
+
+            string projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
+            string outputDirectory = Path.Combine(projectRoot, StandaloneBuildDirectory);
+            Directory.CreateDirectory(outputDirectory);
+            string outputPath = Path.Combine(outputDirectory, StandaloneBenchmarkExecutable);
+
+            BuildOptions options = BuildOptions.Development;
+            if (autoRun)
+            {
+                options |= BuildOptions.AutoRunPlayer;
+            }
+
+            var buildOptions = new BuildPlayerOptions
+            {
+                scenes = new[] { BenchmarkScenePath },
+                locationPathName = outputPath,
+                target = BuildTarget.StandaloneWindows64,
+                options = options,
+            };
+            BuildReport report = BuildPipeline.BuildPlayer(buildOptions);
+            WriteStandaloneBuildReport(report, outputPath, autoRun);
+            if (report.summary.result != BuildResult.Succeeded)
+            {
+                throw new InvalidOperationException(
+                    "Standalone benchmark build failed: " + report.summary.result);
+            }
+
+            Debug.Log("[SOTFForestPhase1] Built standalone benchmark player: " + outputPath);
         }
 
         private static IEnumerable<GameObject> BuildChildTreeWrappers(SourcePack source, GameObject model)
@@ -395,6 +494,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             float minRadius,
             float maxRadius,
             bool keepColliders,
+            bool allowRealtimeShadows,
             int seed,
             float minHeight,
             float maxHeight)
@@ -426,6 +526,19 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
                 {
                     RemoveColliders(instance);
                 }
+
+                ApplyPlacedInstancePolicy(instance, allowRealtimeShadows);
+            }
+        }
+
+        private static void ApplyPlacedInstancePolicy(GameObject root, bool allowRealtimeShadows)
+        {
+            foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+            {
+                renderer.shadowCastingMode = allowRealtimeShadows
+                    ? renderer.shadowCastingMode
+                    : ShadowCastingMode.Off;
+                renderer.receiveShadows = allowRealtimeShadows && renderer.receiveShadows;
             }
         }
 
@@ -476,9 +589,9 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
 
             var cloudObject = new GameObject(parent.name + "_GPUInstanceCloud");
             cloudObject.transform.SetParent(parent, false);
-            var cloud = cloudObject.AddComponent<SotfForestPhase1InstanceCloud>();
+            var cloud = cloudObject.AddComponent<ProductionForestRenderer>();
             cloud.InstanceSets = sources
-                .Select((source, index) => new SotfForestPhase1InstanceCloud.InstanceSet
+                .Select((source, index) => new ProductionForestRenderer.InstanceSet
                 {
                     sourceName = source.Name,
                     mesh = source.Mesh,
@@ -486,6 +599,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
                     positions = positions[index].ToArray(),
                     eulerAngles = rotations[index].ToArray(),
                     scales = scales[index].ToArray(),
+                    shadowCastingMode = ProductionForestPerformancePolicy.FarShadowCastingMode,
+                    receiveShadows = ProductionForestPerformancePolicy.FarReceiveShadows,
                 })
                 .Where(value => value.positions.Length > 0)
                 .ToArray();
@@ -612,6 +727,20 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             camera.tag = "MainCamera";
         }
 
+        private static void AddBenchmarkRunner(
+            Transform parent,
+            string phase,
+            float warmupSeconds,
+            float sampleSeconds)
+        {
+            var host = new GameObject("BenchmarkRunner_Standalone");
+            host.transform.SetParent(parent, false);
+            var runner = host.AddComponent<ForestBenchmarkRunner>();
+            runner.phase = phase;
+            runner.warmupSeconds = warmupSeconds;
+            runner.sampleSeconds = sampleSeconds;
+        }
+
         private static void CreateAtmosphere(Transform parent)
         {
             var volumeObject = new GameObject("Volume_ForestAtmosphere");
@@ -622,7 +751,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             VolumeProfile profile = ScriptableObject.CreateInstance<VolumeProfile>();
             var shadows = profile.Add<HDShadowSettings>(true);
             shadows.maxShadowDistance.overrideState = true;
-            shadows.maxShadowDistance.value = 90f;
+            shadows.maxShadowDistance.value =
+                ProductionForestPerformancePolicy.BenchmarkShadowDistanceMeters;
             var fog = profile.Add<Fog>(true);
             fog.enabled.overrideState = true;
             fog.enabled.value = true;
@@ -705,8 +835,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
                         .Distinct()
                         .ToArray();
                     LODGroup[] lodGroups = child.GetComponentsInChildren<LODGroup>(true);
-                    SotfForestPhase1InstanceCloud[] clouds =
-                        child.GetComponentsInChildren<SotfForestPhase1InstanceCloud>(true);
+                    ProductionForestRenderer[] clouds =
+                        child.GetComponentsInChildren<ProductionForestRenderer>(true);
                     builder.AppendLine(
                         $"| `{child.name}` | {renderers.Length} | {materials.Length} | " +
                         $"{child.GetComponentsInChildren<Collider>(true).Length} | {lodGroups.Length} | " +
@@ -758,6 +888,33 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             }
 
             File.WriteAllText(Path.Combine(directory, "sotf_phase1_forest_wrapper_summary.md"), builder.ToString());
+        }
+
+        private static void WriteStandaloneBuildReport(
+            BuildReport report,
+            string outputPath,
+            bool autoRun)
+        {
+            string directory = AbsoluteReportDirectory();
+            Directory.CreateDirectory(directory);
+
+            var builder = new StringBuilder();
+            builder.AppendLine("# SOTF Phase 1 standalone benchmark build");
+            builder.AppendLine();
+            builder.AppendLine("- Created UTC: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+            builder.AppendLine("- Output: `" + outputPath + "`");
+            builder.AppendLine("- Scene: `" + BenchmarkScenePath + "`");
+            builder.AppendLine("- Auto run: " + autoRun);
+            builder.AppendLine("- Result: " + report.summary.result);
+            builder.AppendLine("- Platform: " + report.summary.platform);
+            builder.AppendLine("- Total size bytes: " + report.summary.totalSize);
+            builder.AppendLine("- Total time: " + report.summary.totalTime);
+            builder.AppendLine();
+            builder.AppendLine("When this player runs, `ForestBenchmarkRunner` writes the FPS report next to the player data folder.");
+
+            File.WriteAllText(
+                Path.Combine(directory, "sotf_phase1_standalone_build_report.md"),
+                builder.ToString());
         }
 
         private static Bounds CalculateBounds(GameObject root)

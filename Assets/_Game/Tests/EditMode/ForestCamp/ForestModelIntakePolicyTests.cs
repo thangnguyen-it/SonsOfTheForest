@@ -22,6 +22,14 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             "Assets/_Docs/ThirdParty/FOREST_MODEL_ATTRIBUTION.md";
         private const string Phase1TrialBuilderPath =
             "Assets/_Game/Infrastructure/Editor/ForestModelIntake/SotfForestPhase1TrialBuilder.cs";
+        private const string ProductionForestRendererPath =
+            "Assets/_Game/Infrastructure/Benchmark/ProductionForestRenderer.cs";
+        private const string ProductionForestPolicyPath =
+            "Assets/_Game/Infrastructure/Benchmark/ProductionForestPerformancePolicy.cs";
+        private const string ForestBenchmarkRunnerPath =
+            "Assets/_Game/Infrastructure/Benchmark/ForestBenchmarkRunner.cs";
+        private const string ProductionForestDocPath =
+            "Assets/_Docs/Research/R2_PRODUCTION_FOREST_RENDERER.md";
 
         private const long PreferredNearHeroLod0Budget = 120_000L;
         private const long HardNearExceptionalLimit = 200_000L;
@@ -153,14 +161,46 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(builder, Does.Contain("SOTF Phase 1 Local Trial/Build Source Wrappers"));
             Assert.That(builder, Does.Contain("SOTF Phase 1 Local Trial/Build Visual Benchmark Scene"));
             Assert.That(builder, Does.Contain("SOTF Phase 1 Local Trial/Run Runtime FPS Benchmark"));
+            Assert.That(builder, Does.Contain("Build Standalone Benchmark Player"));
+            Assert.That(builder, Does.Contain("Build And Run Standalone Benchmark Player"));
             Assert.That(builder, Does.Contain("sotf_forest_phase1_local"));
             Assert.That(builder, Does.Contain("AcceptedWrapperPaths"));
             Assert.That(builder, Does.Contain("MatureConiferPhase1_Far_300"));
             Assert.That(builder, Does.Contain("PlaceInstancedFarCluster"));
-            Assert.That(builder, Does.Contain("SotfForestPhase1InstanceCloud"));
+            Assert.That(builder, Does.Contain("ProductionForestRenderer"));
             Assert.That(builder, Does.Contain("passesHardGate"));
             Assert.That(builder, Does.Contain("ShadowCastingMode.Off"));
             Assert.That(spec, Does.Contain("Runtime or standalone benchmark must be recorded"));
+        }
+
+        [Test]
+        public void ProductionForestRenderer_UsesInstancedFarForestPolicy()
+        {
+            string renderer = File.ReadAllText(ProductionForestRendererPath);
+            string policy = File.ReadAllText(ProductionForestPolicyPath);
+            string runner = File.ReadAllText(ForestBenchmarkRunnerPath);
+            string builder = File.ReadAllText(Phase1TrialBuilderPath);
+            string doc = File.ReadAllText(ProductionForestDocPath);
+
+            Assert.That(renderer, Does.Contain("Graphics.RenderMeshInstanced"));
+            Assert.That(renderer, Does.Contain("MaxBatchSize = 1023"));
+            Assert.That(renderer, Does.Contain("enableInstancing = true"));
+            Assert.That(renderer, Does.Contain("ShadowCastingMode"));
+            Assert.That(policy, Does.Contain("MinimumPlayableFps = 60"));
+            Assert.That(policy, Does.Contain("FarInstancedTreeCount = 300"));
+            Assert.That(policy, Does.Contain("BenchmarkShadowDistanceMeters = 65f"));
+            Assert.That(policy, Does.Contain("FarShadowCastingMode = ShadowCastingMode.Off"));
+            Assert.That(builder, Does.Contain("BuildPipeline.BuildPlayer"));
+            Assert.That(builder, Does.Contain("BuildTarget.StandaloneWindows64"));
+            Assert.That(builder, Does.Contain("BuildOptions.AutoRunPlayer"));
+            Assert.That(builder, Does.Contain("ForestBenchmarkRunner"));
+            Assert.That(runner, Does.Contain("minimumWarmupFrames"));
+            Assert.That(runner, Does.Contain("ignoredStartupStallFrames"));
+            Assert.That(runner, Does.Contain("startupStallFrameThresholdMs"));
+            Assert.That(doc, Does.Contain("not render the whole forest as normal tree prefabs"));
+            Assert.That(doc, Does.Contain("near-only realtime tree shadows"));
+            Assert.That(doc, Does.Contain("FAIL"));
+            Assert.That(doc, Does.Contain("not approved for gameplay-scene promotion yet"));
         }
 
         [Test]
