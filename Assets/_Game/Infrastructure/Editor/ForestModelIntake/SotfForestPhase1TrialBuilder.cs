@@ -291,6 +291,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
                 target = BuildTarget.StandaloneWindows64,
                 options = options,
             };
+            PlayerSettings.enableFrameTimingStats = true;
             BuildReport report = BuildPipeline.BuildPlayer(buildOptions);
             WriteStandaloneBuildReport(report, outputPath, autoRun);
             if (report.summary.result != BuildResult.Succeeded)

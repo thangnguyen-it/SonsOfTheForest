@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Reflection;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -29,11 +28,46 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public float avgMs;
             public float medianMs;
             public float p95Ms;
+            public float p99Ms;
             public float avgFps;
+            public float onePercentLowFps;
+            public int timingSamples;
+            public float cpuTotalAvgMs;
+            public float cpuTotalP95Ms;
+            public float cpuMainThreadAvgMs;
+            public float cpuMainThreadP95Ms;
+            public float cpuMainThreadPresentWaitAvgMs;
+            public float cpuMainThreadWorkAvgMs;
+            public float cpuRenderThreadAvgMs;
+            public float cpuRenderThreadP95Ms;
+            public float gpuAvgMs;
+            public float gpuP95Ms;
+            public bool drawCallsAvailable;
+            public bool batchesAvailable;
+            public bool setPassCallsAvailable;
+            public bool trianglesAvailable;
+            public bool verticesAvailable;
+            public float drawCalls;
             public float batches;
             public float setPassCalls;
             public float triangleMillions;
             public float vertexMillions;
+            public bool gcAllocationAvailable;
+            public float gcAllocatedAverageBytes;
+            public long gcAllocatedPeakBytes;
+            public float gcAllocationCountAverage;
+            public bool totalUsedMemoryAvailable;
+            public bool gfxUsedMemoryAvailable;
+            public bool textureMemoryAvailable;
+            public float totalUsedMemoryAverageMb;
+            public float totalUsedMemoryPeakMb;
+            public float gfxUsedMemoryAverageMb;
+            public float gfxUsedMemoryPeakMb;
+            public float textureMemoryAverageMb;
+            public float textureMemoryPeakMb;
+            public string bottleneck;
+            public string budgetStatus;
+            public string budgetFailure;
             public int ignoredStartupStallFrames;
         }
 
@@ -42,6 +76,32 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         {
             public string phase;
             public string createdUtc;
+            public string schemaVersion;
+            public string unityVersion;
+            public string platform;
+            public string operatingSystem;
+            public string processorType;
+            public int processorCount;
+            public int processorFrequencyMhz;
+            public int systemMemoryMb;
+            public string graphicsDeviceName;
+            public string graphicsDeviceType;
+            public string graphicsDeviceVendor;
+            public string graphicsDeviceVersion;
+            public int graphicsMemoryMb;
+            public bool graphicsMultiThreaded;
+            public string renderPipeline;
+            public string qualityLevel;
+            public int width;
+            public int height;
+            public bool developmentBuild;
+            public bool runInBackground;
+            public bool frameTimingFeatureEnabled;
+            public int minimumPlayableFps;
+            public float frameBudgetMilliseconds;
+            public float p95BudgetMilliseconds;
+            public float p99BudgetMilliseconds;
+            public long maximumGcAllocationBytesPerFrame;
             public float shadowDistanceAtStart;
             public List<ScenarioResult> scenarios = new List<ScenarioResult>();
         }
@@ -62,6 +122,8 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         private readonly List<LightShadows> _shadowBackup = new List<LightShadows>();
         private readonly List<GameObject> _conifers = new List<GameObject>();
         private readonly List<Matrix4x4[]> _farBatches = new List<Matrix4x4[]>();
+        private readonly Dictionary<GameObject, bool> _diagnosticLayerStates =
+            new Dictionary<GameObject, bool>();
         private Camera _camera;
         private GameObject _midRingRoot;
         private GameObject _shadowVolume;
@@ -69,29 +131,27 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         private bool _farRingActive;
         private bool _walkthrough;
         private float _scenarioClock;
-        private PropertyInfo _statBatches;
-        private PropertyInfo _statSetPass;
-        private PropertyInfo _statTriangles;
-        private PropertyInfo _statVertices;
+        private RuntimePerformanceSampler _runtimeSampler;
+        private GameObject _groundLayer;
+        private GameObject _sunLayer;
+        private GameObject _atmosphereLayer;
+        private GameObject _nearLayer;
+        private GameObject _midLayer;
+        private GameObject _farLayer;
+        private GameObject _accentLayer;
         private int _previousVSync;
         private int _previousTargetFrameRate;
+        private bool _previousRunInBackground;
 
         private void Start()
         {
             _previousVSync = QualitySettings.vSyncCount;
             _previousTargetFrameRate = UnityEngine.Application.targetFrameRate;
+            _previousRunInBackground = UnityEngine.Application.runInBackground;
             QualitySettings.vSyncCount = 0;
             UnityEngine.Application.targetFrameRate = -1;
-
-            Type stats = Type.GetType("UnityEditor.UnityStats,UnityEditor");
-            if (stats != null)
-            {
-                BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
-                _statBatches = stats.GetProperty("batches", flags);
-                _statSetPass = stats.GetProperty("setPassCalls", flags);
-                _statTriangles = stats.GetProperty("triangles", flags);
-                _statVertices = stats.GetProperty("vertices", flags);
-            }
+            UnityEngine.Application.runInBackground = true;
+            _runtimeSampler = new RuntimePerformanceSampler();
 
             foreach (Camera existing in FindObjectsByType<Camera>(FindObjectsSortMode.None))
             {
@@ -127,6 +187,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             }
 
             _lodGroups = FindObjectsByType<LODGroup>(FindObjectsSortMode.None);
+            CacheDiagnosticLayers();
             StartCoroutine(Run());
         }
 
@@ -136,12 +197,90 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             {
                 phase = phase,
                 createdUtc = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
+                schemaVersion = "r2-perf0/1",
+                unityVersion = UnityEngine.Application.unityVersion,
+                platform = UnityEngine.Application.platform.ToString(),
+                operatingSystem = SystemInfo.operatingSystem,
+                processorType = SystemInfo.processorType,
+                processorCount = SystemInfo.processorCount,
+                processorFrequencyMhz = SystemInfo.processorFrequency,
+                systemMemoryMb = SystemInfo.systemMemorySize,
+                graphicsDeviceName = SystemInfo.graphicsDeviceName,
+                graphicsDeviceType = SystemInfo.graphicsDeviceType.ToString(),
+                graphicsDeviceVendor = SystemInfo.graphicsDeviceVendor,
+                graphicsDeviceVersion = SystemInfo.graphicsDeviceVersion,
+                graphicsMemoryMb = SystemInfo.graphicsMemorySize,
+                graphicsMultiThreaded = SystemInfo.graphicsMultiThreaded,
+                renderPipeline = GraphicsSettings.currentRenderPipeline != null
+                    ? GraphicsSettings.currentRenderPipeline.name
+                    : "Built-in Render Pipeline",
+                qualityLevel = QualitySettings.names[QualitySettings.GetQualityLevel()],
+                width = Screen.width,
+                height = Screen.height,
+                developmentBuild = Debug.isDebugBuild,
+                runInBackground = UnityEngine.Application.runInBackground,
+                frameTimingFeatureEnabled = _runtimeSampler.FrameTimingFeatureEnabled,
+                minimumPlayableFps = ProductionForestPerformancePolicy.MinimumPlayableFps,
+                frameBudgetMilliseconds = ProductionForestPerformancePolicy.FrameBudgetMilliseconds,
+                p95BudgetMilliseconds = ProductionForestPerformancePolicy.P95FrameBudgetMilliseconds,
+                p99BudgetMilliseconds = ProductionForestPerformancePolicy.P99FrameBudgetMilliseconds,
+                maximumGcAllocationBytesPerFrame =
+                    ProductionForestPerformancePolicy.MaximumSteadyStateGcAllocationBytesPerFrame,
                 shadowDistanceAtStart = ReadShadowDistance(),
             };
 
             yield return SampleScenario(report, "baseline_orbit", null, null);
+
+            if (HasDiagnosticLayerSet())
+            {
+                yield return SampleScenario(
+                    report,
+                    "empty_hdrp_camera",
+                    () => ApplyLayerIsolation(false, false, false, false, false, false, false),
+                    RestoreDiagnosticLayers);
+                yield return SampleScenario(
+                    report,
+                    "lighting_volume_only",
+                    () => ApplyLayerIsolation(false, true, true, false, false, false, false),
+                    RestoreDiagnosticLayers);
+                yield return SampleScenario(
+                    report,
+                    "ground_only",
+                    () => ApplyLayerIsolation(true, true, true, false, false, false, false),
+                    RestoreDiagnosticLayers);
+                yield return SampleScenario(
+                    report,
+                    "near_10_only",
+                    () => ApplyLayerIsolation(true, true, true, true, false, false, false),
+                    RestoreDiagnosticLayers);
+                yield return SampleScenario(
+                    report,
+                    "mid_50_only",
+                    () => ApplyLayerIsolation(true, true, true, false, true, false, false),
+                    RestoreDiagnosticLayers);
+                yield return SampleScenario(
+                    report,
+                    "far_300_instanced_only",
+                    () => ApplyLayerIsolation(true, true, true, false, false, true, false),
+                    RestoreDiagnosticLayers);
+                if (_accentLayer != null)
+                {
+                    yield return SampleScenario(
+                        report,
+                        "broadleaf_24_only",
+                        () => ApplyLayerIsolation(true, true, true, false, false, false, true),
+                        RestoreDiagnosticLayers);
+                }
+
+                yield return SampleScenario(
+                    report,
+                    "full_without_atmosphere",
+                    ApplyFullWithoutAtmosphere,
+                    RestoreDiagnosticLayers);
+            }
+
             yield return SampleScenario(report, "shadows_off_orbit", ApplyShadowsOff, RevertShadows);
-            yield return SampleScenario(report, "shadow_distance_60", ApplyShadowDistance60, RevertShadowDistance);
+            yield return SampleScenario(report, "shadow_distance_30", ApplyShadowDistance30, RevertShadowDistance);
             yield return SampleScenario(report, "half_trees_orbit", ApplyHalfTrees, RevertTreeVisibility);
             yield return SampleScenario(report, "trees_hidden_orbit", ApplyTreesHidden, RevertTreeVisibility);
 
@@ -163,9 +302,21 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             yield return SampleScenario(report, "walkthrough_camp", null, null);
             _walkthrough = false;
 
+            if (HasDiagnosticLayerSet())
+            {
+                yield return SampleScenario(
+                    report,
+                    "empty_hdrp_camera_repeat",
+                    () => ApplyLayerIsolation(false, false, false, false, false, false, false),
+                    RestoreDiagnosticLayers);
+            }
+
+            yield return SampleScenario(report, "baseline_orbit_repeat", null, null);
+
             WriteReport(report);
             QualitySettings.vSyncCount = _previousVSync;
             UnityEngine.Application.targetFrameRate = _previousTargetFrameRate;
+            UnityEngine.Application.runInBackground = _previousRunInBackground;
 #if UNITY_EDITOR
             EditorApplication.isPlaying = false;
 #else
@@ -175,6 +326,23 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
         private IEnumerator SampleScenario(Report report, string name, Action apply, Action revert)
         {
+            var frameTimes = new List<float>(1024);
+            var cpuTotal = new MetricAccumulator();
+            var cpuMain = new MetricAccumulator();
+            var cpuPresentWait = new MetricAccumulator();
+            var cpuRender = new MetricAccumulator();
+            var gpu = new MetricAccumulator();
+            var drawCalls = new MetricAccumulator();
+            var batches = new MetricAccumulator();
+            var setPassCalls = new MetricAccumulator();
+            var triangles = new MetricAccumulator();
+            var vertices = new MetricAccumulator();
+            var gcAllocated = new MetricAccumulator();
+            var gcAllocationCount = new MetricAccumulator();
+            var totalUsedMemory = new MetricAccumulator();
+            var gfxUsedMemory = new MetricAccumulator();
+            var textureMemory = new MetricAccumulator();
+
             if (apply != null)
             {
                 apply();
@@ -187,15 +355,11 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 settle += Time.unscaledDeltaTime;
                 warmupFrames++;
                 MoveCamera(0.25f);
+                _runtimeSampler.CaptureFrameTiming();
                 yield return null;
             }
 
-            var frameTimes = new List<float>(1024);
-            double batches = 0d;
-            double setPass = 0d;
-            double triangles = 0d;
-            double vertices = 0d;
-            int statSamples = 0;
+            int frameTimingSamples = 0;
             int ignoredStartupStallFrames = 0;
             _scenarioClock = 0f;
             while (_scenarioClock < sampleSeconds)
@@ -215,14 +379,31 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 _scenarioClock += dt;
                 frameTimes.Add(frameMs);
                 MoveCamera(_scenarioClock / sampleSeconds);
-                if (_statBatches != null)
+
+                _runtimeSampler.CaptureFrameTiming();
+                RuntimePerformanceSampler.FrameSample sample = _runtimeSampler.ReadLastFrame();
+                if (sample.hasFrameTiming)
                 {
-                    batches += Convert.ToDouble(_statBatches.GetValue(null));
-                    setPass += Convert.ToDouble(_statSetPass.GetValue(null));
-                    triangles += Convert.ToDouble(_statTriangles.GetValue(null));
-                    vertices += Convert.ToDouble(_statVertices.GetValue(null));
-                    statSamples++;
+                    frameTimingSamples++;
                 }
+
+                cpuTotal.AddIfAvailable(sample.hasCpuTotalTime, sample.cpuTotalMilliseconds);
+                cpuMain.AddIfAvailable(sample.hasCpuMainThreadTime, sample.cpuMainThreadMilliseconds);
+                cpuPresentWait.AddIfAvailable(
+                    sample.hasCpuMainThreadPresentWaitTime,
+                    sample.cpuMainThreadPresentWaitMilliseconds);
+                cpuRender.AddIfAvailable(sample.hasCpuRenderThreadTime, sample.cpuRenderThreadMilliseconds);
+                gpu.AddIfAvailable(sample.hasGpuTime, sample.gpuMilliseconds);
+                drawCalls.AddIfAvailable(sample.hasDrawCalls, sample.drawCalls);
+                batches.AddIfAvailable(sample.hasBatches, sample.batches);
+                setPassCalls.AddIfAvailable(sample.hasSetPassCalls, sample.setPassCalls);
+                triangles.AddIfAvailable(sample.hasTriangles, sample.triangles);
+                vertices.AddIfAvailable(sample.hasVertices, sample.vertices);
+                gcAllocated.AddIfAvailable(sample.hasGcAllocatedBytes, sample.gcAllocatedBytes);
+                gcAllocationCount.AddIfAvailable(sample.hasGcAllocationCount, sample.gcAllocationCount);
+                totalUsedMemory.AddIfAvailable(sample.hasTotalUsedMemory, sample.totalUsedMemoryBytes);
+                gfxUsedMemory.AddIfAvailable(sample.hasGfxUsedMemory, sample.gfxUsedMemoryBytes);
+                textureMemory.AddIfAvailable(sample.hasTextureMemory, sample.textureMemoryBytes);
 
                 yield return null;
             }
@@ -233,38 +414,63 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             }
 
             frameTimes.Sort();
-            float total = 0f;
-            for (int index = 0; index < frameTimes.Count; index++)
-            {
-                total += frameTimes[index];
-            }
-
             int count = Mathf.Max(1, frameTimes.Count);
             var result = new ScenarioResult
             {
                 name = name,
                 frames = frameTimes.Count,
-                avgMs = total / count,
-                medianMs = frameTimes.Count > 0 ? frameTimes[frameTimes.Count / 2] : 0f,
-                p95Ms = frameTimes.Count > 0
-                    ? frameTimes[Mathf.Min(frameTimes.Count - 1, Mathf.FloorToInt(frameTimes.Count * 0.95f))]
-                    : 0f,
+                avgMs = Average(frameTimes, count),
+                medianMs = Percentile(frameTimes, 0.50f),
+                p95Ms = Percentile(frameTimes, 0.95f),
+                p99Ms = Percentile(frameTimes, 0.99f),
+                timingSamples = frameTimingSamples,
+                cpuTotalAvgMs = (float)cpuTotal.Average,
+                cpuTotalP95Ms = (float)cpuTotal.Percentile(0.95f),
+                cpuMainThreadAvgMs = (float)cpuMain.Average,
+                cpuMainThreadP95Ms = (float)cpuMain.Percentile(0.95f),
+                cpuMainThreadPresentWaitAvgMs = (float)cpuPresentWait.Average,
+                cpuMainThreadWorkAvgMs = Mathf.Max(
+                    0f,
+                    (float)(cpuMain.Average - cpuPresentWait.Average)),
+                cpuRenderThreadAvgMs = (float)cpuRender.Average,
+                cpuRenderThreadP95Ms = (float)cpuRender.Percentile(0.95f),
+                gpuAvgMs = (float)gpu.Average,
+                gpuP95Ms = (float)gpu.Percentile(0.95f),
+                drawCallsAvailable = drawCalls.Count > 0,
+                batchesAvailable = batches.Count > 0,
+                setPassCallsAvailable = setPassCalls.Count > 0,
+                trianglesAvailable = triangles.Count > 0,
+                verticesAvailable = vertices.Count > 0,
+                drawCalls = (float)drawCalls.Average,
+                batches = (float)batches.Average,
+                setPassCalls = (float)setPassCalls.Average,
+                triangleMillions = (float)(triangles.Average / 1_000_000d),
+                vertexMillions = (float)(vertices.Average / 1_000_000d),
+                gcAllocationAvailable = gcAllocated.Count > 0,
+                gcAllocatedAverageBytes = (float)gcAllocated.Average,
+                gcAllocatedPeakBytes = (long)gcAllocated.Maximum,
+                gcAllocationCountAverage = (float)gcAllocationCount.Average,
+                totalUsedMemoryAvailable = totalUsedMemory.Count > 0,
+                gfxUsedMemoryAvailable = gfxUsedMemory.Count > 0,
+                textureMemoryAvailable = textureMemory.Count > 0,
+                totalUsedMemoryAverageMb = BytesToMegabytes(totalUsedMemory.Average),
+                totalUsedMemoryPeakMb = BytesToMegabytes(totalUsedMemory.Maximum),
+                gfxUsedMemoryAverageMb = BytesToMegabytes(gfxUsedMemory.Average),
+                gfxUsedMemoryPeakMb = BytesToMegabytes(gfxUsedMemory.Maximum),
+                textureMemoryAverageMb = BytesToMegabytes(textureMemory.Average),
+                textureMemoryPeakMb = BytesToMegabytes(textureMemory.Maximum),
                 ignoredStartupStallFrames = ignoredStartupStallFrames,
             };
             result.avgFps = result.avgMs > 0.0001f ? 1000f / result.avgMs : 0f;
-            if (statSamples > 0)
-            {
-                result.batches = (float)(batches / statSamples);
-                result.setPassCalls = (float)(setPass / statSamples);
-                result.triangleMillions = (float)(triangles / statSamples / 1_000_000d);
-                result.vertexMillions = (float)(vertices / statSamples / 1_000_000d);
-            }
+            result.onePercentLowFps = result.p99Ms > 0.0001f ? 1000f / result.p99Ms : 0f;
+            result.bottleneck = ClassifyBottleneck(result);
+            EvaluateBudget(result);
 
             report.scenarios.Add(result);
             Debug.Log(
                 $"[ForestBenchmark] {phase}/{name}: {result.avgFps:F1} fps avg, {result.avgMs:F1} ms avg, " +
-                $"{result.p95Ms:F1} ms p95, {result.triangleMillions:F2}M tris, {result.batches:F0} batches, " +
-                $"{result.ignoredStartupStallFrames} startup stalls ignored");
+                $"{result.p95Ms:F1} ms p95, CPU {result.cpuTotalAvgMs:F1} ms, GPU {result.gpuAvgMs:F1} ms, " +
+                $"{result.bottleneck}, budget {result.budgetStatus}");
         }
 
         private void MoveCamera(float normalizedTime)
@@ -286,6 +492,120 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             var position = new Vector3(Mathf.Cos(angle) * 30f, 2.2f, Mathf.Sin(angle) * 30f);
             _camera.transform.position = position;
             _camera.transform.LookAt(new Vector3(0f, 6f, 0f));
+        }
+
+        private void CacheDiagnosticLayers()
+        {
+            _groundLayer = FindByName("NeutralForestGround");
+            _sunLayer = FindByName("Sun_KeyLight");
+            _atmosphereLayer = FindByName("Volume_ForestAtmosphere");
+            _nearLayer = FindByName("MatureConiferPhase1_Near_10");
+            _midLayer = FindByName("MatureConiferPhase1_Mid_50");
+            _farLayer = FindByName("MatureConiferPhase1_Far_300");
+            _accentLayer = FindByName("Phase1_BroadleafAccent_24");
+
+            RememberLayer(_groundLayer);
+            RememberLayer(_sunLayer);
+            RememberLayer(_atmosphereLayer);
+            RememberLayer(_nearLayer);
+            RememberLayer(_midLayer);
+            RememberLayer(_farLayer);
+            RememberLayer(_accentLayer);
+
+            if (HasDiagnosticLayerSet())
+            {
+                _conifers.Clear();
+                AddDirectChildren(_nearLayer, _conifers);
+                AddDirectChildren(_midLayer, _conifers);
+            }
+        }
+
+        private bool HasDiagnosticLayerSet()
+        {
+            return _groundLayer != null &&
+                   _sunLayer != null &&
+                   _atmosphereLayer != null &&
+                   _nearLayer != null &&
+                   _midLayer != null &&
+                   _farLayer != null;
+        }
+
+        private void ApplyLayerIsolation(
+            bool ground,
+            bool sun,
+            bool atmosphere,
+            bool near,
+            bool mid,
+            bool far,
+            bool accent)
+        {
+            RestoreDiagnosticLayers();
+            SetLayer(_groundLayer, ground);
+            SetLayer(_sunLayer, sun);
+            SetLayer(_atmosphereLayer, atmosphere);
+            SetLayer(_nearLayer, near);
+            SetLayer(_midLayer, mid);
+            SetLayer(_farLayer, far);
+            SetLayer(_accentLayer, accent);
+        }
+
+        private void ApplyFullWithoutAtmosphere()
+        {
+            RestoreDiagnosticLayers();
+            SetLayer(_atmosphereLayer, false);
+        }
+
+        private void RestoreDiagnosticLayers()
+        {
+            foreach (KeyValuePair<GameObject, bool> pair in _diagnosticLayerStates)
+            {
+                if (pair.Key != null)
+                {
+                    pair.Key.SetActive(pair.Value);
+                }
+            }
+        }
+
+        private void RememberLayer(GameObject layer)
+        {
+            if (layer != null && !_diagnosticLayerStates.ContainsKey(layer))
+            {
+                _diagnosticLayerStates.Add(layer, layer.activeSelf);
+            }
+        }
+
+        private static void SetLayer(GameObject layer, bool active)
+        {
+            if (layer != null)
+            {
+                layer.SetActive(active);
+            }
+        }
+
+        private static GameObject FindByName(string objectName)
+        {
+            foreach (Transform candidate in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (candidate.name == objectName)
+                {
+                    return candidate.gameObject;
+                }
+            }
+
+            return null;
+        }
+
+        private static void AddDirectChildren(GameObject parent, ICollection<GameObject> output)
+        {
+            if (parent == null)
+            {
+                return;
+            }
+
+            foreach (Transform child in parent.transform)
+            {
+                output.Add(child.gameObject);
+            }
         }
 
         private void Update()
@@ -331,7 +651,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             }
         }
 
-        private void ApplyShadowDistance60()
+        private void ApplyShadowDistance30()
         {
             _shadowVolume = new GameObject("ForestBenchmarkShadowVolume");
             var volume = _shadowVolume.AddComponent<Volume>();
@@ -340,7 +660,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             VolumeProfile profile = ScriptableObject.CreateInstance<VolumeProfile>();
             var shadows = profile.Add<HDShadowSettings>(true);
             shadows.maxShadowDistance.overrideState = true;
-            shadows.maxShadowDistance.value = 60f;
+            shadows.maxShadowDistance.value = 30f;
             volume.profile = profile;
         }
 
@@ -366,6 +686,15 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
         private void ApplyTreesHidden()
         {
+            if (HasDiagnosticLayerSet())
+            {
+                SetLayer(_nearLayer, false);
+                SetLayer(_midLayer, false);
+                SetLayer(_farLayer, false);
+                SetLayer(_accentLayer, false);
+                return;
+            }
+
             for (int index = 0; index < _conifers.Count; index++)
             {
                 _conifers[index].SetActive(false);
@@ -374,6 +703,11 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
         private void RevertTreeVisibility()
         {
+            if (HasDiagnosticLayerSet())
+            {
+                RestoreDiagnosticLayers();
+            }
+
             for (int index = 0; index < _conifers.Count; index++)
             {
                 _conifers[index].SetActive(true);
@@ -492,7 +826,124 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 return settings.maxShadowDistance.value;
             }
 
+            foreach (Volume volume in FindObjectsByType<Volume>(
+                         FindObjectsInactive.Include,
+                         FindObjectsSortMode.None))
+            {
+                VolumeProfile profile = volume.profile;
+                if (profile != null && profile.TryGet(out settings))
+                {
+                    return settings.maxShadowDistance.value;
+                }
+            }
+
             return -1f;
+        }
+
+        private static float Average(IReadOnlyList<float> values, int divisor)
+        {
+            double total = 0d;
+            for (int index = 0; index < values.Count; index++)
+            {
+                total += values[index];
+            }
+
+            return (float)(total / Mathf.Max(1, divisor));
+        }
+
+        private static float Percentile(IReadOnlyList<float> sortedValues, float percentile)
+        {
+            if (sortedValues.Count == 0)
+            {
+                return 0f;
+            }
+
+            int index = Mathf.Clamp(
+                Mathf.CeilToInt(sortedValues.Count * percentile) - 1,
+                0,
+                sortedValues.Count - 1);
+            return sortedValues[index];
+        }
+
+        private static float BytesToMegabytes(double bytes)
+        {
+            return (float)(bytes / (1024d * 1024d));
+        }
+
+        private static string ClassifyBottleneck(ScenarioResult result)
+        {
+            float cpu = Mathf.Max(result.cpuMainThreadWorkAvgMs, result.cpuRenderThreadAvgMs);
+            float gpu = result.gpuAvgMs;
+            if (cpu <= 0f && gpu <= 0f)
+            {
+                return "UNKNOWN_TIMING_UNAVAILABLE";
+            }
+
+            if (gpu > 0f && gpu >= cpu * 1.15f)
+            {
+                return result.cpuMainThreadPresentWaitAvgMs > result.cpuMainThreadWorkAvgMs
+                    ? "GPU_OR_PRESENT_BOUND"
+                    : "GPU_BOUND";
+            }
+
+            if (cpu > 0f && (gpu <= 0f || cpu >= gpu * 1.15f))
+            {
+                return result.cpuRenderThreadAvgMs >= result.cpuMainThreadAvgMs * 0.85f
+                    ? "CPU_RENDER_BOUND"
+                    : "CPU_MAIN_BOUND";
+            }
+
+            return "MIXED_CPU_GPU";
+        }
+
+        private static void EvaluateBudget(ScenarioResult result)
+        {
+            bool frameTimePass = ProductionForestPerformancePolicy.MeetsFrameTimeBudget(
+                result.avgFps,
+                result.p95Ms,
+                result.p99Ms);
+            bool allocationPass = ProductionForestPerformancePolicy.MeetsAllocationBudget(
+                result.gcAllocationAvailable,
+                result.gcAllocatedPeakBytes);
+
+            var failures = new List<string>(4);
+            if (result.avgFps < ProductionForestPerformancePolicy.MinimumPlayableFps)
+            {
+                failures.Add("average FPS below 60");
+            }
+
+            if (result.p95Ms > ProductionForestPerformancePolicy.P95FrameBudgetMilliseconds)
+            {
+                failures.Add("p95 above 20 ms");
+            }
+
+            if (result.p99Ms > ProductionForestPerformancePolicy.P99FrameBudgetMilliseconds)
+            {
+                failures.Add("p99 above 25 ms");
+            }
+
+            if (!result.gcAllocationAvailable)
+            {
+                failures.Add("GC counter unavailable");
+            }
+            else if (!allocationPass)
+            {
+                failures.Add("steady-state GC allocation detected");
+            }
+
+            result.budgetFailure = failures.Count == 0 ? string.Empty : string.Join("; ", failures);
+            if (frameTimePass && allocationPass)
+            {
+                result.budgetStatus = "PASS";
+            }
+            else if (frameTimePass && !result.gcAllocationAvailable)
+            {
+                result.budgetStatus = "INCOMPLETE";
+            }
+            else
+            {
+                result.budgetStatus = "FAIL";
+            }
         }
 
         private void WriteReport(Report report)
@@ -509,18 +960,45 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             markdown.AppendLine($"# Forest benchmark - phase `{report.phase}`");
             markdown.AppendLine();
             markdown.AppendLine($"- Created (UTC): {report.createdUtc}");
+            markdown.AppendLine($"- Schema: {report.schemaVersion}");
+            markdown.AppendLine($"- Unity/platform: {report.unityVersion} / {report.platform}");
+            markdown.AppendLine($"- OS: {report.operatingSystem}");
+            markdown.AppendLine($"- CPU: {report.processorType} ({report.processorCount} logical cores, {report.processorFrequencyMhz} MHz)");
+            markdown.AppendLine($"- GPU: {report.graphicsDeviceName} ({report.graphicsDeviceType}, {report.graphicsMemoryMb} MB)");
+            markdown.AppendLine($"- Render pipeline: {report.renderPipeline}; quality: {report.qualityLevel}; resolution: {report.width}x{report.height}");
+            markdown.AppendLine($"- Run in background: {report.runInBackground}");
+            markdown.AppendLine($"- Frame timing feature enabled: {report.frameTimingFeatureEnabled}");
             markdown.AppendLine($"- Shadow distance at start: {report.shadowDistanceAtStart.ToString("F0", CultureInfo.InvariantCulture)} m");
+            markdown.AppendLine($"- Gate: >= {report.minimumPlayableFps} FPS, p95 <= {Format(report.p95BudgetMilliseconds, 1)} ms, p99 <= {Format(report.p99BudgetMilliseconds, 1)} ms, GC allocation <= {report.maximumGcAllocationBytesPerFrame} B/frame");
             markdown.AppendLine();
-            markdown.AppendLine("| Scenario | Avg FPS | Avg ms | Median ms | p95 ms | Batches | SetPass | Tris (M) | Verts (M) | Ignored startup stalls |");
-            markdown.AppendLine("|---|---|---|---|---|---|---|---|---|---|");
+            markdown.AppendLine("| Scenario | Gate | Avg FPS | 1% low | Avg ms | p95 | p99 | CPU avg | Main work | Present wait | Render avg | GPU avg | Bottleneck | GC peak B | Draws | Batches | SetPass | Tris M |");
+            markdown.AppendLine("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|");
             foreach (ScenarioResult scenario in report.scenarios)
             {
                 markdown.AppendLine(
-                    $"| {scenario.name} | {Format(scenario.avgFps, 1)} | {Format(scenario.avgMs, 2)} | " +
-                    $"{Format(scenario.medianMs, 2)} | {Format(scenario.p95Ms, 2)} | " +
-                    $"{Format(scenario.batches, 0)} | {Format(scenario.setPassCalls, 0)} | " +
-                    $"{Format(scenario.triangleMillions, 2)} | {Format(scenario.vertexMillions, 2)} | " +
-                    $"{scenario.ignoredStartupStallFrames} |");
+                    $"| {scenario.name} | {scenario.budgetStatus} | {Format(scenario.avgFps, 1)} | " +
+                    $"{Format(scenario.onePercentLowFps, 1)} | {Format(scenario.avgMs, 2)} | " +
+                    $"{Format(scenario.p95Ms, 2)} | {Format(scenario.p99Ms, 2)} | " +
+                    $"{FormatTiming(scenario.cpuTotalAvgMs)} | {FormatTiming(scenario.cpuMainThreadWorkAvgMs)} | " +
+                    $"{FormatTiming(scenario.cpuMainThreadPresentWaitAvgMs)} | " +
+                    $"{FormatTiming(scenario.cpuRenderThreadAvgMs)} | {FormatTiming(scenario.gpuAvgMs)} | " +
+                    $"{scenario.bottleneck} | {FormatAvailable(scenario.gcAllocationAvailable, scenario.gcAllocatedPeakBytes, 0)} | " +
+                    $"{FormatAvailable(scenario.drawCallsAvailable, scenario.drawCalls, 0)} | " +
+                    $"{FormatAvailable(scenario.batchesAvailable, scenario.batches, 0)} | " +
+                    $"{FormatAvailable(scenario.setPassCallsAvailable, scenario.setPassCalls, 0)} | " +
+                    $"{FormatAvailable(scenario.trianglesAvailable, scenario.triangleMillions, 3)} |");
+            }
+
+            markdown.AppendLine();
+            markdown.AppendLine("| Scenario | Used memory avg/peak MB | Gfx memory avg/peak MB | Texture memory avg/peak MB | Timing samples | Ignored startup stalls | Failure reason |");
+            markdown.AppendLine("|---|---:|---:|---:|---:|---:|---|");
+            foreach (ScenarioResult scenario in report.scenarios)
+            {
+                markdown.AppendLine(
+                    $"| {scenario.name} | {FormatPair(scenario.totalUsedMemoryAvailable, scenario.totalUsedMemoryAverageMb, scenario.totalUsedMemoryPeakMb)} | " +
+                    $"{FormatPair(scenario.gfxUsedMemoryAvailable, scenario.gfxUsedMemoryAverageMb, scenario.gfxUsedMemoryPeakMb)} | " +
+                    $"{FormatPair(scenario.textureMemoryAvailable, scenario.textureMemoryAverageMb, scenario.textureMemoryPeakMb)} | " +
+                    $"{scenario.timingSamples} | {scenario.ignoredStartupStallFrames} | {scenario.budgetFailure} |");
             }
 
             File.WriteAllText(Path.Combine(directory, $"forest_benchmark_{report.phase}.md"), markdown.ToString());
@@ -532,8 +1010,29 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             return value.ToString("F" + decimalPlaces, CultureInfo.InvariantCulture);
         }
 
+        private static string FormatTiming(float milliseconds)
+        {
+            return milliseconds > 0f ? Format(milliseconds, 2) : "n/a";
+        }
+
+        private static string FormatAvailable(bool available, double value, int decimalPlaces)
+        {
+            return available
+                ? value.ToString("F" + decimalPlaces, CultureInfo.InvariantCulture)
+                : "n/a";
+        }
+
+        private static string FormatPair(bool available, float average, float peak)
+        {
+            return available ? $"{Format(average, 1)} / {Format(peak, 1)}" : "n/a";
+        }
+
         private void OnDestroy()
         {
+            RestoreDiagnosticLayers();
+            _runtimeSampler?.Dispose();
+            _runtimeSampler = null;
+            UnityEngine.Application.runInBackground = _previousRunInBackground;
             foreach (GameObject cameraObject in _disabledCameras)
             {
                 if (cameraObject != null)
@@ -544,6 +1043,50 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                         restored.enabled = true;
                     }
                 }
+            }
+        }
+
+        private sealed class MetricAccumulator
+        {
+            private readonly List<double> _values = new List<double>(1024);
+            private double _sum;
+            private bool _sorted;
+
+            public int Count => _values.Count;
+            public double Average => Count > 0 ? _sum / Count : 0d;
+            public double Maximum { get; private set; }
+
+            public void AddIfAvailable(bool available, double value)
+            {
+                if (!available)
+                {
+                    return;
+                }
+
+                _values.Add(value);
+                _sum += value;
+                Maximum = Count == 1 ? value : Math.Max(Maximum, value);
+                _sorted = false;
+            }
+
+            public double Percentile(float percentile)
+            {
+                if (Count == 0)
+                {
+                    return 0d;
+                }
+
+                if (!_sorted)
+                {
+                    _values.Sort();
+                    _sorted = true;
+                }
+
+                int index = Mathf.Clamp(
+                    Mathf.CeilToInt(Count * percentile) - 1,
+                    0,
+                    Count - 1);
+                return _values[index];
             }
         }
     }

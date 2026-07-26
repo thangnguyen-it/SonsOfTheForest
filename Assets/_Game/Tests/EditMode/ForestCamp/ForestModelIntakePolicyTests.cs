@@ -30,6 +30,10 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             "Assets/_Game/Infrastructure/Benchmark/ForestBenchmarkRunner.cs";
         private const string ProductionForestDocPath =
             "Assets/_Docs/Research/R2_PRODUCTION_FOREST_RENDERER.md";
+        private const string RuntimePerformanceSamplerPath =
+            "Assets/_Game/Infrastructure/Benchmark/RuntimePerformanceSampler.cs";
+        private const string PerformanceBaselineDocPath =
+            "Assets/_Docs/Research/R2_PERF0_PRODUCTION_PERFORMANCE_BASELINE.md";
 
         private const long PreferredNearHeroLod0Budget = 120_000L;
         private const long HardNearExceptionalLimit = 200_000L;
@@ -179,6 +183,7 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             string renderer = File.ReadAllText(ProductionForestRendererPath);
             string policy = File.ReadAllText(ProductionForestPolicyPath);
             string runner = File.ReadAllText(ForestBenchmarkRunnerPath);
+            string sampler = File.ReadAllText(RuntimePerformanceSamplerPath);
             string builder = File.ReadAllText(Phase1TrialBuilderPath);
             string doc = File.ReadAllText(ProductionForestDocPath);
 
@@ -187,6 +192,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(renderer, Does.Contain("enableInstancing = true"));
             Assert.That(renderer, Does.Contain("ShadowCastingMode"));
             Assert.That(policy, Does.Contain("MinimumPlayableFps = 60"));
+            Assert.That(policy, Does.Contain("P95FrameBudgetMilliseconds = 20f"));
+            Assert.That(policy, Does.Contain("P99FrameBudgetMilliseconds = 25f"));
+            Assert.That(policy, Does.Contain("MaximumSteadyStateGcAllocationBytesPerFrame = 0L"));
             Assert.That(policy, Does.Contain("FarInstancedTreeCount = 300"));
             Assert.That(policy, Does.Contain("BenchmarkShadowDistanceMeters = 65f"));
             Assert.That(policy, Does.Contain("FarShadowCastingMode = ShadowCastingMode.Off"));
@@ -194,13 +202,55 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(builder, Does.Contain("BuildTarget.StandaloneWindows64"));
             Assert.That(builder, Does.Contain("BuildOptions.AutoRunPlayer"));
             Assert.That(builder, Does.Contain("ForestBenchmarkRunner"));
+            Assert.That(builder, Does.Contain("PlayerSettings.enableFrameTimingStats = true"));
+            Assert.That(
+                File.ReadAllText("ProjectSettings/ProjectSettings.asset"),
+                Does.Contain("enableFrameTimingStats: 1"));
             Assert.That(runner, Does.Contain("minimumWarmupFrames"));
             Assert.That(runner, Does.Contain("ignoredStartupStallFrames"));
             Assert.That(runner, Does.Contain("startupStallFrameThresholdMs"));
+            Assert.That(runner, Does.Contain("empty_hdrp_camera"));
+            Assert.That(runner, Does.Contain("lighting_volume_only"));
+            Assert.That(runner, Does.Contain("ground_only"));
+            Assert.That(runner, Does.Contain("near_10_only"));
+            Assert.That(runner, Does.Contain("mid_50_only"));
+            Assert.That(runner, Does.Contain("far_300_instanced_only"));
+            Assert.That(runner, Does.Contain("broadleaf_24_only"));
+            Assert.That(runner, Does.Contain("full_without_atmosphere"));
+            Assert.That(runner, Does.Contain("empty_hdrp_camera_repeat"));
+            Assert.That(runner, Does.Contain("baseline_orbit_repeat"));
+            Assert.That(runner, Does.Contain("UnityEngine.Application.runInBackground = true"));
+            Assert.That(runner, Does.Contain("cpuMainThreadPresentWait"));
+            Assert.That(runner, Does.Contain("p99Ms"));
+            Assert.That(runner, Does.Contain("budgetStatus"));
+            Assert.That(sampler, Does.Contain("FrameTimingManager.CaptureFrameTimings"));
+            Assert.That(sampler, Does.Contain("CPU Main Thread Frame Time"));
+            Assert.That(sampler, Does.Contain("GPU Frame Time"));
+            Assert.That(sampler, Does.Contain("GC Allocated In Frame"));
+            Assert.That(sampler, Does.Contain("Draw Calls Count"));
+            Assert.That(sampler, Does.Contain("Total Used Memory"));
             Assert.That(doc, Does.Contain("not render the whole forest as normal tree prefabs"));
             Assert.That(doc, Does.Contain("near-only realtime tree shadows"));
             Assert.That(doc, Does.Contain("FAIL"));
             Assert.That(doc, Does.Contain("not approved for gameplay-scene promotion yet"));
+        }
+
+        [Test]
+        public void Perf0Baseline_RecordsEvidenceBudgetsAndNextDecisionGate()
+        {
+            string baseline = File.ReadAllText(PerformanceBaselineDocPath);
+
+            Assert.That(baseline, Does.Contain("R2-PERF0"));
+            Assert.That(baseline, Does.Contain("VERIFIED"));
+            Assert.That(baseline, Does.Contain("PROVISIONAL"));
+            Assert.That(baseline, Does.Contain("UNKNOWN"));
+            Assert.That(baseline, Does.Contain("16.67 ms"));
+            Assert.That(baseline, Does.Contain("p95 <= 20 ms"));
+            Assert.That(baseline, Does.Contain("p99 <= 25 ms"));
+            Assert.That(baseline, Does.Contain("0 B/frame"));
+            Assert.That(baseline, Does.Contain("empty_hdrp_camera"));
+            Assert.That(baseline, Does.Contain("far_300_instanced_only"));
+            Assert.That(baseline, Does.Contain("No new forest model is promoted"));
         }
 
         [Test]
