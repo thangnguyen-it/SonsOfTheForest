@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using SonsOfTheForest.Infrastructure.Benchmark;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -32,8 +34,12 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
         public const string RuntimeBenchmarkPhase = "sotf_forest_phase1_local";
 
         private const string ReportDirectory = "Benchmarks";
-        private const string StandaloneBuildDirectory = "Builds/Benchmarks/SOTF_ForestPhase1";
-        private const string StandaloneBenchmarkExecutable = "SOTF_ForestPhase1Benchmark.exe";
+        private const string DiagnosticBuildDirectory =
+            "Builds/Benchmarks/R2_PERF1_Diagnostic";
+        private const string ReleaseBuildDirectory =
+            "Builds/Benchmarks/R2_PERF1_Release";
+        private const string DiagnosticBenchmarkExecutable = "SOTF_R2_PERF1_Diagnostic.exe";
+        private const string ReleaseBenchmarkExecutable = "SOTF_R2_PERF1.exe";
         private const float MatureConiferMinHeight = 24f;
         private const float MatureConiferMaxHeight = 35f;
         private const float FirFillMinHeight = 16f;
@@ -62,6 +68,12 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             public Mesh Mesh;
             public Material[] Materials;
             public float SourceHeight;
+        }
+
+        private enum BenchmarkBuildKind
+        {
+            Diagnostic,
+            Release,
         }
 
         private static readonly SourcePack[] Sources =
@@ -259,29 +271,73 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
         [MenuItem("Sons Of The Forest/Forest Models/SOTF Phase 1 Local Trial/Build Standalone Benchmark Player")]
         public static void BuildStandaloneBenchmarkPlayer()
         {
-            BuildStandaloneBenchmarkPlayer(false);
+            BuildStandaloneBenchmarkPlayer(BenchmarkBuildKind.Diagnostic, false);
         }
 
         [MenuItem("Sons Of The Forest/Forest Models/SOTF Phase 1 Local Trial/Build And Run Standalone Benchmark Player")]
         public static void BuildAndRunStandaloneBenchmarkPlayer()
         {
-            BuildStandaloneBenchmarkPlayer(true);
+            BuildStandaloneBenchmarkPlayer(BenchmarkBuildKind.Diagnostic, true);
         }
 
-        private static void BuildStandaloneBenchmarkPlayer(bool autoRun)
+        [MenuItem("Sons Of The Forest/Performance/R2-PERF1/Build Diagnostic Player")]
+        public static void BuildR2Perf1DiagnosticPlayer()
         {
+            BuildStandaloneBenchmarkPlayer(BenchmarkBuildKind.Diagnostic, false);
+        }
+
+        [MenuItem("Sons Of The Forest/Performance/R2-PERF1/Build Release Player")]
+        public static void BuildR2Perf1ReleasePlayer()
+        {
+            BuildStandaloneBenchmarkPlayer(BenchmarkBuildKind.Release, false);
+        }
+
+        private static void BuildStandaloneBenchmarkPlayer(
+            BenchmarkBuildKind buildKind,
+            bool autoRun)
+        {
+            if (buildKind == BenchmarkBuildKind.Release && autoRun)
+            {
+                throw new InvalidOperationException(
+                    "R2-PERF1 Release builds must never auto-run from the builder.");
+            }
+
             EnsureSourcesAvailable();
-            BuildVisualBenchmarkSceneInternal(true);
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(BenchmarkScenePath) == null)
+            {
+                throw new InvalidOperationException(
+                    "The benchmark scene does not exist. Build it explicitly before creating " +
+                    "a standalone player; the standalone builder does not modify scenes.");
+            }
 
             string projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
-            string outputDirectory = Path.Combine(projectRoot, StandaloneBuildDirectory);
+            bool developmentBuild = buildKind == BenchmarkBuildKind.Diagnostic;
+            string relativeOutputDirectory = developmentBuild
+                ? DiagnosticBuildDirectory
+                : ReleaseBuildDirectory;
+            string executableName = developmentBuild
+                ? DiagnosticBenchmarkExecutable
+                : ReleaseBenchmarkExecutable;
+            string outputDirectory = Path.Combine(projectRoot, relativeOutputDirectory);
             Directory.CreateDirectory(outputDirectory);
-            string outputPath = Path.Combine(outputDirectory, StandaloneBenchmarkExecutable);
+            string outputPath = Path.Combine(outputDirectory, executableName);
 
-            BuildOptions options = BuildOptions.Development;
+            BuildOptions options = developmentBuild
+                ? BuildOptions.Development
+                : BuildOptions.None;
             if (autoRun)
             {
                 options |= BuildOptions.AutoRunPlayer;
+            }
+
+            if (buildKind == BenchmarkBuildKind.Release &&
+                (options & (BuildOptions.Development |
+                            BuildOptions.ConnectWithProfiler |
+                            BuildOptions.EnableDeepProfilingSupport |
+                            BuildOptions.AutoRunPlayer)) != 0)
+            {
+                throw new InvalidOperationException(
+                    "R2-PERF1 Release build options contain a forbidden diagnostic or auto-run flag.");
             }
 
             var buildOptions = new BuildPlayerOptions
@@ -293,7 +349,12 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             };
             PlayerSettings.enableFrameTimingStats = true;
             BuildReport report = BuildPipeline.BuildPlayer(buildOptions);
-            WriteStandaloneBuildReport(report, outputPath, autoRun);
+            WriteStandaloneBuildReport(
+                report,
+                outputPath,
+                autoRun,
+                developmentBuild ? "diagnostic" : "release",
+                options);
             if (report.summary.result != BuildResult.Succeeded)
             {
                 throw new InvalidOperationException(
@@ -894,10 +955,18 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
         private static void WriteStandaloneBuildReport(
             BuildReport report,
             string outputPath,
-            bool autoRun)
+            bool autoRun,
+            string buildKind,
+            BuildOptions requestedOptions)
         {
             string directory = AbsoluteReportDirectory();
             Directory.CreateDirectory(directory);
+            BuildOptions actualOptions = report.summary.options;
+            GraphicsDeviceType[] graphicsApis =
+                PlayerSettings.GetGraphicsAPIs(BuildTarget.StandaloneWindows64);
+            int architecture = PlayerSettings.GetArchitecture(NamedBuildTarget.Standalone);
+            bool executableExists = File.Exists(outputPath);
+            FileInfo executable = executableExists ? new FileInfo(outputPath) : null;
 
             var builder = new StringBuilder();
             builder.AppendLine("# SOTF Phase 1 standalone benchmark build");
@@ -905,17 +974,62 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             builder.AppendLine("- Created UTC: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
             builder.AppendLine("- Output: `" + outputPath + "`");
             builder.AppendLine("- Scene: `" + BenchmarkScenePath + "`");
+            builder.AppendLine("- Build kind: " + buildKind);
+            builder.AppendLine("- Development build: " +
+                               string.Equals(buildKind, "diagnostic", StringComparison.Ordinal));
             builder.AppendLine("- Auto run: " + autoRun);
+            builder.AppendLine("- Requested build options: `" + requestedOptions + "`");
+            builder.AppendLine("- Actual build options: `" + actualOptions + "`");
+            builder.AppendLine("- Development flag active: " +
+                               ((actualOptions & BuildOptions.Development) != 0));
+            builder.AppendLine("- Auto Connect Profiler active: " +
+                               ((actualOptions & BuildOptions.ConnectWithProfiler) != 0));
+            builder.AppendLine("- Deep Profiling active: " +
+                               ((actualOptions & BuildOptions.EnableDeepProfilingSupport) != 0));
             builder.AppendLine("- Result: " + report.summary.result);
             builder.AppendLine("- Platform: " + report.summary.platform);
+            builder.AppendLine("- Architecture: x86_64 / StandaloneWindows64 (PlayerSettings value " +
+                               architecture + ")");
+            builder.AppendLine("- Graphics APIs: " + string.Join(", ", graphicsApis));
+            builder.AppendLine("- Build started UTC: " +
+                               report.summary.buildStartedAt.ToUniversalTime().ToString(
+                                   "O",
+                                   CultureInfo.InvariantCulture));
+            builder.AppendLine("- Build ended UTC: " +
+                               report.summary.buildEndedAt.ToUniversalTime().ToString(
+                                   "O",
+                                   CultureInfo.InvariantCulture));
             builder.AppendLine("- Total size bytes: " + report.summary.totalSize);
             builder.AppendLine("- Total time: " + report.summary.totalTime);
+            builder.AppendLine("- Total warnings: " + report.summary.totalWarnings);
+            builder.AppendLine("- Total errors: " + report.summary.totalErrors);
+            builder.AppendLine("- Executable exists: " + executableExists);
+            if (executable != null)
+            {
+                builder.AppendLine("- Executable size bytes: " + executable.Length);
+                builder.AppendLine("- Executable last write UTC: " +
+                                   executable.LastWriteTimeUtc.ToString(
+                                       "O",
+                                       CultureInfo.InvariantCulture));
+                builder.AppendLine("- Executable SHA-256: `" + ComputeSha256(outputPath) + "`");
+            }
+
             builder.AppendLine();
             builder.AppendLine("When this player runs, `ForestBenchmarkRunner` writes the FPS report next to the player data folder.");
 
             File.WriteAllText(
                 Path.Combine(directory, "sotf_phase1_standalone_build_report.md"),
                 builder.ToString());
+        }
+
+        private static string ComputeSha256(string path)
+        {
+            using (SHA256 sha256 = SHA256.Create())
+            using (FileStream stream = File.OpenRead(path))
+            {
+                return string.Concat(
+                    sha256.ComputeHash(stream).Select(value => value.ToString("x2")));
+            }
         }
 
         private static Bounds CalculateBounds(GameObject root)

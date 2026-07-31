@@ -7,6 +7,7 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.Profiling;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -97,6 +98,30 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public bool developmentBuild;
             public bool runInBackground;
             public bool frameTimingFeatureEnabled;
+            public string graphicsDriverVersion;
+            public string windowsPowerPlan;
+            public bool powerOnline;
+            public string windowsGraphicsPreference;
+            public int vSyncCount;
+            public int targetFrameRate;
+            public string fullScreenMode;
+            public string antialiasingMode;
+            public int renderScalePercent;
+            public string upscaler;
+            public bool dynamicResolutionEnabled;
+            public bool fullscreenEffectsEnabled;
+            public bool shadowsEnabled;
+            public bool profilerEnabled;
+            public bool profilerBinaryLogEnabled;
+            public bool deepProfilingBuild;
+            public string shaderWarmupProcedure;
+            public float shaderWarmupSeconds;
+            public string benchmarkRunId;
+            public string benchmarkScenario;
+            public string buildKind;
+            public bool screenshotRequested;
+            public bool measurementEligible;
+            public string screenshotPath;
             public int minimumPlayableFps;
             public float frameBudgetMilliseconds;
             public float p95BudgetMilliseconds;
@@ -104,6 +129,32 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public long maximumGcAllocationBytesPerFrame;
             public float shadowDistanceAtStart;
             public List<ScenarioResult> scenarios = new List<ScenarioResult>();
+        }
+
+        [Serializable]
+        public sealed class RunManifest
+        {
+            public string schemaVersion = "r2-perf1-manifest/1";
+            public string status;
+            public string statusReason;
+            public string createdUtc;
+            public string completedUtc;
+            public string runId;
+            public string phase;
+            public string scenario;
+            public string quality;
+            public string antialiasing;
+            public int renderScalePercent;
+            public string upscaler;
+            public string buildKind;
+            public bool developmentBuild;
+            public bool screenshotRequested;
+            public bool measurementEligible;
+            public bool reportWritten;
+            public bool runtimeStateRestored;
+            public string reportJsonPath;
+            public string reportMarkdownPath;
+            public string screenshotPath;
         }
 
         public string phase = "before";
@@ -130,6 +181,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         private LODGroup[] _lodGroups = Array.Empty<LODGroup>();
         private bool _farRingActive;
         private bool _walkthrough;
+        private bool _runnerStateRestored;
         private float _scenarioClock;
         private RuntimePerformanceSampler _runtimeSampler;
         private GameObject _groundLayer;
@@ -143,14 +195,21 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         private int _previousTargetFrameRate;
         private bool _previousRunInBackground;
 
+        private R2Perf1BenchmarkConfiguration.Settings _perf1;
+
         private void Start()
         {
-            _previousVSync = QualitySettings.vSyncCount;
-            _previousTargetFrameRate = UnityEngine.Application.targetFrameRate;
-            _previousRunInBackground = UnityEngine.Application.runInBackground;
-            QualitySettings.vSyncCount = 0;
-            UnityEngine.Application.targetFrameRate = -1;
-            UnityEngine.Application.runInBackground = true;
+            _perf1 = R2Perf1BenchmarkConfiguration.Current;
+            if (!_perf1.enabled)
+            {
+                _previousVSync = QualitySettings.vSyncCount;
+                _previousTargetFrameRate = UnityEngine.Application.targetFrameRate;
+                _previousRunInBackground = UnityEngine.Application.runInBackground;
+                QualitySettings.vSyncCount = 0;
+                UnityEngine.Application.targetFrameRate = -1;
+                UnityEngine.Application.runInBackground = true;
+            }
+
             _runtimeSampler = new RuntimePerformanceSampler();
 
             foreach (Camera existing in FindObjectsByType<Camera>(FindObjectsSortMode.None))
@@ -168,6 +227,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             _camera.fieldOfView = 60f;
             _camera.nearClipPlane = 0.1f;
             _camera.farClipPlane = 1000f;
+            R2Perf1BenchmarkConfiguration.ApplyCamera(_camera);
 
             foreach (Light light in FindObjectsByType<Light>(FindObjectsSortMode.None))
             {
@@ -186,6 +246,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 }
             }
 
+            R2Perf1BenchmarkConfiguration.ApplyScenePolicy();
             _lodGroups = FindObjectsByType<LODGroup>(FindObjectsSortMode.None);
             CacheDiagnosticLayers();
             StartCoroutine(Run());
@@ -193,11 +254,20 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
         private IEnumerator Run()
         {
+            if (_perf1.enabled)
+            {
+                phase = _perf1.Phase;
+                // The full-scene shader warm-up is handled once by RunPerf1.
+                // Scenario transitions only need a short stabilization window.
+                warmupSeconds = 1f;
+                sampleSeconds = _perf1.sampleSeconds;
+            }
+
             var report = new Report
             {
                 phase = phase,
                 createdUtc = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
-                schemaVersion = "r2-perf0/1",
+                schemaVersion = _perf1.enabled ? "r2-perf1/1" : "r2-perf0/1",
                 unityVersion = UnityEngine.Application.unityVersion,
                 platform = UnityEngine.Application.platform.ToString(),
                 operatingSystem = SystemInfo.operatingSystem,
@@ -220,6 +290,33 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 developmentBuild = Debug.isDebugBuild,
                 runInBackground = UnityEngine.Application.runInBackground,
                 frameTimingFeatureEnabled = _runtimeSampler.FrameTimingFeatureEnabled,
+                graphicsDriverVersion = _perf1.enabled ? _perf1.driverVersion : "UNKNOWN",
+                windowsPowerPlan = _perf1.enabled ? _perf1.powerPlan : "UNKNOWN",
+                powerOnline = _perf1.enabled && _perf1.powerOnline,
+                windowsGraphicsPreference = _perf1.enabled
+                    ? _perf1.windowsGraphicsPreference
+                    : "UNKNOWN",
+                vSyncCount = QualitySettings.vSyncCount,
+                targetFrameRate = UnityEngine.Application.targetFrameRate,
+                fullScreenMode = Screen.fullScreenMode.ToString(),
+                antialiasingMode = _perf1.enabled ? _perf1.antialiasing : "UNRECORDED",
+                renderScalePercent = _perf1.enabled ? _perf1.renderScalePercent : 100,
+                upscaler = _perf1.enabled ? _perf1.upscaler : "UNRECORDED",
+                dynamicResolutionEnabled = _perf1.enabled && _perf1.renderScalePercent < 100,
+                fullscreenEffectsEnabled = !_perf1.enabled || _perf1.fullscreenEffects,
+                shadowsEnabled = !_perf1.enabled || _perf1.shadows,
+                profilerEnabled = Profiler.enabled,
+                profilerBinaryLogEnabled = Profiler.enableBinaryLog,
+                deepProfilingBuild = false,
+                shaderWarmupProcedure = _perf1.enabled
+                    ? "Fixed full-forest camera; natural shader variant warm-up"
+                    : "Per-scenario timed warm-up",
+                shaderWarmupSeconds = _perf1.enabled ? _perf1.warmupSeconds : warmupSeconds,
+                benchmarkRunId = _perf1.enabled ? _perf1.runId : "legacy",
+                benchmarkScenario = _perf1.enabled ? _perf1.scenario : "legacy-multi-scenario",
+                buildKind = _perf1.enabled ? _perf1.buildKind : "legacy",
+                screenshotRequested = _perf1.enabled && _perf1.CaptureScreenshot,
+                measurementEligible = !_perf1.enabled || _perf1.MeasurementEligible,
                 minimumPlayableFps = ProductionForestPerformancePolicy.MinimumPlayableFps,
                 frameBudgetMilliseconds = ProductionForestPerformancePolicy.FrameBudgetMilliseconds,
                 p95BudgetMilliseconds = ProductionForestPerformancePolicy.P95FrameBudgetMilliseconds,
@@ -228,6 +325,12 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                     ProductionForestPerformancePolicy.MaximumSteadyStateGcAllocationBytesPerFrame,
                 shadowDistanceAtStart = ReadShadowDistance(),
             };
+
+            if (_perf1.enabled)
+            {
+                yield return RunPerf1(report);
+                yield break;
+            }
 
             yield return SampleScenario(report, "baseline_orbit", null, null);
 
@@ -314,9 +417,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             yield return SampleScenario(report, "baseline_orbit_repeat", null, null);
 
             WriteReport(report);
-            QualitySettings.vSyncCount = _previousVSync;
-            UnityEngine.Application.targetFrameRate = _previousTargetFrameRate;
-            UnityEngine.Application.runInBackground = _previousRunInBackground;
+            RestoreRunnerState();
 #if UNITY_EDITOR
             EditorApplication.isPlaying = false;
 #else
@@ -324,24 +425,171 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 #endif
         }
 
+        private IEnumerator RunPerf1(Report report)
+        {
+            string directory = ReportDirectory();
+            Directory.CreateDirectory(directory);
+            string reportJsonPath = ReportJsonPath(report.phase);
+            string reportMarkdownPath = ReportMarkdownPath(report.phase);
+            string manifestPath = ManifestPath(report.phase);
+            var manifest = new RunManifest
+            {
+                status = R2Perf1BenchmarkConfiguration.ManifestIncomplete,
+                statusReason = "process_has_not_completed",
+                createdUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                runId = _perf1.runId,
+                phase = report.phase,
+                scenario = _perf1.scenario,
+                quality = _perf1.quality,
+                antialiasing = _perf1.antialiasing,
+                renderScalePercent = _perf1.renderScalePercent,
+                upscaler = _perf1.upscaler,
+                buildKind = _perf1.buildKind,
+                developmentBuild = Debug.isDebugBuild,
+                screenshotRequested = _perf1.CaptureScreenshot,
+                measurementEligible = _perf1.MeasurementEligible,
+                reportJsonPath = reportJsonPath,
+                reportMarkdownPath = reportMarkdownPath,
+            };
+            WriteManifest(manifestPath, manifest);
+
+            bool completedNormally = false;
+            try
+            {
+                RestoreDiagnosticLayers();
+                PositionFixedQualityCamera();
+
+                float warmupClock = 0f;
+                int warmupFrames = 0;
+                while (warmupClock < _perf1.warmupSeconds || warmupFrames < 120)
+                {
+                    warmupClock += Time.unscaledDeltaTime;
+                    warmupFrames++;
+                    _runtimeSampler.CaptureFrameTiming();
+                    yield return null;
+                }
+
+                if (_perf1.CaptureScreenshot)
+                {
+                    string screenshotDirectory = Path.Combine(directory, "screenshots");
+                    Directory.CreateDirectory(screenshotDirectory);
+                    string screenshotPath = Path.Combine(screenshotDirectory, phase + ".png");
+                    report.screenshotPath = screenshotPath;
+                    manifest.screenshotPath = screenshotPath;
+                    ScreenCapture.CaptureScreenshot(screenshotPath, 1);
+                    yield return new WaitForEndOfFrame();
+                    float screenshotWaitClock = 0f;
+                    while (!File.Exists(screenshotPath) && screenshotWaitClock < 5f)
+                    {
+                        screenshotWaitClock += Time.unscaledDeltaTime;
+                        yield return null;
+                    }
+                }
+                else
+                {
+                    yield return RunSelectedPerf1Scenario(report);
+                }
+
+                WriteReport(report);
+                manifest.reportWritten = VerifyRuntimeOutputs(report, manifest);
+                if (!manifest.reportWritten)
+                {
+                    throw new InvalidDataException(
+                        "R2-PERF1 report output did not pass runtime verification.");
+                }
+
+                completedNormally = true;
+            }
+            finally
+            {
+                RestoreRunnerState();
+                manifest.runtimeStateRestored =
+                    R2Perf1BenchmarkConfiguration.RestoreRuntimeState();
+                manifest.completedUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+                if (completedNormally && manifest.runtimeStateRestored)
+                {
+                    manifest.status = R2Perf1BenchmarkConfiguration.ManifestAwaitingValidation;
+                    manifest.statusReason = "process_completed_outputs_require_offline_validation";
+                }
+                else
+                {
+                    manifest.status = R2Perf1BenchmarkConfiguration.ManifestInvalid;
+                    manifest.statusReason = completedNormally
+                        ? "runtime_state_restore_failed"
+                        : "runtime_did_not_complete_normally";
+                }
+
+                WriteManifest(manifestPath, manifest);
+            }
+
+#if UNITY_EDITOR
+            EditorApplication.isPlaying = false;
+#else
+            UnityEngine.Application.Quit();
+#endif
+        }
+
+        private IEnumerator RunSelectedPerf1Scenario(Report report)
+        {
+            switch (_perf1.scenario)
+            {
+                case R2Perf1BenchmarkConfiguration.EmptyScenario:
+                    yield return SampleScenario(
+                        report,
+                        R2Perf1BenchmarkConfiguration.EmptyScenario,
+                        () => ApplyLayerIsolation(false, false, false, false, false, false, false),
+                        RestoreDiagnosticLayers);
+                    break;
+                case R2Perf1BenchmarkConfiguration.GroundScenario:
+                    yield return SampleScenario(
+                        report,
+                        R2Perf1BenchmarkConfiguration.GroundScenario,
+                        () => ApplyLayerIsolation(true, true, true, false, false, false, false),
+                        RestoreDiagnosticLayers);
+                    break;
+                case R2Perf1BenchmarkConfiguration.FullForestScenario:
+                    yield return SampleScenario(
+                        report,
+                        R2Perf1BenchmarkConfiguration.FullForestScenario,
+                        null,
+                        null);
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        "Unsupported R2-PERF1 scenario: " + _perf1.scenario);
+            }
+        }
+
+        private void PositionFixedQualityCamera()
+        {
+            if (_camera == null)
+            {
+                return;
+            }
+
+            _camera.transform.position = new Vector3(30f, 4.5f, -42f);
+            _camera.transform.LookAt(new Vector3(0f, 8f, 18f));
+        }
+
         private IEnumerator SampleScenario(Report report, string name, Action apply, Action revert)
         {
-            var frameTimes = new List<float>(1024);
-            var cpuTotal = new MetricAccumulator();
-            var cpuMain = new MetricAccumulator();
-            var cpuPresentWait = new MetricAccumulator();
-            var cpuRender = new MetricAccumulator();
-            var gpu = new MetricAccumulator();
-            var drawCalls = new MetricAccumulator();
-            var batches = new MetricAccumulator();
-            var setPassCalls = new MetricAccumulator();
-            var triangles = new MetricAccumulator();
-            var vertices = new MetricAccumulator();
-            var gcAllocated = new MetricAccumulator();
-            var gcAllocationCount = new MetricAccumulator();
-            var totalUsedMemory = new MetricAccumulator();
-            var gfxUsedMemory = new MetricAccumulator();
-            var textureMemory = new MetricAccumulator();
+            int sampleCapacity = Mathf.Max(1024, Mathf.CeilToInt(sampleSeconds * 1000f) + 16);
+            var frameTimes = new List<float>(sampleCapacity);
+            var cpuTotal = new MetricAccumulator(sampleCapacity);
+            var cpuMain = new MetricAccumulator(sampleCapacity);
+            var cpuPresentWait = new MetricAccumulator(sampleCapacity);
+            var cpuRender = new MetricAccumulator(sampleCapacity);
+            var gpu = new MetricAccumulator(sampleCapacity);
+            var drawCalls = new MetricAccumulator(sampleCapacity);
+            var batches = new MetricAccumulator(sampleCapacity);
+            var setPassCalls = new MetricAccumulator(sampleCapacity);
+            var triangles = new MetricAccumulator(sampleCapacity);
+            var vertices = new MetricAccumulator(sampleCapacity);
+            var gcAllocated = new MetricAccumulator(sampleCapacity);
+            var gcAllocationCount = new MetricAccumulator(sampleCapacity);
+            var totalUsedMemory = new MetricAccumulator(sampleCapacity);
+            var gfxUsedMemory = new MetricAccumulator(sampleCapacity);
+            var textureMemory = new MetricAccumulator(sampleCapacity);
 
             if (apply != null)
             {
@@ -377,6 +625,12 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 }
 
                 _scenarioClock += dt;
+                if (frameTimes.Count >= sampleCapacity)
+                {
+                    throw new InvalidOperationException(
+                        "R2-PERF1 sample exceeded its preallocated frame capacity.");
+                }
+
                 frameTimes.Add(frameMs);
                 MoveCamera(_scenarioClock / sampleSeconds);
 
@@ -476,6 +730,11 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         private void MoveCamera(float normalizedTime)
         {
             if (_camera == null)
+            {
+                return;
+            }
+
+            if (_perf1 != null && _perf1.enabled)
             {
                 return;
             }
@@ -948,13 +1207,10 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
         private void WriteReport(Report report)
         {
-            string directory = Path.GetFullPath(Path.Combine(
-                UnityEngine.Application.dataPath,
-                "..",
-                "Benchmarks"));
+            string directory = ReportDirectory();
             Directory.CreateDirectory(directory);
             string json = JsonUtility.ToJson(report, true);
-            File.WriteAllText(Path.Combine(directory, $"forest_benchmark_{report.phase}.json"), json);
+            WriteAllTextAtomic(ReportJsonPath(report.phase), json);
 
             var markdown = new StringBuilder();
             markdown.AppendLine($"# Forest benchmark - phase `{report.phase}`");
@@ -965,7 +1221,17 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             markdown.AppendLine($"- OS: {report.operatingSystem}");
             markdown.AppendLine($"- CPU: {report.processorType} ({report.processorCount} logical cores, {report.processorFrequencyMhz} MHz)");
             markdown.AppendLine($"- GPU: {report.graphicsDeviceName} ({report.graphicsDeviceType}, {report.graphicsMemoryMb} MB)");
+            markdown.AppendLine($"- Driver: {report.graphicsDriverVersion}; Windows power plan: {report.windowsPowerPlan}; AC online: {report.powerOnline}");
+            markdown.AppendLine($"- Windows graphics preference: {report.windowsGraphicsPreference}");
             markdown.AppendLine($"- Render pipeline: {report.renderPipeline}; quality: {report.qualityLevel}; resolution: {report.width}x{report.height}");
+            markdown.AppendLine($"- Window mode: {report.fullScreenMode}; VSync: {report.vSyncCount}; targetFrameRate: {report.targetFrameRate}");
+            markdown.AppendLine($"- AA: {report.antialiasingMode}; render scale: {report.renderScalePercent}%; dynamic resolution: {report.dynamicResolutionEnabled}; upscaler: {report.upscaler}");
+            markdown.AppendLine($"- Fullscreen effects: {report.fullscreenEffectsEnabled}; shadows: {report.shadowsEnabled}");
+            markdown.AppendLine($"- Development build: {report.developmentBuild}; Profiler: {report.profilerEnabled}; binary log: {report.profilerBinaryLogEnabled}; deep profiling: {report.deepProfilingBuild}");
+            markdown.AppendLine($"- Warm-up: {report.shaderWarmupProcedure}; {Format(report.shaderWarmupSeconds, 1)} seconds; run: {report.benchmarkRunId}");
+            markdown.AppendLine($"- Scenario: {report.benchmarkScenario}; build kind: {report.buildKind}; measurement eligible: {report.measurementEligible}");
+            markdown.AppendLine($"- Screenshot requested: {report.screenshotRequested}");
+            markdown.AppendLine($"- Screenshot: {report.screenshotPath}");
             markdown.AppendLine($"- Run in background: {report.runInBackground}");
             markdown.AppendLine($"- Frame timing feature enabled: {report.frameTimingFeatureEnabled}");
             markdown.AppendLine($"- Shadow distance at start: {report.shadowDistanceAtStart.ToString("F0", CultureInfo.InvariantCulture)} m");
@@ -1001,8 +1267,112 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                     $"{scenario.timingSamples} | {scenario.ignoredStartupStallFrames} | {scenario.budgetFailure} |");
             }
 
-            File.WriteAllText(Path.Combine(directory, $"forest_benchmark_{report.phase}.md"), markdown.ToString());
+            WriteAllTextAtomic(ReportMarkdownPath(report.phase), markdown.ToString());
             Debug.Log($"[ForestBenchmark] Report written to Benchmarks/forest_benchmark_{report.phase}.json");
+        }
+
+        private bool VerifyRuntimeOutputs(Report report, RunManifest manifest)
+        {
+            if (!File.Exists(manifest.reportJsonPath) ||
+                !File.Exists(manifest.reportMarkdownPath))
+            {
+                return false;
+            }
+
+            Report persisted = JsonUtility.FromJson<Report>(
+                File.ReadAllText(manifest.reportJsonPath));
+            if (persisted == null ||
+                !string.Equals(persisted.benchmarkRunId, manifest.runId, StringComparison.Ordinal) ||
+                !string.Equals(persisted.benchmarkScenario, manifest.scenario, StringComparison.Ordinal) ||
+                !string.Equals(persisted.buildKind, manifest.buildKind, StringComparison.Ordinal) ||
+                persisted.developmentBuild != manifest.developmentBuild)
+            {
+                return false;
+            }
+
+            if (manifest.screenshotRequested)
+            {
+                return !persisted.measurementEligible &&
+                       persisted.scenarios.Count == 0 &&
+                       !string.IsNullOrWhiteSpace(manifest.screenshotPath) &&
+                       File.Exists(manifest.screenshotPath);
+            }
+
+            return persisted.measurementEligible &&
+                   persisted.scenarios.Count == 1 &&
+                   string.Equals(
+                       persisted.scenarios[0].name,
+                       manifest.scenario,
+                       StringComparison.Ordinal) &&
+                   IsFiniteMeasurement(persisted.scenarios[0]);
+        }
+
+        private static bool IsFiniteMeasurement(ScenarioResult result)
+        {
+            return result != null &&
+                   IsFinite(result.avgMs) &&
+                   IsFinite(result.medianMs) &&
+                   IsFinite(result.p95Ms) &&
+                   IsFinite(result.p99Ms) &&
+                   IsFinite(result.avgFps) &&
+                   IsFinite(result.onePercentLowFps) &&
+                   IsFinite(result.cpuTotalAvgMs) &&
+                   IsFinite(result.cpuMainThreadAvgMs) &&
+                   IsFinite(result.cpuRenderThreadAvgMs) &&
+                   IsFinite(result.gpuAvgMs) &&
+                   IsFinite(result.gcAllocatedAverageBytes) &&
+                   IsFinite(result.totalUsedMemoryAverageMb) &&
+                   IsFinite(result.gfxUsedMemoryAverageMb) &&
+                   IsFinite(result.textureMemoryAverageMb);
+        }
+
+        private static bool IsFinite(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private static void WriteManifest(string path, RunManifest manifest)
+        {
+            WriteAllTextAtomic(path, JsonUtility.ToJson(manifest, true));
+        }
+
+        private static void WriteAllTextAtomic(string path, string contents)
+        {
+            string directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            string temporaryPath = path + ".tmp";
+            File.WriteAllText(temporaryPath, contents);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+
+            File.Move(temporaryPath, path);
+        }
+
+        private static string ReportJsonPath(string reportPhase)
+        {
+            return Path.Combine(ReportDirectory(), $"forest_benchmark_{reportPhase}.json");
+        }
+
+        private static string ReportMarkdownPath(string reportPhase)
+        {
+            return Path.Combine(ReportDirectory(), $"forest_benchmark_{reportPhase}.md");
+        }
+
+        private static string ManifestPath(string reportPhase)
+        {
+            return Path.Combine(ReportDirectory(), $"forest_benchmark_{reportPhase}.manifest.json");
+        }
+
+        private static string ReportDirectory()
+        {
+            return R2Perf1BenchmarkConfiguration.ResolveOutputDirectory(
+                UnityEngine.Application.dataPath);
         }
 
         private static string Format(float value, int decimalPlaces)
@@ -1027,12 +1397,24 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             return available ? $"{Format(average, 1)} / {Format(peak, 1)}" : "n/a";
         }
 
-        private void OnDestroy()
+        private void RestoreRunnerState()
         {
+            if (_runnerStateRestored)
+            {
+                return;
+            }
+
+            _runnerStateRestored = true;
             RestoreDiagnosticLayers();
             _runtimeSampler?.Dispose();
             _runtimeSampler = null;
-            UnityEngine.Application.runInBackground = _previousRunInBackground;
+            if (_perf1 == null || !_perf1.enabled)
+            {
+                QualitySettings.vSyncCount = _previousVSync;
+                UnityEngine.Application.targetFrameRate = _previousTargetFrameRate;
+                UnityEngine.Application.runInBackground = _previousRunInBackground;
+            }
+
             foreach (GameObject cameraObject in _disabledCameras)
             {
                 if (cameraObject != null)
@@ -1046,11 +1428,25 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             }
         }
 
+        private void OnDestroy()
+        {
+            RestoreRunnerState();
+            if (_perf1 != null && _perf1.enabled)
+            {
+                R2Perf1BenchmarkConfiguration.RestoreRuntimeState();
+            }
+        }
+
         private sealed class MetricAccumulator
         {
-            private readonly List<double> _values = new List<double>(1024);
+            private readonly List<double> _values;
             private double _sum;
             private bool _sorted;
+
+            public MetricAccumulator(int capacity)
+            {
+                _values = new List<double>(capacity);
+            }
 
             public int Count => _values.Count;
             public double Average => Count > 0 ? _sum / Count : 0d;
@@ -1058,7 +1454,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
             public void AddIfAvailable(bool available, double value)
             {
-                if (!available)
+                if (!available || double.IsNaN(value) || double.IsInfinity(value))
                 {
                     return;
                 }
