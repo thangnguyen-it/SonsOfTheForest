@@ -21,6 +21,8 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
     /// </summary>
     public sealed class ForestBenchmarkRunner : MonoBehaviour
     {
+        public const int StartupFailureExitCode = 2;
+
         [Serializable]
         public sealed class ScenarioResult
         {
@@ -196,10 +198,37 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         private bool _previousRunInBackground;
 
         private R2Perf1BenchmarkConfiguration.Settings _perf1;
+        private RunManifest _runManifest;
+        private string _runManifestPath;
 
         private void Start()
         {
             _perf1 = R2Perf1BenchmarkConfiguration.Current;
+            if (R2Perf1BenchmarkConfiguration.StartupFailurePending)
+            {
+                return;
+            }
+
+            try
+            {
+                R2Perf1BenchmarkConfiguration.ValidateRuntimeSettings(
+                    _perf1,
+                    Debug.isDebugBuild);
+                if (_perf1.enabled)
+                {
+                    PrepareRuntimeManifest();
+                }
+
+                InitializeRunner();
+            }
+            catch (Exception exception)
+            {
+                HandleStartupFailure(exception);
+            }
+        }
+
+        private void InitializeRunner()
+        {
             if (!_perf1.enabled)
             {
                 _previousVSync = QualitySettings.vSyncCount;
@@ -429,28 +458,10 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         {
             string directory = ReportDirectory();
             Directory.CreateDirectory(directory);
-            string reportJsonPath = ReportJsonPath(report.phase);
-            string reportMarkdownPath = ReportMarkdownPath(report.phase);
-            string manifestPath = ManifestPath(report.phase);
-            var manifest = new RunManifest
-            {
-                status = R2Perf1BenchmarkConfiguration.ManifestIncomplete,
-                statusReason = "process_has_not_completed",
-                createdUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
-                runId = _perf1.runId,
-                phase = report.phase,
-                scenario = _perf1.scenario,
-                quality = _perf1.quality,
-                antialiasing = _perf1.antialiasing,
-                renderScalePercent = _perf1.renderScalePercent,
-                upscaler = _perf1.upscaler,
-                buildKind = _perf1.buildKind,
-                developmentBuild = Debug.isDebugBuild,
-                screenshotRequested = _perf1.CaptureScreenshot,
-                measurementEligible = _perf1.MeasurementEligible,
-                reportJsonPath = reportJsonPath,
-                reportMarkdownPath = reportMarkdownPath,
-            };
+            RunManifest manifest = _runManifest ?? CreateManifest(_perf1, report.phase);
+            string manifestPath = _runManifestPath ?? ManifestPath(report.phase);
+            _runManifest = manifest;
+            _runManifestPath = manifestPath;
             WriteManifest(manifestPath, manifest);
 
             bool completedNormally = false;
@@ -1334,6 +1345,138 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         private static void WriteManifest(string path, RunManifest manifest)
         {
             WriteAllTextAtomic(path, JsonUtility.ToJson(manifest, true));
+        }
+
+        public static int RecoverFromStartupFailure(
+            R2Perf1BenchmarkConfiguration.Settings settings,
+            Exception exception,
+            Func<bool> restoreState,
+            out string manifestPath)
+        {
+            if (exception == null)
+            {
+                throw new ArgumentNullException(nameof(exception));
+            }
+
+            bool restored = false;
+            string restoreFailure = string.Empty;
+            try
+            {
+                restored = restoreState == null || restoreState();
+            }
+            catch (Exception restoreException)
+            {
+                restoreFailure = restoreException.GetType().FullName + ": " +
+                                 restoreException.Message;
+            }
+
+            manifestPath = null;
+            if (settings == null || !settings.enabled)
+            {
+                return StartupFailureExitCode;
+            }
+
+            try
+            {
+                settings.runId = R2Perf1BenchmarkConfiguration.ValidateRunId(settings.runId);
+                string directory = R2Perf1BenchmarkConfiguration.ResolveOutputDirectory(
+                    settings,
+                    UnityEngine.Application.dataPath);
+                string failurePhase = settings.Phase;
+                Directory.CreateDirectory(directory);
+                manifestPath = Path.Combine(
+                    directory,
+                    $"forest_benchmark_{failurePhase}.manifest.json");
+                RunManifest manifest = CreateManifest(settings, failurePhase);
+                manifest.status = R2Perf1BenchmarkConfiguration.ManifestInvalid;
+                manifest.statusReason = "startup_failure: " + exception.GetType().FullName +
+                                        ": " + exception.Message;
+                if (!string.IsNullOrEmpty(restoreFailure))
+                {
+                    manifest.statusReason += "; restore_failure: " + restoreFailure;
+                }
+
+                manifest.completedUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+                manifest.reportWritten = false;
+                manifest.runtimeStateRestored = restored;
+                WriteManifest(manifestPath, manifest);
+            }
+            catch (Exception manifestException)
+            {
+                manifestPath = null;
+                Debug.LogError(
+                    "[ForestBenchmark] Failed to persist startup-failure manifest: " +
+                    manifestException);
+            }
+
+            return StartupFailureExitCode;
+        }
+
+        public static void RequestStartupFailureExit(int exitCode)
+        {
+            int nonZeroExitCode = exitCode == 0 ? StartupFailureExitCode : exitCode;
+#if UNITY_EDITOR
+            EditorApplication.isPlaying = false;
+#else
+            UnityEngine.Application.Quit(nonZeroExitCode);
+#endif
+        }
+
+        private void PrepareRuntimeManifest()
+        {
+            phase = _perf1.Phase;
+            string directory = ReportDirectory();
+            Directory.CreateDirectory(directory);
+            _runManifest = CreateManifest(_perf1, phase);
+            _runManifestPath = ManifestPath(phase);
+            WriteManifest(_runManifestPath, _runManifest);
+        }
+
+        private void HandleStartupFailure(Exception exception)
+        {
+            int exitCode = RecoverFromStartupFailure(
+                _perf1,
+                exception,
+                () =>
+                {
+                    RestoreRunnerState();
+                    return R2Perf1BenchmarkConfiguration.RestoreRuntimeState();
+                },
+                out _runManifestPath);
+            Debug.LogException(exception);
+            RequestStartupFailureExit(exitCode);
+        }
+
+        private static RunManifest CreateManifest(
+            R2Perf1BenchmarkConfiguration.Settings settings,
+            string reportPhase)
+        {
+            string directory = R2Perf1BenchmarkConfiguration.ResolveOutputDirectory(
+                settings,
+                UnityEngine.Application.dataPath);
+            return new RunManifest
+            {
+                status = R2Perf1BenchmarkConfiguration.ManifestIncomplete,
+                statusReason = "process_has_not_completed",
+                createdUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                runId = settings.runId,
+                phase = reportPhase,
+                scenario = settings.scenario,
+                quality = settings.quality,
+                antialiasing = settings.antialiasing,
+                renderScalePercent = settings.renderScalePercent,
+                upscaler = settings.upscaler,
+                buildKind = settings.buildKind,
+                developmentBuild = Debug.isDebugBuild,
+                screenshotRequested = settings.CaptureScreenshot,
+                measurementEligible = settings.MeasurementEligible,
+                reportJsonPath = Path.Combine(
+                    directory,
+                    $"forest_benchmark_{reportPhase}.json"),
+                reportMarkdownPath = Path.Combine(
+                    directory,
+                    $"forest_benchmark_{reportPhase}.md"),
+            };
         }
 
         private static void WriteAllTextAtomic(string path, string contents)

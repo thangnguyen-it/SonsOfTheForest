@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 
 namespace SonsOfTheForest.Tests.ForestCamp.EditMode
@@ -10,6 +11,8 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
     {
         private const string ConfigurationTypeName =
             "SonsOfTheForest.Infrastructure.Benchmark.R2Perf1BenchmarkConfiguration, Assembly-CSharp";
+        private const string RunnerTypeName =
+            "SonsOfTheForest.Infrastructure.Benchmark.ForestBenchmarkRunner, Assembly-CSharp";
         private const string RunnerPath =
             "Assets/_Game/Infrastructure/Benchmark/ForestBenchmarkRunner.cs";
         private const string ConfigurationPath =
@@ -23,6 +26,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
 
         private static Type ConfigurationType =>
             Type.GetType(ConfigurationTypeName, true);
+
+        private static Type RunnerType =>
+            Type.GetType(RunnerTypeName, true);
 
         [Test]
         public void CommandLineParsing_ProducesOneExplicitMeasurementTuple()
@@ -48,6 +54,65 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(Field<string>(settings, "antialiasing"), Is.EqualTo("TAA"));
             Assert.That(Field<int>(settings, "renderScalePercent"), Is.EqualTo(80));
             Assert.That(Field<string>(settings, "upscaler"), Is.EqualTo("CatmullRom"));
+        }
+
+        [TestCase("None", "None")]
+        [TestCase("FXAA", "FastApproximateAntialiasing")]
+        [TestCase("SMAA", "SubpixelMorphologicalAntiAliasing")]
+        [TestCase("TAA", "TemporalAntialiasing")]
+        [TestCase(" taa ", "TemporalAntialiasing")]
+        public void AntialiasingContract_MapsCommandTokensExplicitly(
+            string commandToken,
+            string expectedEnumName)
+        {
+            MethodInfo method = ConfigurationType.GetMethod(
+                "ResolveAntialiasingMode",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+            object result = method.Invoke(null, new object[] { commandToken });
+            Assert.That(result.ToString(), Is.EqualTo(expectedEnumName));
+        }
+
+        [TestCase("TemporalAntialiasing")]
+        [TestCase("MSAA")]
+        [TestCase("")]
+        public void AntialiasingContract_RejectsValuesOutsideCommandContract(string value)
+        {
+            AssertParseFailure<ArgumentException>(
+                "player.exe", "-sotf-perf1", "-sotf-aa", value);
+        }
+
+        [Test]
+        public void OfflineRunnerSupportedAaSet_HasRuntimeMappingForEveryValue()
+        {
+            string script = File.ReadAllText(OfflineRunnerPath);
+            Match match = Regex.Match(
+                script,
+                "\\[ValidateSet\\(\"None\",\\s*\"FXAA\",\\s*\"SMAA\",\\s*\"TAA\"\\)\\]");
+            Assert.That(match.Success, Is.True, "PowerShell AA ValidateSet changed unexpectedly.");
+
+            string[] supported = ((System.Collections.IEnumerable)ConfigurationType
+                .GetProperty("SupportedAntialiasingNames", BindingFlags.Public | BindingFlags.Static)
+                .GetValue(null)).Cast<string>().ToArray();
+            Assert.That(supported, Is.EquivalentTo(new[] { "None", "FXAA", "SMAA", "TAA" }));
+            foreach (string value in supported)
+            {
+                Assert.DoesNotThrow(() => Parse(
+                    "player.exe", "-sotf-perf1", "-sotf-aa", value));
+            }
+        }
+
+        [Test]
+        public void QualityWithSpaces_RemainsOneCommandLineValue()
+        {
+            object settings = Parse(
+                "player.exe",
+                "-sotf-perf1",
+                "-sotf-quality", "High Fidelity",
+                "-sotf-aa", "TAA");
+
+            Assert.That(Field<string>(settings, "quality"), Is.EqualTo("High Fidelity"));
+            Assert.That(Field<string>(settings, "antialiasing"), Is.EqualTo("TAA"));
         }
 
         [TestCase("empty_hdrp_camera")]
@@ -146,6 +211,85 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 "player.exe", "-sotf-perf1", "-sotf-unknown", "value");
             AssertParseFailure<ArgumentException>(
                 "player.exe", "-sotf-perf1", "-sotf-no-screenshot", "maybe");
+        }
+
+        [Test]
+        public void RuntimeValidation_PrecedesCameraAndRuntimeMutation()
+        {
+            string runner = File.ReadAllText(RunnerPath);
+            string configuration = File.ReadAllText(ConfigurationPath);
+
+            Assert.That(
+                runner.IndexOf("ValidateRuntimeSettings", StringComparison.Ordinal),
+                Is.LessThan(runner.IndexOf("FindObjectsByType<Camera>", StringComparison.Ordinal)));
+            Assert.That(
+                configuration.IndexOf("ValidateRuntimeSettings(Current", StringComparison.Ordinal),
+                Is.LessThan(configuration.IndexOf("CaptureRuntimeState();", StringComparison.Ordinal)));
+            Assert.That(
+                configuration.IndexOf("ResolveAntialiasingMode(Current.antialiasing)", StringComparison.Ordinal),
+                Is.LessThan(configuration.IndexOf("camera.gameObject.AddComponent", StringComparison.Ordinal)));
+        }
+
+        [Test]
+        public void StartupFailure_RestoresStateWritesInvalidManifestAndRequestsNonZeroExit()
+        {
+            string temporaryDirectory = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-r2-perf1-startup-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(temporaryDirectory);
+            try
+            {
+                object settings = Parse(
+                    "player.exe",
+                    "-sotf-perf1",
+                    "-sotf-quality", "High Fidelity",
+                    "-sotf-scenario", "empty_hdrp_camera",
+                    "-sotf-run-id", "startup_failure_test",
+                    "-sotf-build-kind", "release",
+                    "-sotf-no-screenshot", "true",
+                    "-sotf-aa", "TAA",
+                    "-sotf-output-directory", temporaryDirectory);
+                bool restoreCalled = false;
+                var restore = new Func<bool>(() =>
+                {
+                    restoreCalled = true;
+                    return true;
+                });
+                MethodInfo recover = RunnerType.GetMethod(
+                    "RecoverFromStartupFailure",
+                    BindingFlags.Public | BindingFlags.Static);
+                Assert.That(recover, Is.Not.Null);
+                object[] parameters =
+                {
+                    settings,
+                    new InvalidOperationException("synthetic startup failure"),
+                    restore,
+                    null,
+                };
+
+                int exitCode = (int)recover.Invoke(null, parameters);
+                string manifestPath = (string)parameters[3];
+
+                Assert.That(restoreCalled, Is.True);
+                Assert.That(exitCode, Is.Not.EqualTo(0));
+                Assert.That(File.Exists(manifestPath), Is.True);
+                string manifest = File.ReadAllText(manifestPath);
+                Assert.That(manifest, Does.Contain("\"status\": \"invalid\""));
+                Assert.That(manifest, Does.Contain("synthetic startup failure"));
+                Assert.That(manifest, Does.Contain("\"runtimeStateRestored\": true"));
+                Assert.That(manifest, Does.Contain("\"reportWritten\": false"));
+                Assert.That(
+                    Directory.GetFiles(temporaryDirectory, "*.json")
+                        .Where(path => !path.EndsWith(".manifest.json", StringComparison.Ordinal))
+                        .ToArray(),
+                    Is.Empty,
+                    "Startup failure must not create a performance report.");
+                Assert.That(Directory.GetFiles(temporaryDirectory, "*.md"), Is.Empty);
+            }
+            finally
+            {
+                Directory.Delete(temporaryDirectory, true);
+            }
         }
 
         [TestCase("awaiting_offline_validation", 0, true, true, true)]

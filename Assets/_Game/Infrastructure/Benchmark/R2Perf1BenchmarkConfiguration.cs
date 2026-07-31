@@ -24,6 +24,18 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         public const string ManifestAwaitingValidation = "awaiting_offline_validation";
         public const string ManifestValid = "valid";
         public const string ManifestInvalid = "invalid";
+        public const string AntialiasingNone = "None";
+        public const string AntialiasingFxaa = "FXAA";
+        public const string AntialiasingSmaa = "SMAA";
+        public const string AntialiasingTaa = "TAA";
+
+        private static readonly string[] SupportedAntialiasingValues =
+        {
+            AntialiasingNone,
+            AntialiasingFxaa,
+            AntialiasingSmaa,
+            AntialiasingTaa,
+        };
 
         public sealed class Settings
         {
@@ -87,20 +99,27 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
         public static Settings Current { get; private set; } = new Settings();
         public static bool HasCapturedRuntimeState => _runtimeState != null;
+        public static bool StartupFailurePending { get; private set; }
+        public static IReadOnlyList<string> SupportedAntialiasingNames =>
+            Array.AsReadOnly(SupportedAntialiasingValues);
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void ConfigureBeforeSceneLoad()
         {
-            Current = Parse(Environment.GetCommandLineArgs());
-            if (!Current.enabled)
-            {
-                return;
-            }
-
-            ValidateRuntimeBuildKind(Current.buildKind, Debug.isDebugBuild);
-            CaptureRuntimeState();
+            Settings candidate = null;
+            StartupFailurePending = false;
             try
             {
+                candidate = ParseValues(Environment.GetCommandLineArgs());
+                ValidateSettings(candidate);
+                Current = candidate;
+                if (!Current.enabled)
+                {
+                    return;
+                }
+
+                ValidateRuntimeSettings(Current, Debug.isDebugBuild);
+                CaptureRuntimeState();
                 int qualityIndex = Array.FindIndex(
                     QualitySettings.names,
                     value => string.Equals(
@@ -121,14 +140,28 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 ApplyDynamicResolution(Current);
                 RegisterQuittingHandler();
             }
-            catch
+            catch (Exception exception)
             {
-                RestoreRuntimeState();
-                throw;
+                Current = candidate ?? new Settings();
+                StartupFailurePending = true;
+                int exitCode = ForestBenchmarkRunner.RecoverFromStartupFailure(
+                    candidate,
+                    exception,
+                    RestoreRuntimeState,
+                    out _);
+                Debug.LogException(exception);
+                ForestBenchmarkRunner.RequestStartupFailureExit(exitCode);
             }
         }
 
         public static Settings Parse(IReadOnlyList<string> arguments)
+        {
+            Settings settings = ParseValues(arguments);
+            ValidateSettings(settings);
+            return settings;
+        }
+
+        private static Settings ParseValues(IReadOnlyList<string> arguments)
         {
             if (arguments == null)
             {
@@ -209,7 +242,6 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 }
             }
 
-            ValidateSettings(settings);
             return settings;
         }
 
@@ -286,6 +318,78 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             }
         }
 
+        public static string ValidateAntialiasing(string value)
+        {
+            string normalized = RequireText(value, "-sotf-aa").ToUpperInvariant();
+            switch (normalized)
+            {
+                case "NONE":
+                    return AntialiasingNone;
+                case AntialiasingFxaa:
+                    return AntialiasingFxaa;
+                case AntialiasingSmaa:
+                    return AntialiasingSmaa;
+                case AntialiasingTaa:
+                    return AntialiasingTaa;
+                default:
+                    throw new ArgumentException("-sotf-aa expects None, FXAA, SMAA, or TAA.");
+            }
+        }
+
+        public static HDAdditionalCameraData.AntialiasingMode ResolveAntialiasingMode(
+            string value)
+        {
+            switch (ValidateAntialiasing(value))
+            {
+                case AntialiasingNone:
+                    return HDAdditionalCameraData.AntialiasingMode.None;
+                case AntialiasingFxaa:
+                    return HDAdditionalCameraData.AntialiasingMode.FastApproximateAntialiasing;
+                case AntialiasingSmaa:
+                    return HDAdditionalCameraData.AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+                case AntialiasingTaa:
+                    return HDAdditionalCameraData.AntialiasingMode.TemporalAntialiasing;
+                default:
+                    throw new InvalidOperationException("Validated AA contract was not mapped.");
+            }
+        }
+
+        public static void ValidateRuntimeSettings(Settings settings, bool isDevelopmentBuild)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            ValidateSettings(settings);
+            if (!settings.enabled)
+            {
+                return;
+            }
+
+            ValidateRuntimeBuildKind(settings.buildKind, isDevelopmentBuild);
+            ResolveAntialiasingMode(settings.antialiasing);
+            ResolveUpscaler(settings.upscaler);
+            if (Array.FindIndex(
+                    QualitySettings.names,
+                    value => string.Equals(
+                        value,
+                        settings.quality,
+                        StringComparison.OrdinalIgnoreCase)) < 0)
+            {
+                throw new InvalidOperationException(
+                    "Unknown R2-PERF1 quality preset: " + settings.quality);
+            }
+
+            if (settings.renderScalePercent < 100)
+            {
+                if (!(GraphicsSettings.currentRenderPipeline is HDRenderPipelineAsset))
+                {
+                    throw new InvalidOperationException("R2-PERF1 requires an active HDRP asset.");
+                }
+            }
+        }
+
         public static bool CanMarkManifestValid(
             string currentStatus,
             int processExitCode,
@@ -308,19 +412,12 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 return;
             }
 
+            HDAdditionalCameraData.AntialiasingMode mode =
+                ResolveAntialiasingMode(Current.antialiasing);
             HDAdditionalCameraData data = camera.GetComponent<HDAdditionalCameraData>();
             if (data == null)
             {
                 data = camera.gameObject.AddComponent<HDAdditionalCameraData>();
-            }
-
-            if (!Enum.TryParse(
-                    Current.antialiasing,
-                    true,
-                    out HDAdditionalCameraData.AntialiasingMode mode))
-            {
-                throw new InvalidOperationException(
-                    "Unknown R2-PERF1 antialiasing mode: " + Current.antialiasing);
             }
 
             data.antialiasing = mode;
@@ -401,9 +498,15 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
         public static string ResolveOutputDirectory(string applicationDataPath)
         {
-            if (Current.enabled && !string.IsNullOrWhiteSpace(Current.outputDirectory))
+            return ResolveOutputDirectory(Current, applicationDataPath);
+        }
+
+        public static string ResolveOutputDirectory(Settings settings, string applicationDataPath)
+        {
+            if (settings != null && settings.enabled &&
+                !string.IsNullOrWhiteSpace(settings.outputDirectory))
             {
-                return Current.outputDirectory;
+                return Path.GetFullPath(settings.outputDirectory);
             }
 
             return Path.GetFullPath(Path.Combine(applicationDataPath, "..", "Benchmarks"));
@@ -420,7 +523,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             settings.buildKind = ValidateBuildKind(settings.buildKind);
             settings.runId = ValidateRunId(settings.runId);
             settings.quality = RequireText(settings.quality, "-sotf-quality");
-            settings.antialiasing = RequireText(settings.antialiasing, "-sotf-aa");
+            settings.antialiasing = ValidateAntialiasing(settings.antialiasing);
             settings.upscaler = RequireText(settings.upscaler, "-sotf-upscaler");
         }
 
@@ -475,11 +578,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 throw new InvalidOperationException("R2-PERF1 requires an active HDRP asset.");
             }
 
-            if (!Enum.TryParse(settings.upscaler, true, out DynamicResUpscaleFilter filter))
-            {
-                throw new InvalidOperationException(
-                    "Unknown R2-PERF1 upscaler: " + settings.upscaler);
-            }
+            DynamicResUpscaleFilter filter = ResolveUpscaler(settings.upscaler);
 
             RenderPipelineSettings pipelineSettings = asset.currentPlatformRenderPipelineSettings;
             GlobalDynamicResolutionSettings dynamicSettings = pipelineSettings.dynamicResolutionSettings;
@@ -495,6 +594,16 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
             float scale = settings.renderScalePercent / 100f;
             ScalableBufferManager.ResizeBuffers(scale, scale);
+        }
+
+        private static DynamicResUpscaleFilter ResolveUpscaler(string value)
+        {
+            if (Enum.TryParse(value, true, out DynamicResUpscaleFilter filter))
+            {
+                return filter;
+            }
+
+            throw new InvalidOperationException("Unknown R2-PERF1 upscaler: " + value);
         }
 
         private static void RestoreScenePolicy()
