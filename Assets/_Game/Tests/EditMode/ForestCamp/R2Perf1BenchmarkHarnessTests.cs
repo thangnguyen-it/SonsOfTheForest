@@ -115,6 +115,129 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(Field<string>(settings, "antialiasing"), Is.EqualTo("TAA"));
         }
 
+        [Test]
+        public void RuntimeOutputContract_UsesBoundedFixedNamesWithoutRepeatedConfiguration()
+        {
+            string manifest = StaticField<string>(ConfigurationType, "RuntimeManifestFileName");
+            string reportJson = StaticField<string>(ConfigurationType, "RuntimeReportJsonFileName");
+            string reportMarkdown =
+                StaticField<string>(ConfigurationType, "RuntimeReportMarkdownFileName");
+            string screenshot = StaticField<string>(ConfigurationType, "RuntimeScreenshotFileName");
+            string temporarySuffix = StaticField<string>(ConfigurationType, "AtomicTemporarySuffix");
+            int maximumLength =
+                StaticField<int>(ConfigurationType, "MaximumRuntimeOutputFileNameLength");
+
+            Assert.That(manifest, Is.EqualTo("runtime.manifest.json"));
+            Assert.That(reportJson, Is.EqualTo("runtime.report.json"));
+            Assert.That(reportMarkdown, Is.EqualTo("runtime.report.md"));
+            Assert.That(screenshot, Is.EqualTo("runtime.screenshot.png"));
+            Assert.That(manifest + temporarySuffix, Is.EqualTo("runtime.manifest.json.tmp"));
+            Assert.That(reportJson + temporarySuffix, Is.EqualTo("runtime.report.json.tmp"));
+            foreach (string fileName in new[] { manifest, reportJson, reportMarkdown, screenshot })
+            {
+                Assert.That(fileName.Length, Is.LessThanOrEqualTo(maximumLength));
+                Assert.That(fileName, Does.Not.Contain("High_Fidelity"));
+                Assert.That(fileName, Does.Not.Contain("empty_hdrp_camera"));
+                Assert.That(fileName, Does.Not.Contain("runId"));
+            }
+        }
+
+        [Test]
+        public void AtomicRuntimeWrite_CreatesLongValidatedParentAndLeavesNoTemporaryFile()
+        {
+            string cleanupRoot;
+            string runDirectory = CreateLongRunDirectory(out cleanupRoot);
+            try
+            {
+                Assert.That(runDirectory.Length, Is.GreaterThanOrEqualTo(128));
+                string reportName =
+                    StaticField<string>(ConfigurationType, "RuntimeReportJsonFileName");
+                string reportPath = (string)InvokeConfiguration(
+                    "ResolveContainedOutputPath",
+                    runDirectory,
+                    reportName);
+                Assert.That(Directory.Exists(runDirectory), Is.False);
+
+                MethodInfo writeAtomic = RunnerType.GetMethod(
+                    "WriteAllTextAtomic",
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                Assert.That(writeAtomic, Is.Not.Null);
+                writeAtomic.Invoke(null, new object[] { runDirectory, reportPath, "{\"ok\":true}" });
+
+                Assert.That(Directory.Exists(runDirectory), Is.True);
+                Assert.That(File.ReadAllText(reportPath), Is.EqualTo("{\"ok\":true}"));
+                Assert.That(File.Exists(reportPath + ".tmp"), Is.False);
+            }
+            finally
+            {
+                if (Directory.Exists(cleanupRoot))
+                {
+                    Directory.Delete(cleanupRoot, true);
+                }
+            }
+        }
+
+        [Test]
+        public void RuntimeOutputContainment_RejectsTraversalAndEscapedAbsolutePath()
+        {
+            string runDirectory = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-r2-perf1-containment-" + Guid.NewGuid().ToString("N"));
+            string escapedPath = Path.Combine(
+                Directory.GetParent(runDirectory).FullName,
+                "escaped-runtime.report.json");
+
+            AssertConfigurationFailure<ArgumentException>(
+                "ResolveContainedOutputPath",
+                runDirectory,
+                Path.Combine("..", "escaped.json"));
+            AssertConfigurationFailure<ArgumentException>(
+                "ValidateContainedOutputPath",
+                runDirectory,
+                escapedPath);
+        }
+
+        [Test]
+        public void ValidLifecycleManifest_ReferencesOnlyShortContainedRuntimeOutputs()
+        {
+            string cleanupRoot;
+            string runDirectory = CreateLongRunDirectory(out cleanupRoot);
+            try
+            {
+                object settings = Parse(
+                    "player.exe",
+                    "-sotf-perf1",
+                    "-sotf-quality", "High Fidelity",
+                    "-sotf-scenario", "empty_hdrp_camera",
+                    "-sotf-run-id", "unique_configuration_that_must_not_be_in_filenames",
+                    "-sotf-build-kind", "release",
+                    "-sotf-aa", "TAA",
+                    "-sotf-output-directory", runDirectory);
+                MethodInfo createManifest = RunnerType.GetMethod(
+                    "CreateManifest",
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                Assert.That(createManifest, Is.Not.Null);
+                object manifest = createManifest.Invoke(
+                    null,
+                    new[] { settings, Property<string>(settings, "Phase") });
+
+                string reportJsonPath = Field<string>(manifest, "reportJsonPath");
+                string reportMarkdownPath = Field<string>(manifest, "reportMarkdownPath");
+                Assert.That(Path.GetFileName(reportJsonPath), Is.EqualTo("runtime.report.json"));
+                Assert.That(Path.GetFileName(reportMarkdownPath), Is.EqualTo("runtime.report.md"));
+                Assert.That(reportJsonPath, Does.StartWith(runDirectory));
+                Assert.That(reportMarkdownPath, Does.StartWith(runDirectory));
+                Assert.That(reportJsonPath, Does.Not.Contain(Field<string>(settings, "runId")));
+            }
+            finally
+            {
+                if (Directory.Exists(cleanupRoot))
+                {
+                    Directory.Delete(cleanupRoot, true);
+                }
+            }
+        }
+
         [TestCase("empty_hdrp_camera")]
         [TestCase("ground_only")]
         [TestCase("full_forest")]
@@ -233,10 +356,8 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         [Test]
         public void StartupFailure_RestoresStateWritesInvalidManifestAndRequestsNonZeroExit()
         {
-            string temporaryDirectory = Path.Combine(
-                Path.GetTempPath(),
-                "sotf-r2-perf1-startup-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(temporaryDirectory);
+            string cleanupRoot;
+            string temporaryDirectory = CreateLongRunDirectory(out cleanupRoot);
             try
             {
                 object settings = Parse(
@@ -271,8 +392,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 string manifestPath = (string)parameters[3];
 
                 Assert.That(restoreCalled, Is.True);
-                Assert.That(exitCode, Is.Not.EqualTo(0));
+                Assert.That(exitCode, Is.EqualTo(2));
                 Assert.That(File.Exists(manifestPath), Is.True);
+                Assert.That(Path.GetFileName(manifestPath), Is.EqualTo("runtime.manifest.json"));
                 string manifest = File.ReadAllText(manifestPath);
                 Assert.That(manifest, Does.Contain("\"status\": \"invalid\""));
                 Assert.That(manifest, Does.Contain("synthetic startup failure"));
@@ -288,7 +410,10 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             }
             finally
             {
-                Directory.Delete(temporaryDirectory, true);
+                if (Directory.Exists(cleanupRoot))
+                {
+                    Directory.Delete(cleanupRoot, true);
+                }
             }
         }
 
@@ -403,6 +528,41 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 BindingFlags.Public | BindingFlags.Static);
             Assert.That(method, Is.Not.Null);
             return method.Invoke(null, new object[] { arguments });
+        }
+
+        private static object InvokeConfiguration(string methodName, params object[] arguments)
+        {
+            MethodInfo method = ConfigurationType.GetMethod(
+                methodName,
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null, "Missing configuration method: " + methodName);
+            return method.Invoke(null, arguments);
+        }
+
+        private static void AssertConfigurationFailure<TException>(
+            string methodName,
+            params object[] arguments)
+            where TException : Exception
+        {
+            TargetInvocationException exception = Assert.Throws<TargetInvocationException>(
+                () => InvokeConfiguration(methodName, arguments));
+            Assert.That(exception.InnerException, Is.TypeOf<TException>());
+        }
+
+        private static T StaticField<T>(Type type, string name)
+        {
+            FieldInfo field = type.GetField(name, BindingFlags.Public | BindingFlags.Static);
+            Assert.That(field, Is.Not.Null, "Missing static field: " + name);
+            return (T)field.GetValue(null);
+        }
+
+        private static string CreateLongRunDirectory(out string cleanupRoot)
+        {
+            cleanupRoot = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-b2-" + Guid.NewGuid().ToString("N"));
+            int componentLength = Math.Max(32, 128 - cleanupRoot.Length);
+            return Path.Combine(cleanupRoot, new string('r', componentLength));
         }
 
         private static T Field<T>(object target, string name)

@@ -28,6 +28,12 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         public const string AntialiasingFxaa = "FXAA";
         public const string AntialiasingSmaa = "SMAA";
         public const string AntialiasingTaa = "TAA";
+        public const string RuntimeManifestFileName = "runtime.manifest.json";
+        public const string RuntimeReportJsonFileName = "runtime.report.json";
+        public const string RuntimeReportMarkdownFileName = "runtime.report.md";
+        public const string RuntimeScreenshotFileName = "runtime.screenshot.png";
+        public const string AtomicTemporarySuffix = ".tmp";
+        public const int MaximumRuntimeOutputFileNameLength = 32;
 
         private static readonly string[] SupportedAntialiasingValues =
         {
@@ -503,13 +509,76 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
         public static string ResolveOutputDirectory(Settings settings, string applicationDataPath)
         {
+            string directory;
             if (settings != null && settings.enabled &&
                 !string.IsNullOrWhiteSpace(settings.outputDirectory))
             {
-                return Path.GetFullPath(settings.outputDirectory);
+                directory = settings.outputDirectory;
+            }
+            else
+            {
+                directory = Path.Combine(applicationDataPath, "..", "Benchmarks");
             }
 
-            return Path.GetFullPath(Path.Combine(applicationDataPath, "..", "Benchmarks"));
+            return ValidateRunDirectory(directory);
+        }
+
+        public static string EnsureOutputDirectory(Settings settings, string applicationDataPath)
+        {
+            string directory = ResolveOutputDirectory(settings, applicationDataPath);
+            Directory.CreateDirectory(directory);
+            return directory;
+        }
+
+        public static string ValidateRunDirectory(string directory)
+        {
+            directory = RequireText(directory, "-sotf-output-directory");
+            string fullPath = Path.GetFullPath(directory);
+            string root = Path.GetPathRoot(fullPath);
+            if (string.IsNullOrEmpty(root) ||
+                string.Equals(fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                    root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException(
+                    "-sotf-output-directory must identify a run directory, not a filesystem root.");
+            }
+
+            return fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
+        public static string ResolveContainedOutputPath(string runDirectory, string fileName)
+        {
+            runDirectory = ValidateRunDirectory(runDirectory);
+            fileName = RequireText(fileName, nameof(fileName));
+            if (fileName.Length > MaximumRuntimeOutputFileNameLength ||
+                Path.IsPathRooted(fileName) ||
+                !string.Equals(Path.GetFileName(fileName), fileName, StringComparison.Ordinal) ||
+                fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                throw new ArgumentException(
+                    "Runtime output must use a bounded filename inside the validated run directory.",
+                    nameof(fileName));
+            }
+
+            return ValidateContainedOutputPath(
+                runDirectory,
+                Path.Combine(runDirectory, fileName));
+        }
+
+        public static string ValidateContainedOutputPath(string runDirectory, string outputPath)
+        {
+            runDirectory = ValidateRunDirectory(runDirectory);
+            outputPath = Path.GetFullPath(RequireText(outputPath, nameof(outputPath)));
+            string prefix = runDirectory + Path.DirectorySeparatorChar;
+            if (!outputPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException(
+                    "Runtime output path escapes the validated run directory.",
+                    nameof(outputPath));
+            }
+
+            return outputPath;
         }
 
         private static void ValidateSettings(Settings settings)

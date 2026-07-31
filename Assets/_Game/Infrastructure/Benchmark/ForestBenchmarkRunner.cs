@@ -456,13 +456,16 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
         private IEnumerator RunPerf1(Report report)
         {
-            string directory = ReportDirectory();
-            Directory.CreateDirectory(directory);
+            string directory = R2Perf1BenchmarkConfiguration.EnsureOutputDirectory(
+                _perf1,
+                UnityEngine.Application.dataPath);
             RunManifest manifest = _runManifest ?? CreateManifest(_perf1, report.phase);
-            string manifestPath = _runManifestPath ?? ManifestPath(report.phase);
+            string manifestPath = _runManifestPath ?? RuntimeOutputPath(
+                _perf1,
+                R2Perf1BenchmarkConfiguration.RuntimeManifestFileName);
             _runManifest = manifest;
             _runManifestPath = manifestPath;
-            WriteManifest(manifestPath, manifest);
+            WriteManifest(directory, manifestPath, manifest);
 
             bool completedNormally = false;
             try
@@ -482,9 +485,9 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
                 if (_perf1.CaptureScreenshot)
                 {
-                    string screenshotDirectory = Path.Combine(directory, "screenshots");
-                    Directory.CreateDirectory(screenshotDirectory);
-                    string screenshotPath = Path.Combine(screenshotDirectory, phase + ".png");
+                    string screenshotPath = RuntimeOutputPath(
+                        _perf1,
+                        R2Perf1BenchmarkConfiguration.RuntimeScreenshotFileName);
                     report.screenshotPath = screenshotPath;
                     manifest.screenshotPath = screenshotPath;
                     ScreenCapture.CaptureScreenshot(screenshotPath, 1);
@@ -530,7 +533,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                         : "runtime_did_not_complete_normally";
                 }
 
-                WriteManifest(manifestPath, manifest);
+                WriteManifest(directory, manifestPath, manifest);
             }
 
 #if UNITY_EDITOR
@@ -1221,7 +1224,12 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             string directory = ReportDirectory();
             Directory.CreateDirectory(directory);
             string json = JsonUtility.ToJson(report, true);
-            WriteAllTextAtomic(ReportJsonPath(report.phase), json);
+            string reportJsonPath = _perf1 != null && _perf1.enabled
+                ? RuntimeOutputPath(
+                    _perf1,
+                    R2Perf1BenchmarkConfiguration.RuntimeReportJsonFileName)
+                : ReportJsonPath(report.phase);
+            WriteAllTextAtomic(directory, reportJsonPath, json);
 
             var markdown = new StringBuilder();
             markdown.AppendLine($"# Forest benchmark - phase `{report.phase}`");
@@ -1278,8 +1286,13 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                     $"{scenario.timingSamples} | {scenario.ignoredStartupStallFrames} | {scenario.budgetFailure} |");
             }
 
-            WriteAllTextAtomic(ReportMarkdownPath(report.phase), markdown.ToString());
-            Debug.Log($"[ForestBenchmark] Report written to Benchmarks/forest_benchmark_{report.phase}.json");
+            string reportMarkdownPath = _perf1 != null && _perf1.enabled
+                ? RuntimeOutputPath(
+                    _perf1,
+                    R2Perf1BenchmarkConfiguration.RuntimeReportMarkdownFileName)
+                : ReportMarkdownPath(report.phase);
+            WriteAllTextAtomic(directory, reportMarkdownPath, markdown.ToString());
+            Debug.Log("[ForestBenchmark] Report written: " + reportJsonPath);
         }
 
         private bool VerifyRuntimeOutputs(Report report, RunManifest manifest)
@@ -1342,9 +1355,12 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             return !float.IsNaN(value) && !float.IsInfinity(value);
         }
 
-        private static void WriteManifest(string path, RunManifest manifest)
+        private static void WriteManifest(
+            string runDirectory,
+            string path,
+            RunManifest manifest)
         {
-            WriteAllTextAtomic(path, JsonUtility.ToJson(manifest, true));
+            WriteAllTextAtomic(runDirectory, path, JsonUtility.ToJson(manifest, true));
         }
 
         public static int RecoverFromStartupFailure(
@@ -1379,14 +1395,13 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             try
             {
                 settings.runId = R2Perf1BenchmarkConfiguration.ValidateRunId(settings.runId);
-                string directory = R2Perf1BenchmarkConfiguration.ResolveOutputDirectory(
+                string directory = R2Perf1BenchmarkConfiguration.EnsureOutputDirectory(
                     settings,
                     UnityEngine.Application.dataPath);
                 string failurePhase = settings.Phase;
-                Directory.CreateDirectory(directory);
-                manifestPath = Path.Combine(
+                manifestPath = R2Perf1BenchmarkConfiguration.ResolveContainedOutputPath(
                     directory,
-                    $"forest_benchmark_{failurePhase}.manifest.json");
+                    R2Perf1BenchmarkConfiguration.RuntimeManifestFileName);
                 RunManifest manifest = CreateManifest(settings, failurePhase);
                 manifest.status = R2Perf1BenchmarkConfiguration.ManifestInvalid;
                 manifest.statusReason = "startup_failure: " + exception.GetType().FullName +
@@ -1399,7 +1414,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 manifest.completedUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
                 manifest.reportWritten = false;
                 manifest.runtimeStateRestored = restored;
-                WriteManifest(manifestPath, manifest);
+                WriteManifest(directory, manifestPath, manifest);
             }
             catch (Exception manifestException)
             {
@@ -1425,11 +1440,14 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         private void PrepareRuntimeManifest()
         {
             phase = _perf1.Phase;
-            string directory = ReportDirectory();
-            Directory.CreateDirectory(directory);
+            string directory = R2Perf1BenchmarkConfiguration.EnsureOutputDirectory(
+                _perf1,
+                UnityEngine.Application.dataPath);
             _runManifest = CreateManifest(_perf1, phase);
-            _runManifestPath = ManifestPath(phase);
-            WriteManifest(_runManifestPath, _runManifest);
+            _runManifestPath = RuntimeOutputPath(
+                _perf1,
+                R2Perf1BenchmarkConfiguration.RuntimeManifestFileName);
+            WriteManifest(directory, _runManifestPath, _runManifest);
         }
 
         private void HandleStartupFailure(Exception exception)
@@ -1470,24 +1488,29 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 developmentBuild = Debug.isDebugBuild,
                 screenshotRequested = settings.CaptureScreenshot,
                 measurementEligible = settings.MeasurementEligible,
-                reportJsonPath = Path.Combine(
+                reportJsonPath = R2Perf1BenchmarkConfiguration.ResolveContainedOutputPath(
                     directory,
-                    $"forest_benchmark_{reportPhase}.json"),
-                reportMarkdownPath = Path.Combine(
+                    R2Perf1BenchmarkConfiguration.RuntimeReportJsonFileName),
+                reportMarkdownPath = R2Perf1BenchmarkConfiguration.ResolveContainedOutputPath(
                     directory,
-                    $"forest_benchmark_{reportPhase}.md"),
+                    R2Perf1BenchmarkConfiguration.RuntimeReportMarkdownFileName),
             };
         }
 
-        private static void WriteAllTextAtomic(string path, string contents)
+        private static void WriteAllTextAtomic(
+            string runDirectory,
+            string path,
+            string contents)
         {
-            string directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
+            runDirectory = R2Perf1BenchmarkConfiguration.ValidateRunDirectory(runDirectory);
+            Directory.CreateDirectory(runDirectory);
+            path = R2Perf1BenchmarkConfiguration.ValidateContainedOutputPath(
+                runDirectory,
+                path);
+            string temporaryPath = R2Perf1BenchmarkConfiguration.ValidateContainedOutputPath(
+                runDirectory,
+                path + R2Perf1BenchmarkConfiguration.AtomicTemporarySuffix);
 
-            string temporaryPath = path + ".tmp";
             File.WriteAllText(temporaryPath, contents);
             if (File.Exists(path))
             {
@@ -1507,9 +1530,14 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             return Path.Combine(ReportDirectory(), $"forest_benchmark_{reportPhase}.md");
         }
 
-        private static string ManifestPath(string reportPhase)
+        private static string RuntimeOutputPath(
+            R2Perf1BenchmarkConfiguration.Settings settings,
+            string fileName)
         {
-            return Path.Combine(ReportDirectory(), $"forest_benchmark_{reportPhase}.manifest.json");
+            string directory = R2Perf1BenchmarkConfiguration.ResolveOutputDirectory(
+                settings,
+                UnityEngine.Application.dataPath);
+            return R2Perf1BenchmarkConfiguration.ResolveContainedOutputPath(directory, fileName);
         }
 
         private static string ReportDirectory()
