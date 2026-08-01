@@ -32,6 +32,27 @@ $setRoot = if ([System.IO.Path]::IsPathRooted($OutputRoot)) {
     Join-Path (Join-Path $projectRoot $OutputRoot) $measurementSetId
 }
 
+function Convert-ToCanonicalSourceCommit {
+    param([Parameter(Mandatory = $true)][string]$SourceCommit)
+    if ($SourceCommit -cnotmatch '^[0-9A-Fa-f]{40}$') {
+        throw "sourceCommit must contain exactly 40 hexadecimal characters."
+    }
+    return $SourceCommit.ToUpperInvariant()
+}
+
+function Get-PairedSourceCommitComparison {
+    param(
+        [Parameter(Mandatory = $true)][string]$ReleaseSourceCommit,
+        [Parameter(Mandatory = $true)][string]$DevelopmentSourceCommit
+    )
+    $releaseCanonical = Convert-ToCanonicalSourceCommit -SourceCommit $ReleaseSourceCommit
+    $developmentCanonical = Convert-ToCanonicalSourceCommit -SourceCommit $DevelopmentSourceCommit
+    return [pscustomobject]@{
+        CanonicalSourceCommit = $releaseCanonical
+        Matches = $releaseCanonical -ceq $developmentCanonical
+    }
+}
+
 function Resolve-ProjectPath {
     param([string]$Path)
     if ([System.IO.Path]::IsPathRooted($Path)) { return [System.IO.Path]::GetFullPath($Path) }
@@ -121,11 +142,15 @@ $release = Read-SingleMember -MemberRoot (Join-Path $setRoot "release_performanc
 $gc = Read-SingleMember -MemberRoot (Join-Path $setRoot "development_gc") -ExpectedRole "development_gc"
 $releaseSidecar = Read-BuildSidecar $ReleaseExecutablePath
 $gcSidecar = Read-BuildSidecar $DiagnosticExecutablePath
+$sourceCommitComparison = Get-PairedSourceCommitComparison `
+    -ReleaseSourceCommit ([string]$release.Report.sourceCommit) `
+    -DevelopmentSourceCommit ([string]$gc.Report.sourceCommit)
 $matchingFields = @(
-    "measurementSetId", "sourceCommit", "contentFingerprint", "configurationFingerprint",
+    "measurementSetId", "contentFingerprint", "configurationFingerprint",
     "hardwareFingerprint", "benchmarkScenario", "graphicsDeviceType", "width", "height"
 )
 $mismatches = @()
+if (-not [bool]$sourceCommitComparison.Matches) { $mismatches += "sourceCommit" }
 foreach ($field in $matchingFields) {
     if ([string]$release.Report.$field -cne [string]$gc.Report.$field) { $mismatches += $field }
 }
@@ -160,7 +185,7 @@ $pairManifest = [ordered]@{
     gcBudgetStatus = $gcStatus
     aggregateProductGate = $aggregate
     reason = $reason
-    sourceCommit = [string]$release.Report.sourceCommit
+    sourceCommit = [string]$sourceCommitComparison.CanonicalSourceCommit
     contentFingerprint = [string]$release.Report.contentFingerprint
     configurationFingerprint = [string]$release.Report.configurationFingerprint
     hardwareFingerprint = [string]$release.Report.hardwareFingerprint

@@ -77,6 +77,15 @@ function Add-CanonicalField {
         $safe.Length.ToString([System.Globalization.CultureInfo]::InvariantCulture)).Append(":").Append($safe).Append("|")
 }
 
+function Convert-ToCanonicalSourceCommit {
+    param([Parameter(Mandatory = $true)][string]$SourceCommit)
+
+    if ($SourceCommit -cnotmatch '^[0-9A-Fa-f]{40}$') {
+        throw "sourceCommit must contain exactly 40 hexadecimal characters."
+    }
+    return $SourceCommit.ToUpperInvariant()
+}
+
 function Convert-ToBoundedRunIdToken {
     param(
         [AllowEmptyString()][Parameter(Mandatory = $true)][string]$Value,
@@ -241,6 +250,7 @@ function Read-VerifiedBuildProvenance {
     if ([string]$sidecar.sourceCommit -cnotmatch '^[0-9A-Fa-f]{40}$') {
         throw "Build provenance sourceCommit is invalid."
     }
+    $sidecar.sourceCommit = Convert-ToCanonicalSourceCommit -SourceCommit ([string]$sidecar.sourceCommit)
     $artifact = Get-BuildArtifactIdentity -ArtifactRoot $artifactRoot
     if ([string]$sidecar.buildArtifactId -cne $artifact.BuildArtifactId -or
         [int]$sidecar.artifactFileCount -ne $artifact.ArtifactFileCount) {
@@ -1078,6 +1088,32 @@ function New-JsonPropertyCheck {
     return New-ValidationCheck -Passed $true -Reason "JSON property accepted: $Name"
 }
 
+function New-SourceCommitCheck {
+    param(
+        [Parameter(Mandatory = $true)][object]$Object,
+        [Parameter(Mandatory = $true)][string]$ExpectedSourceCommit
+    )
+
+    $typeCheck = New-JsonPropertyCheck -Object $Object -Name "sourceCommit" -ExpectedType "string"
+    if (-not $typeCheck.Passed) {
+        return $typeCheck
+    }
+    try {
+        $actual = Convert-ToCanonicalSourceCommit -SourceCommit ([string]$Object.sourceCommit)
+        $expected = Convert-ToCanonicalSourceCommit -SourceCommit $ExpectedSourceCommit
+    }
+    catch {
+        return New-ValidationCheck -Passed $false -Reason $_.Exception.Message
+    }
+    return New-ValidationCheck `
+        -Passed ($actual -ceq $expected) `
+        -Reason $(if ($actual -ceq $expected) {
+            "canonical sourceCommit accepted"
+        } else {
+            "sourceCommit does not match the expected Git commit"
+        })
+}
+
 function New-RequiredJsonStringCheck {
     param(
         [Parameter(Mandatory = $true)][object]$Object,
@@ -1316,7 +1352,7 @@ function Test-RunOutputs {
             (New-RequiredJsonStringCheck -Object $manifest -Name "screenshotPath")
             (New-JsonPropertyCheck -Object $manifest -Name "measurementRole" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedMeasurementRole)
             (New-JsonPropertyCheck -Object $manifest -Name "measurementSetId" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedMeasurementSetId)
-            (New-JsonPropertyCheck -Object $manifest -Name "sourceCommit" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedSourceCommit)
+            (New-SourceCommitCheck -Object $manifest -ExpectedSourceCommit $ExpectedSourceCommit)
             (New-JsonPropertyCheck -Object $manifest -Name "sourceTreeClean" -ExpectedType "boolean" -MatchValue -ExpectedValue $ExpectedSourceTreeClean)
             (New-JsonPropertyCheck -Object $manifest -Name "sourceTreeCleanAvailable" -ExpectedType "boolean" -MatchValue -ExpectedValue $ExpectedSourceTreeCleanAvailable)
             (New-JsonPropertyCheck -Object $manifest -Name "buildArtifactId" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedBuildArtifactId)
@@ -1452,7 +1488,7 @@ function Test-RunOutputs {
             (New-RequiredJsonBooleanCheck -Object $report -Name "screenshotRequested")
             (New-JsonPropertyCheck -Object $report -Name "measurementRole" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedMeasurementRole)
             (New-JsonPropertyCheck -Object $report -Name "measurementSetId" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedMeasurementSetId)
-            (New-JsonPropertyCheck -Object $report -Name "sourceCommit" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedSourceCommit)
+            (New-SourceCommitCheck -Object $report -ExpectedSourceCommit $ExpectedSourceCommit)
             (New-JsonPropertyCheck -Object $report -Name "sourceTreeClean" -ExpectedType "boolean" -MatchValue -ExpectedValue $ExpectedSourceTreeClean)
             (New-JsonPropertyCheck -Object $report -Name "sourceTreeCleanAvailable" -ExpectedType "boolean" -MatchValue -ExpectedValue $ExpectedSourceTreeCleanAvailable)
             (New-JsonPropertyCheck -Object $report -Name "buildArtifactId" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedBuildArtifactId)
@@ -1497,7 +1533,9 @@ function Test-RunOutputs {
             (New-ValidationCheck -Passed ([string]$report.aggregateProductGate -ceq "INCOMPLETE") -Reason "report aggregate product gate must be INCOMPLETE")
             (New-ValidationCheck -Passed ([string]$report.evidenceValidity -ceq "PENDING_OFFLINE_VALIDATION") -Reason "runtime report must await offline evidence validation")
             (New-ValidationCheck -Passed ([string]$report.measurementSetId -ceq $ExpectedMeasurementSetId) -Reason "report measurement-set mismatch")
-            (New-ValidationCheck -Passed ([string]$report.sourceCommit -ceq $ExpectedSourceCommit) -Reason "report source-commit mismatch")
+            (New-ValidationCheck -Passed (
+                (Convert-ToCanonicalSourceCommit -SourceCommit ([string]$report.sourceCommit)) -ceq
+                (Convert-ToCanonicalSourceCommit -SourceCommit $ExpectedSourceCommit)) -Reason "report source-commit mismatch")
             (New-ValidationCheck -Passed ([bool]$report.sourceTreeCleanAvailable -eq $ExpectedSourceTreeCleanAvailable) -Reason "report source-tree availability mismatch")
         )
     }

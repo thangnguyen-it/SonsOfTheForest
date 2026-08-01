@@ -1538,6 +1538,64 @@ Write-Output 'BOUNDED_RUN_ID_CONTRACT_PASS'
         }
 
         [Test]
+        public void PowerShellSourceCommitContract_CanonicalizesCaseAndRejectsInvalidHashes()
+        {
+            string offlineRunner = File.ReadAllText(OfflineRunnerPath);
+            int offlineBoundary = offlineRunner.IndexOf(
+                "$Executable = Resolve-ProjectPath",
+                StringComparison.Ordinal);
+            Assert.That(offlineBoundary, Is.GreaterThan(0));
+
+            string pairRunner = File.ReadAllText(PairRunnerPath);
+            int pairFunctionStart = pairRunner.IndexOf(
+                "function Convert-ToCanonicalSourceCommit",
+                StringComparison.Ordinal);
+            int pairFunctionEnd = pairRunner.IndexOf(
+                "function Resolve-ProjectPath",
+                pairFunctionStart,
+                StringComparison.Ordinal);
+            Assert.That(pairFunctionStart, Is.GreaterThan(0));
+            Assert.That(pairFunctionEnd, Is.GreaterThan(pairFunctionStart));
+
+            string cleanupRoot = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-r2-perf1-source-commit-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(cleanupRoot);
+            string harnessPath = Path.Combine(cleanupRoot, "source-commit-contract.ps1");
+            try
+            {
+                var harness = new StringBuilder(offlineRunner.Substring(0, offlineBoundary));
+                harness.AppendLine(pairRunner.Substring(pairFunctionStart, pairFunctionEnd - pairFunctionStart));
+                harness.AppendLine(@"
+$lower = '2e55294f9321819e770914eafaab6a449d6e92db'
+$upper = $lower.ToUpperInvariant()
+if ((Convert-ToCanonicalSourceCommit $lower) -cne $upper) { throw 'lowercase canonicalization failed' }
+if ((Convert-ToCanonicalSourceCommit $upper) -cne $upper) { throw 'uppercase canonicalization failed' }
+$lowerUpper = Get-PairedSourceCommitComparison $lower $upper
+$upperLower = Get-PairedSourceCommitComparison $upper $lower
+if (-not $lowerUpper.Matches -or $lowerUpper.CanonicalSourceCommit -cne $upper) { throw 'lower/upper pair failed' }
+if (-not $upperLower.Matches -or $upperLower.CanonicalSourceCommit -cne $upper) { throw 'upper/lower pair failed' }
+$different = Get-PairedSourceCommitComparison $lower '3e55294f9321819e770914eafaab6a449d6e92db'
+if ($different.Matches) { throw 'different SHA accepted' }
+foreach ($invalid in @('not-hex', ('a' * 39), ('a' * 41), (('a' * 39) + 'g'))) {
+    try { Convert-ToCanonicalSourceCommit $invalid; throw ('invalid SHA accepted: ' + $invalid) }
+    catch { if ($_.Exception.Message -notmatch 'exactly 40 hexadecimal') { throw } }
+}
+Write-Output 'SOURCE_COMMIT_CONTRACT_PASS'
+");
+                File.WriteAllText(harnessPath, harness.ToString());
+                AssertPowerShellHarnessPasses(
+                    harnessPath,
+                    "-MeasurementRole release_performance -MeasurementSetId source_commit_contract",
+                    "SOURCE_COMMIT_CONTRACT_PASS");
+            }
+            finally
+            {
+                DeleteDirectory(cleanupRoot);
+            }
+        }
+
+        [Test]
         public void OfflineValidator_FunctionalSafetyAndCompletenessMatrixPasses()
         {
             string runner = File.ReadAllText(OfflineRunnerPath);
@@ -2072,6 +2130,43 @@ Write-Output 'BOUNDED_RUN_ID_CONTRACT_PASS'
             return value.Replace("'", "''");
         }
 
+        private static void AssertPowerShellHarnessPasses(
+            string harnessPath,
+            string arguments,
+            string expectedOutput)
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" +
+                            harnessPath + "\" " + arguments,
+                WorkingDirectory = Path.GetFullPath("."),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            using (Process process = Process.Start(startInfo))
+            {
+                Assert.That(process, Is.Not.Null);
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+                bool exited = process.WaitForExit(60000);
+                if (!exited)
+                {
+                    process.Kill();
+                }
+
+                Assert.That(exited, Is.True, "PowerShell contract harness timed out.");
+                Assert.That(
+                    process.ExitCode,
+                    Is.EqualTo(0),
+                    "PowerShell contract harness failed.\nSTDOUT:\n" + output +
+                    "\nSTDERR:\n" + error);
+                Assert.That(output, Does.Contain(expectedOutput));
+            }
+        }
+
         private const string OfflineValidatorContractMatrixScript = @"
 function Assert-Contract {
     param([bool]$Condition, [string]$Message)
@@ -2289,7 +2384,8 @@ function New-V2ContractFixture {
         [string]$Role,
         [string]$PerformanceStatus,
         [string]$GcStatus,
-        [bool]$GcAvailable
+        [bool]$GcAvailable,
+        [string]$SourceCommit = '2e55294f9321819e770914eafaab6a449d6e92db'
     )
     $directory = Join-Path $ContractRoot $Label
     New-Item -ItemType Directory -Path $directory -Force | Out-Null
@@ -2358,7 +2454,7 @@ function New-V2ContractFixture {
         buildKind = $buildKind
         measurementRole = $Role
         measurementSetId = ''
-        sourceCommit = ''
+        sourceCommit = $SourceCommit
         sourceTreeClean = $false
         sourceTreeCleanAvailable = $false
         buildArtifactId = ''
@@ -2397,7 +2493,7 @@ function New-V2ContractFixture {
         buildKind = $buildKind
         measurementRole = $Role
         measurementSetId = ''
-        sourceCommit = ''
+        sourceCommit = $SourceCommit
         sourceTreeClean = $false
         sourceTreeCleanAvailable = $false
         buildArtifactId = ''
@@ -2436,13 +2532,17 @@ function New-V2ContractFixture {
 }
 
 function Invoke-V2ContractValidation {
-    param([object]$Fixture)
+    param(
+        [object]$Fixture,
+        [string]$ExpectedSourceCommit = '2e55294f9321819e770914eafaab6a449d6e92db'
+    )
     return Test-RunOutputs `
         -RunDirectory $Fixture.Directory `
         -RunId $Fixture.RunId `
         -ExpectedScenario 'empty_hdrp_camera' `
         -ExpectedBuildKind $Fixture.BuildKind `
         -ExpectedMeasurementRole $Fixture.Role `
+        -ExpectedSourceCommit $ExpectedSourceCommit `
         -ExpectedQuality 'High Fidelity' `
         -ExpectedAntialiasing 'TAA' `
         -ExpectedRenderScalePercent 100 `
@@ -2475,6 +2575,26 @@ $developmentMissingGc = New-V2ContractFixture -Label 'v2_development_missing_gc'
 $developmentMissingGcResult = Invoke-V2ContractValidation $developmentMissingGc
 Assert-Contract (-not $developmentMissingGcResult.Valid) 'missing authoritative GC recorder must not pass'
 Assert-Contract ($developmentMissingGcResult.GcBudgetStatus -ne 'PASS') 'missing global GC was converted into PASS'
+
+$uppercaseCommit = '2E55294F9321819E770914EAFAAB6A449D6E92DB'
+$lowercaseCommit = $uppercaseCommit.ToLowerInvariant()
+$lowerSidecarUpperRuntime = New-V2ContractFixture -Label 'v2_lower_sidecar_upper_runtime' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false -SourceCommit $uppercaseCommit
+$lowerSidecarUpperRuntimeResult = Invoke-V2ContractValidation $lowerSidecarUpperRuntime -ExpectedSourceCommit $lowercaseCommit
+Assert-Contract $lowerSidecarUpperRuntimeResult.Valid 'lowercase sidecar + uppercase runtime must validate'
+
+$upperSidecarLowerRuntime = New-V2ContractFixture -Label 'v2_upper_sidecar_lower_runtime' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false -SourceCommit $lowercaseCommit
+$upperSidecarLowerRuntimeResult = Invoke-V2ContractValidation $upperSidecarLowerRuntime -ExpectedSourceCommit $uppercaseCommit
+Assert-Contract $upperSidecarLowerRuntimeResult.Valid 'uppercase sidecar + lowercase runtime must validate'
+
+$differentCommit = New-V2ContractFixture -Label 'v2_different_commit' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false -SourceCommit ('3' + $lowercaseCommit.Substring(1))
+$differentCommitResult = Invoke-V2ContractValidation $differentCommit -ExpectedSourceCommit $lowercaseCommit
+Assert-Contract (-not $differentCommitResult.Valid) 'different source commit must be rejected'
+
+foreach ($malformedCommit in @('not-hex', ('a' * 39), ('a' * 41), (('a' * 39) + 'g'))) {
+    $malformedFixture = New-V2ContractFixture -Label ('v2_malformed_commit_' + $malformedCommit.Length) -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false -SourceCommit $malformedCommit
+    $malformedResult = Invoke-V2ContractValidation $malformedFixture -ExpectedSourceCommit $lowercaseCommit
+    Assert-Contract (-not $malformedResult.Valid) 'malformed source commit must be rejected'
+}
 
 $missingRole = New-V2ContractFixture -Label 'v2_missing_role' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
 $missingRoleManifest = Get-Content $missingRole.ManifestPath -Raw | ConvertFrom-Json
