@@ -77,6 +77,61 @@ function Add-CanonicalField {
         $safe.Length.ToString([System.Globalization.CultureInfo]::InvariantCulture)).Append(":").Append($safe).Append("|")
 }
 
+function Convert-ToBoundedRunIdToken {
+    param(
+        [AllowEmptyString()][Parameter(Mandatory = $true)][string]$Value,
+        [ValidateRange(1, 32)][int]$MaximumLength
+    )
+
+    $token = ($Value -replace '[^A-Za-z0-9_-]', '_').Trim('_', '-')
+    if ([string]::IsNullOrEmpty($token)) {
+        $token = "x"
+    }
+    if ($token.Length -gt $MaximumLength) {
+        $token = $token.Substring(0, $MaximumLength)
+    }
+    return $token
+}
+
+function New-BoundedRunId {
+    param(
+        [Parameter(Mandatory = $true)][string]$MeasurementRole,
+        [Parameter(Mandatory = $true)][string]$BuildKind,
+        [AllowEmptyString()][Parameter(Mandatory = $true)][string]$Quality,
+        [AllowEmptyString()][Parameter(Mandatory = $true)][string]$Scenario,
+        [int]$RenderScalePercent,
+        [int]$RunNumber,
+        [Parameter(Mandatory = $true)][string]$Timestamp
+    )
+
+    $canonical = [System.Text.StringBuilder]::new()
+    Add-CanonicalField -Builder $canonical -Name "measurementRole" -Value $MeasurementRole
+    Add-CanonicalField -Builder $canonical -Name "buildKind" -Value $BuildKind
+    Add-CanonicalField -Builder $canonical -Name "quality" -Value $Quality
+    Add-CanonicalField -Builder $canonical -Name "scenario" -Value $Scenario
+    Add-CanonicalField -Builder $canonical -Name "renderScale" -Value (
+        $RenderScalePercent.ToString([System.Globalization.CultureInfo]::InvariantCulture))
+    Add-CanonicalField -Builder $canonical -Name "runNumber" -Value (
+        $RunNumber.ToString([System.Globalization.CultureInfo]::InvariantCulture))
+    Add-CanonicalField -Builder $canonical -Name "timestamp" -Value $Timestamp
+
+    $roleToken = switch -CaseSensitive ($MeasurementRole) {
+        "release_performance" { "releaseperf"; break }
+        "development_gc" { "developmentgc"; break }
+        default { Convert-ToBoundedRunIdToken -Value $MeasurementRole -MaximumLength 13 }
+    }
+    $buildToken = Convert-ToBoundedRunIdToken -Value $BuildKind -MaximumLength 10
+    $runToken = Convert-ToBoundedRunIdToken -Value (
+        $RunNumber.ToString([System.Globalization.CultureInfo]::InvariantCulture)) -MaximumLength 10
+    $timestampToken = Convert-ToBoundedRunIdToken -Value $Timestamp -MaximumLength 20
+    $hashSuffix = (Get-Sha256Text -Text $canonical.ToString()).Substring(0, 12).ToLowerInvariant()
+    $runId = "{0}-{1}-r{2}-{3}-{4}" -f $roleToken, $buildToken, $runToken, $timestampToken, $hashSuffix
+    if ($runId.Length -gt 80 -or $runId -cnotmatch '^[A-Za-z0-9_-]+$') {
+        throw "Bounded run-id generation violated the runtime run-id contract."
+    }
+    return $runId
+}
+
 function Get-BuildArtifactIdentity {
     param([Parameter(Mandatory = $true)][string]$ArtifactRoot)
 
@@ -1889,15 +1944,18 @@ $results = @()
 
 for ($run = 1; $run -le $Runs; $run++) {
     $timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")
-    $runId = ("{0}_{1}_{2}_{3}_rs{4}_r{5}_{6}" -f
-        ($MeasurementRole -replace '[^A-Za-z0-9_-]', '_'),
-        ($BuildKind -replace '[^A-Za-z0-9_-]', '_'),
-        ($Quality -replace '[^A-Za-z0-9_-]', '_'),
-        $Scenario,
-        $RenderScalePercent,
-        $run,
-        $timestamp)
+    $runId = New-BoundedRunId `
+        -MeasurementRole $MeasurementRole `
+        -BuildKind $BuildKind `
+        -Quality $Quality `
+        -Scenario $Scenario `
+        -RenderScalePercent $RenderScalePercent `
+        -RunNumber $run `
+        -Timestamp $timestamp
     $runDirectory = Join-Path $OutputDirectory $runId
+    if ((Split-Path -Leaf $runDirectory) -cne $runId) {
+        throw "Run directory leaf does not exactly match its bounded run ID."
+    }
     $telemetryPath = Join-Path $runDirectory "nvidia-smi.csv"
     $playerLogPath = Join-Path $runDirectory "player.log"
 

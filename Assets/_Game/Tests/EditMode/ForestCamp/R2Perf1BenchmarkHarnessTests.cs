@@ -1427,6 +1427,117 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         }
 
         [Test]
+        public void OfflineRunner_BoundsPairedRunIdentifiersDeterministically()
+        {
+            string runner = File.ReadAllText(OfflineRunnerPath);
+            int mainBoundary = runner.IndexOf(
+                "$Executable = Resolve-ProjectPath",
+                StringComparison.Ordinal);
+            Assert.That(mainBoundary, Is.GreaterThan(0), "Offline runner main boundary was not found.");
+
+            string cleanupRoot = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-r2-perf1-run-id-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(cleanupRoot);
+            string harnessPath = Path.Combine(cleanupRoot, "run-id-contract.ps1");
+            try
+            {
+                var harness = new StringBuilder(runner.Substring(0, mainBoundary));
+                harness.AppendLine();
+                harness.AppendLine(@"
+function Assert-RunIdContract {
+    param([string]$Id, [string]$Label)
+    if ($Id.Length -gt 80) { throw ($Label + ' exceeded 80 characters: ' + $Id.Length) }
+    if ($Id -cnotmatch '^[A-Za-z0-9_-]+$') { throw ($Label + ' contains unsafe characters: ' + $Id) }
+    $directory = Join-Path 'C:\bounded-output' $Id
+    if ((Split-Path -Leaf $directory) -cne $Id) { throw ($Label + ' directory leaf mismatch') }
+}
+
+$releaseArgs = @{
+    MeasurementRole = 'release_performance'; BuildKind = 'release'; Quality = 'High Fidelity'
+    Scenario = 'empty_hdrp_camera'; RenderScalePercent = 100; RunNumber = 1
+    Timestamp = '20260801T133945981Z'
+}
+$developmentArgs = @{
+    MeasurementRole = 'development_gc'; BuildKind = 'diagnostic'; Quality = 'High Fidelity'
+    Scenario = 'empty_hdrp_camera'; RenderScalePercent = 100; RunNumber = 1
+    Timestamp = '20260801T134000757Z'
+}
+$releaseId = New-BoundedRunId @releaseArgs
+$developmentId = New-BoundedRunId @developmentArgs
+Assert-RunIdContract $releaseId 'failed release ID regression'
+Assert-RunIdContract $developmentId 'failed development ID regression'
+if ($releaseId -ceq 'release_performance_release_High_Fidelity_empty_hdrp_camera_rs100_r1_20260801T133945981Z') {
+    throw 'release ID was not bounded'
+}
+if ($developmentId -ceq 'development_gc_diagnostic_High_Fidelity_empty_hdrp_camera_rs100_r1_20260801T134000757Z') {
+    throw 'development ID was not bounded'
+}
+if ((New-BoundedRunId @releaseArgs) -cne $releaseId) { throw 'same input was not deterministic' }
+
+$longArgs = @{
+    MeasurementRole = 'release_performance'; BuildKind = 'release'
+    Quality = ('quality with spaces / unsafe ! characters ' * 100)
+    Scenario = ('scenario.with.arbitrarily.long.input/' * 100)
+    RenderScalePercent = 100; RunNumber = 1; Timestamp = '20260801T133945981Z'
+}
+$longId = New-BoundedRunId @longArgs
+Assert-RunIdContract $longId 'arbitrarily long input'
+
+$differentRunArgs = $releaseArgs.Clone(); $differentRunArgs.RunNumber = 2
+$differentTimeArgs = $releaseArgs.Clone(); $differentTimeArgs.Timestamp = '20260801T133945982Z'
+$differentQualityArgs = $releaseArgs.Clone(); $differentQualityArgs.Quality = 'Balanced'
+$ids = @($releaseId, $developmentId, $longId,
+    (New-BoundedRunId @differentRunArgs),
+    (New-BoundedRunId @differentTimeArgs),
+    (New-BoundedRunId @differentQualityArgs))
+if (@($ids | Sort-Object -Unique).Count -ne $ids.Count) { throw 'distinct inputs collided' }
+Write-Output 'BOUNDED_RUN_ID_CONTRACT_PASS'
+");
+                File.WriteAllText(harnessPath, harness.ToString());
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" +
+                                harnessPath + "\" -MeasurementRole release_performance " +
+                                "-MeasurementSetId bounded_run_id_contract",
+                    WorkingDirectory = Path.GetFullPath("."),
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                };
+                using (Process process = Process.Start(startInfo))
+                {
+                    Assert.That(process, Is.Not.Null);
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+                    bool exited = process.WaitForExit(60000);
+                    if (!exited)
+                    {
+                        process.Kill();
+                    }
+
+                    Assert.That(exited, Is.True, "PowerShell bounded run-ID contract timed out.");
+                    Assert.That(
+                        process.ExitCode,
+                        Is.EqualTo(0),
+                        "PowerShell bounded run-ID contract failed.\nSTDOUT:\n" + output +
+                        "\nSTDERR:\n" + error);
+                    Assert.That(output, Does.Contain("BOUNDED_RUN_ID_CONTRACT_PASS"));
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(cleanupRoot))
+                {
+                    Directory.Delete(cleanupRoot, true);
+                }
+            }
+        }
+
+        [Test]
         public void OfflineValidator_FunctionalSafetyAndCompletenessMatrixPasses()
         {
             string runner = File.ReadAllText(OfflineRunnerPath);
