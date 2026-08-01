@@ -11,6 +11,106 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
     /// </summary>
     public sealed class RuntimePerformanceSampler : IDisposable
     {
+        public struct GlobalGcMeasurement
+        {
+            public bool allocationAvailable;
+            public double allocatedAverageBytes;
+            public long allocatedPeakBytes;
+            public double allocationCountAverage;
+        }
+
+        /// <summary>
+        /// Accumulates only samples explicitly submitted while the authoritative
+        /// steady-state window is open. Construction, warm-up and report work are
+        /// therefore outside the GC gate by lifecycle rather than by tolerance.
+        /// </summary>
+        public sealed class SteadyStateGcWindow
+        {
+            private bool _active;
+            private bool _completed;
+            private long _allocatedSampleCount;
+            private long _allocationCountSampleCount;
+            private double _allocatedTotal;
+            private double _allocationCountTotal;
+            private long _allocatedPeak;
+
+            public void Begin()
+            {
+                if (_active)
+                {
+                    throw new InvalidOperationException(
+                        "The steady-state GC measurement window is already active.");
+                }
+
+                _active = true;
+                _completed = false;
+                _allocatedSampleCount = 0L;
+                _allocationCountSampleCount = 0L;
+                _allocatedTotal = 0d;
+                _allocationCountTotal = 0d;
+                _allocatedPeak = 0L;
+            }
+
+            public void RecordFrame(
+                bool allocatedBytesAvailable,
+                long allocatedBytes,
+                bool allocationCountAvailable,
+                long allocationCount)
+            {
+                if (!_active)
+                {
+                    throw new InvalidOperationException(
+                        "GC samples are accepted only inside the steady-state window.");
+                }
+
+                if (allocatedBytesAvailable)
+                {
+                    _allocatedSampleCount++;
+                    _allocatedTotal += allocatedBytes;
+                    _allocatedPeak = Math.Max(_allocatedPeak, allocatedBytes);
+                }
+
+                if (allocationCountAvailable)
+                {
+                    _allocationCountSampleCount++;
+                    _allocationCountTotal += allocationCount;
+                }
+            }
+
+            public void End()
+            {
+                if (!_active)
+                {
+                    throw new InvalidOperationException(
+                        "The steady-state GC measurement window is not active.");
+                }
+
+                _active = false;
+                _completed = true;
+            }
+
+            public GlobalGcMeasurement GetCompletedMeasurement()
+            {
+                if (_active || !_completed)
+                {
+                    throw new InvalidOperationException(
+                        "GC results are unavailable until the steady-state window has ended.");
+                }
+
+                return new GlobalGcMeasurement
+                {
+                    allocationAvailable = _allocatedSampleCount > 0L,
+                    allocatedAverageBytes = _allocatedSampleCount > 0L
+                        ? _allocatedTotal / _allocatedSampleCount
+                        : 0d,
+                    allocatedPeakBytes = _allocatedPeak,
+                    allocationCountAverage = _allocationCountSampleCount > 0L
+                        ? _allocationCountTotal / _allocationCountSampleCount
+                        : 0d,
+                };
+            }
+        }
+
         public struct FrameSample
         {
             public bool hasFrameTiming;
@@ -63,6 +163,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         private ProfilerRecorder _totalUsedMemory;
         private ProfilerRecorder _gfxUsedMemory;
         private ProfilerRecorder _textureMemory;
+        private bool _globalGcMeasurementActive;
 
         public RuntimePerformanceSampler()
         {
@@ -80,6 +181,8 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             _totalUsedMemory = Start(ProfilerCategory.Memory, "Total Used Memory");
             _gfxUsedMemory = Start(ProfilerCategory.Memory, "Gfx Used Memory");
             _textureMemory = Start(ProfilerCategory.Memory, "Texture Memory");
+            Stop(ref _gcAllocatedBytes);
+            Stop(ref _gcAllocationCount);
         }
 
         public bool FrameTimingFeatureEnabled => FrameTimingManager.IsFeatureEnabled();
@@ -87,6 +190,32 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         public void CaptureFrameTiming()
         {
             FrameTimingManager.CaptureFrameTimings();
+        }
+
+        public void BeginGlobalGcMeasurement()
+        {
+            if (_globalGcMeasurementActive)
+            {
+                throw new InvalidOperationException(
+                    "The authoritative global GC recorder is already running.");
+            }
+
+            ResetAndStart(ref _gcAllocatedBytes);
+            ResetAndStart(ref _gcAllocationCount);
+            _globalGcMeasurementActive = true;
+        }
+
+        public void EndGlobalGcMeasurement()
+        {
+            if (!_globalGcMeasurementActive)
+            {
+                throw new InvalidOperationException(
+                    "The authoritative global GC recorder is not running.");
+            }
+
+            Stop(ref _gcAllocatedBytes);
+            Stop(ref _gcAllocationCount);
+            _globalGcMeasurementActive = false;
         }
 
         public FrameSample ReadLastFrame()
@@ -125,8 +254,14 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             sample.hasSetPassCalls = TryRead(_setPassCalls, out sample.setPassCalls);
             sample.hasTriangles = TryRead(_triangles, out sample.triangles);
             sample.hasVertices = TryRead(_vertices, out sample.vertices);
-            sample.hasGcAllocatedBytes = TryRead(_gcAllocatedBytes, out sample.gcAllocatedBytes);
-            sample.hasGcAllocationCount = TryRead(_gcAllocationCount, out sample.gcAllocationCount);
+            sample.hasGcAllocatedBytes = _globalGcMeasurementActive &&
+                                         TryReadRecorded(
+                                             _gcAllocatedBytes,
+                                             out sample.gcAllocatedBytes);
+            sample.hasGcAllocationCount = _globalGcMeasurementActive &&
+                                          TryReadRecorded(
+                                              _gcAllocationCount,
+                                              out sample.gcAllocationCount);
             sample.hasTotalUsedMemory = TryRead(_totalUsedMemory, out sample.totalUsedMemoryBytes);
             sample.hasGfxUsedMemory = TryRead(_gfxUsedMemory, out sample.gfxUsedMemoryBytes);
             sample.hasTextureMemory = TryRead(_textureMemory, out sample.textureMemoryBytes);
@@ -135,6 +270,13 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
         public void Dispose()
         {
+            if (_globalGcMeasurementActive)
+            {
+                Stop(ref _gcAllocatedBytes);
+                Stop(ref _gcAllocationCount);
+                _globalGcMeasurementActive = false;
+            }
+
             Dispose(ref _cpuTotalTime);
             Dispose(ref _cpuMainThreadTime);
             Dispose(ref _cpuRenderThreadTime);
@@ -191,6 +333,37 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
             value = 0L;
             return false;
+        }
+
+        private static bool TryReadRecorded(ProfilerRecorder recorder, out long value)
+        {
+            if (recorder.Valid && recorder.Count > 0)
+            {
+                value = recorder.LastValue;
+                return true;
+            }
+
+            value = 0L;
+            return false;
+        }
+
+        private static void ResetAndStart(ref ProfilerRecorder recorder)
+        {
+            if (!recorder.Valid)
+            {
+                return;
+            }
+
+            recorder.Reset();
+            recorder.Start();
+        }
+
+        private static void Stop(ref ProfilerRecorder recorder)
+        {
+            if (recorder.Valid && recorder.IsRunning)
+            {
+                recorder.Stop();
+            }
         }
 
         private static void Dispose(ref ProfilerRecorder recorder)

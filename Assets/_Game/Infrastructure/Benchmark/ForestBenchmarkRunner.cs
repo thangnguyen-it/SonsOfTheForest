@@ -683,8 +683,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             var setPassCalls = new MetricAccumulator(sampleCapacity);
             var triangles = new MetricAccumulator(sampleCapacity);
             var vertices = new MetricAccumulator(sampleCapacity);
-            var gcAllocated = new MetricAccumulator(sampleCapacity);
-            var gcAllocationCount = new MetricAccumulator(sampleCapacity);
+            var steadyStateGc = new RuntimePerformanceSampler.SteadyStateGcWindow();
             var totalUsedMemory = new MetricAccumulator(sampleCapacity);
             var gfxUsedMemory = new MetricAccumulator(sampleCapacity);
             var textureMemory = new MetricAccumulator(sampleCapacity);
@@ -705,60 +704,140 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 yield return null;
             }
 
-            int frameTimingSamples = 0;
             int ignoredStartupStallFrames = 0;
-            _scenarioClock = 0f;
-            while (_scenarioClock < sampleSeconds)
+            while (ignoredStartupStallFrames < maxIgnoredStartupStallFrames &&
+                   Time.unscaledDeltaTime * 1000f > startupStallFrameThresholdMs)
             {
-                float dt = Time.unscaledDeltaTime;
-                float frameMs = dt * 1000f;
-                if (frameTimes.Count == 0 &&
-                    ignoredStartupStallFrames < maxIgnoredStartupStallFrames &&
-                    frameMs > startupStallFrameThresholdMs)
-                {
-                    ignoredStartupStallFrames++;
-                    MoveCamera(0f);
-                    yield return null;
-                    continue;
-                }
-
-                _scenarioClock += dt;
-                if (frameTimes.Count >= sampleCapacity)
-                {
-                    throw new InvalidOperationException(
-                        "R2-PERF1 sample exceeded its preallocated frame capacity.");
-                }
-
-                frameTimes.Add(frameMs);
-                MoveCamera(_scenarioClock / sampleSeconds);
-
+                ignoredStartupStallFrames++;
+                MoveCamera(0f);
                 _runtimeSampler.CaptureFrameTiming();
-                RuntimePerformanceSampler.FrameSample sample = _runtimeSampler.ReadLastFrame();
-                if (sample.hasFrameTiming)
-                {
-                    frameTimingSamples++;
-                }
-
-                cpuTotal.AddIfAvailable(sample.hasCpuTotalTime, sample.cpuTotalMilliseconds);
-                cpuMain.AddIfAvailable(sample.hasCpuMainThreadTime, sample.cpuMainThreadMilliseconds);
-                cpuPresentWait.AddIfAvailable(
-                    sample.hasCpuMainThreadPresentWaitTime,
-                    sample.cpuMainThreadPresentWaitMilliseconds);
-                cpuRender.AddIfAvailable(sample.hasCpuRenderThreadTime, sample.cpuRenderThreadMilliseconds);
-                gpu.AddIfAvailable(sample.hasGpuTime, sample.gpuMilliseconds);
-                drawCalls.AddIfAvailable(sample.hasDrawCalls, sample.drawCalls);
-                batches.AddIfAvailable(sample.hasBatches, sample.batches);
-                setPassCalls.AddIfAvailable(sample.hasSetPassCalls, sample.setPassCalls);
-                triangles.AddIfAvailable(sample.hasTriangles, sample.triangles);
-                vertices.AddIfAvailable(sample.hasVertices, sample.vertices);
-                gcAllocated.AddIfAvailable(sample.hasGcAllocatedBytes, sample.gcAllocatedBytes);
-                gcAllocationCount.AddIfAvailable(sample.hasGcAllocationCount, sample.gcAllocationCount);
-                totalUsedMemory.AddIfAvailable(sample.hasTotalUsedMemory, sample.totalUsedMemoryBytes);
-                gfxUsedMemory.AddIfAvailable(sample.hasGfxUsedMemory, sample.gfxUsedMemoryBytes);
-                textureMemory.AddIfAvailable(sample.hasTextureMemory, sample.textureMemoryBytes);
-
                 yield return null;
             }
+
+            // Exercise the complete managed sampling path once before opening
+            // the authoritative window. Recorder startup, first counter reads,
+            // accumulator writes and iterator/JIT setup therefore cannot become
+            // a synthetic steady-state allocation.
+            _runtimeSampler.BeginGlobalGcMeasurement();
+            _runtimeSampler.CaptureFrameTiming();
+            yield return null;
+            RuntimePerformanceSampler.FrameSample primingSample =
+                _runtimeSampler.ReadLastFrame();
+            _runtimeSampler.EndGlobalGcMeasurement();
+
+            frameTimes.Add(Time.unscaledDeltaTime * 1000f);
+            cpuTotal.AddIfAvailable(
+                primingSample.hasCpuTotalTime,
+                primingSample.cpuTotalMilliseconds);
+            cpuMain.AddIfAvailable(
+                primingSample.hasCpuMainThreadTime,
+                primingSample.cpuMainThreadMilliseconds);
+            cpuPresentWait.AddIfAvailable(
+                primingSample.hasCpuMainThreadPresentWaitTime,
+                primingSample.cpuMainThreadPresentWaitMilliseconds);
+            cpuRender.AddIfAvailable(
+                primingSample.hasCpuRenderThreadTime,
+                primingSample.cpuRenderThreadMilliseconds);
+            gpu.AddIfAvailable(primingSample.hasGpuTime, primingSample.gpuMilliseconds);
+            drawCalls.AddIfAvailable(primingSample.hasDrawCalls, primingSample.drawCalls);
+            batches.AddIfAvailable(primingSample.hasBatches, primingSample.batches);
+            setPassCalls.AddIfAvailable(primingSample.hasSetPassCalls, primingSample.setPassCalls);
+            triangles.AddIfAvailable(primingSample.hasTriangles, primingSample.triangles);
+            vertices.AddIfAvailable(primingSample.hasVertices, primingSample.vertices);
+            totalUsedMemory.AddIfAvailable(
+                primingSample.hasTotalUsedMemory,
+                primingSample.totalUsedMemoryBytes);
+            gfxUsedMemory.AddIfAvailable(
+                primingSample.hasGfxUsedMemory,
+                primingSample.gfxUsedMemoryBytes);
+            textureMemory.AddIfAvailable(
+                primingSample.hasTextureMemory,
+                primingSample.textureMemoryBytes);
+            steadyStateGc.Begin();
+            steadyStateGc.RecordFrame(
+                primingSample.hasGcAllocatedBytes,
+                primingSample.gcAllocatedBytes,
+                primingSample.hasGcAllocationCount,
+                primingSample.gcAllocationCount);
+            steadyStateGc.End();
+            steadyStateGc.GetCompletedMeasurement();
+
+            frameTimes.Clear();
+            cpuTotal.Reset();
+            cpuMain.Reset();
+            cpuPresentWait.Reset();
+            cpuRender.Reset();
+            gpu.Reset();
+            drawCalls.Reset();
+            batches.Reset();
+            setPassCalls.Reset();
+            triangles.Reset();
+            vertices.Reset();
+            totalUsedMemory.Reset();
+            gfxUsedMemory.Reset();
+            textureMemory.Reset();
+
+            int frameTimingSamples = 0;
+            _scenarioClock = 0f;
+            double measurementStart = Time.realtimeSinceStartupAsDouble;
+            double measurementEnd = measurementStart + sampleSeconds;
+            steadyStateGc.Begin();
+            _runtimeSampler.BeginGlobalGcMeasurement();
+            try
+            {
+                do
+                {
+                    if (frameTimes.Count >= sampleCapacity)
+                    {
+                        throw new InvalidOperationException(
+                            "R2-PERF1 sample exceeded its preallocated frame capacity.");
+                    }
+
+                    MoveCamera(_scenarioClock / sampleSeconds);
+                    _runtimeSampler.CaptureFrameTiming();
+                    yield return null;
+
+                    float dt = Time.unscaledDeltaTime;
+                    _scenarioClock = (float)(Time.realtimeSinceStartupAsDouble - measurementStart);
+                    frameTimes.Add(dt * 1000f);
+
+                    RuntimePerformanceSampler.FrameSample sample = _runtimeSampler.ReadLastFrame();
+                    if (sample.hasFrameTiming)
+                    {
+                        frameTimingSamples++;
+                    }
+
+                    cpuTotal.AddIfAvailable(sample.hasCpuTotalTime, sample.cpuTotalMilliseconds);
+                    cpuMain.AddIfAvailable(sample.hasCpuMainThreadTime, sample.cpuMainThreadMilliseconds);
+                    cpuPresentWait.AddIfAvailable(
+                        sample.hasCpuMainThreadPresentWaitTime,
+                        sample.cpuMainThreadPresentWaitMilliseconds);
+                    cpuRender.AddIfAvailable(sample.hasCpuRenderThreadTime, sample.cpuRenderThreadMilliseconds);
+                    gpu.AddIfAvailable(sample.hasGpuTime, sample.gpuMilliseconds);
+                    drawCalls.AddIfAvailable(sample.hasDrawCalls, sample.drawCalls);
+                    batches.AddIfAvailable(sample.hasBatches, sample.batches);
+                    setPassCalls.AddIfAvailable(sample.hasSetPassCalls, sample.setPassCalls);
+                    triangles.AddIfAvailable(sample.hasTriangles, sample.triangles);
+                    vertices.AddIfAvailable(sample.hasVertices, sample.vertices);
+                    steadyStateGc.RecordFrame(
+                        sample.hasGcAllocatedBytes,
+                        sample.gcAllocatedBytes,
+                        sample.hasGcAllocationCount,
+                        sample.gcAllocationCount);
+                    totalUsedMemory.AddIfAvailable(sample.hasTotalUsedMemory, sample.totalUsedMemoryBytes);
+                    gfxUsedMemory.AddIfAvailable(sample.hasGfxUsedMemory, sample.gfxUsedMemoryBytes);
+                    textureMemory.AddIfAvailable(sample.hasTextureMemory, sample.textureMemoryBytes);
+                }
+                while (Time.realtimeSinceStartupAsDouble < measurementEnd);
+            }
+            finally
+            {
+                _runtimeSampler.EndGlobalGcMeasurement();
+                steadyStateGc.End();
+            }
+
+            RuntimePerformanceSampler.GlobalGcMeasurement globalGc =
+                steadyStateGc.GetCompletedMeasurement();
 
             if (revert != null)
             {
@@ -798,13 +877,13 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 setPassCalls = (float)setPassCalls.Average,
                 triangleMillions = (float)(triangles.Average / 1_000_000d),
                 vertexMillions = (float)(vertices.Average / 1_000_000d),
-                globalGcAllocationAvailable = gcAllocated.Count > 0,
+                globalGcAllocationAvailable = globalGc.allocationAvailable,
                 globalGcMetricSource = "unity_profiler_recorder",
                 globalGcMetricScope = "unity_gc_allocated_in_frame",
                 globalGcDiagnosticOnly = false,
-                globalGcAllocatedAverageBytes = (float)gcAllocated.Average,
-                globalGcAllocatedPeakBytes = (long)gcAllocated.Maximum,
-                globalGcAllocationCountAverage = (float)gcAllocationCount.Average,
+                globalGcAllocatedAverageBytes = (float)globalGc.allocatedAverageBytes,
+                globalGcAllocatedPeakBytes = globalGc.allocatedPeakBytes,
+                globalGcAllocationCountAverage = (float)globalGc.allocationCountAverage,
                 totalUsedMemoryAvailable = totalUsedMemory.Count > 0,
                 gfxUsedMemoryAvailable = gfxUsedMemory.Count > 0,
                 textureMemoryAvailable = textureMemory.Count > 0,
@@ -1917,6 +1996,14 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public int Count => _values.Count;
             public double Average => Count > 0 ? _sum / Count : 0d;
             public double Maximum { get; private set; }
+
+            public void Reset()
+            {
+                _values.Clear();
+                _sum = 0d;
+                _sorted = false;
+                Maximum = 0d;
+            }
 
             public void AddIfAvailable(bool available, double value)
             {

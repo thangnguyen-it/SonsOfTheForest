@@ -17,6 +17,8 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             "SonsOfTheForest.Infrastructure.Benchmark.R2Perf1BenchmarkConfiguration, Assembly-CSharp";
         private const string RunnerTypeName =
             "SonsOfTheForest.Infrastructure.Benchmark.ForestBenchmarkRunner, Assembly-CSharp";
+        private const string RuntimeSamplerTypeName =
+            "SonsOfTheForest.Infrastructure.Benchmark.RuntimePerformanceSampler, Assembly-CSharp";
         private const string BuildProvenanceTypeName =
             "SonsOfTheForest.Infrastructure.Editor.ForestModelIntake.R2Perf1BuildProvenance, Assembly-CSharp-Editor";
         private const string RunnerPath =
@@ -39,6 +41,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
 
         private static Type RunnerType =>
             Type.GetType(RunnerTypeName, true);
+
+        private static Type RuntimeSamplerType =>
+            Type.GetType(RuntimeSamplerTypeName, true);
 
         private static Type BuildProvenanceType =>
             Type.GetType(BuildProvenanceTypeName, true);
@@ -824,6 +829,64 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(configuration, Does.Contain("ScalableBufferManager.ResizeBuffers"));
             Assert.That(runner, Does.Not.Contain("GC.GetAllocatedBytesForCurrentThread"));
             Assert.That(configuration, Does.Not.Contain("GC.GetAllocatedBytesForCurrentThread"));
+        }
+
+        [Test]
+        public void SteadyStateGcWindow_SetupBeforeBeginDoesNotEnterAuthorityResult()
+        {
+            byte[] setupAllocation = new byte[48];
+            object window = CreateSteadyStateGcWindow();
+
+            InvokeGcWindow(window, "Begin");
+            InvokeGcWindow(window, "RecordFrame", true, 0L, true, 0L);
+            InvokeGcWindow(window, "End");
+            object measurement = InvokeGcWindow(window, "GetCompletedMeasurement");
+
+            Assert.That(PublicField<long>(measurement, "allocatedPeakBytes"), Is.Zero);
+            Assert.That(PublicField<double>(measurement, "allocatedAverageBytes"), Is.Zero);
+            GC.KeepAlive(setupAllocation);
+        }
+
+        [Test]
+        public void SteadyStateGcWindow_AllocationInsideWindowRemainsStrictFailureEvidence()
+        {
+            object window = CreateSteadyStateGcWindow();
+
+            InvokeGcWindow(window, "Begin");
+            InvokeGcWindow(window, "RecordFrame", true, 0L, true, 0L);
+            InvokeGcWindow(window, "RecordFrame", true, 48L, true, 1L);
+            InvokeGcWindow(window, "End");
+            object measurement = InvokeGcWindow(window, "GetCompletedMeasurement");
+
+            Assert.That(PublicField<bool>(measurement, "allocationAvailable"), Is.True);
+            Assert.That(PublicField<long>(measurement, "allocatedPeakBytes"), Is.EqualTo(48L));
+            Assert.That(PublicField<double>(measurement, "allocatedAverageBytes"), Is.EqualTo(24d));
+        }
+
+        [Test]
+        public void SteadyStateGcWindow_ReportMetricsAreUnavailableUntilWindowEnds()
+        {
+            object window = CreateSteadyStateGcWindow();
+            InvokeGcWindow(window, "Begin");
+            InvokeGcWindow(window, "RecordFrame", true, 0L, true, 0L);
+
+            TargetInvocationException exception = Assert.Throws<TargetInvocationException>(
+                () => InvokeGcWindow(window, "GetCompletedMeasurement"));
+            Assert.That(exception.InnerException, Is.TypeOf<InvalidOperationException>());
+
+            InvokeGcWindow(window, "End");
+            Assert.That(InvokeGcWindow(window, "GetCompletedMeasurement"), Is.Not.Null);
+
+            string runner = File.ReadAllText(RunnerPath);
+            int stopIndex = runner.IndexOf(
+                "EndGlobalGcMeasurement();",
+                StringComparison.Ordinal);
+            int resultIndex = runner.IndexOf(
+                "var result = new ScenarioResult",
+                stopIndex,
+                StringComparison.Ordinal);
+            Assert.That(stopIndex, Is.GreaterThan(0));
+            Assert.That(resultIndex, Is.GreaterThan(stopIndex));
         }
 
         [Test]
@@ -1826,6 +1889,33 @@ Write-Output 'SOURCE_COMMIT_CONTRACT_PASS'
                 BindingFlags.Public | BindingFlags.Static);
             Assert.That(method, Is.Not.Null);
             return method.Invoke(null, new object[] { WithProvenanceArguments(arguments) });
+        }
+
+        private static object CreateSteadyStateGcWindow()
+        {
+            Type type = RuntimeSamplerType.GetNestedType(
+                "SteadyStateGcWindow",
+                BindingFlags.Public);
+            Assert.That(type, Is.Not.Null);
+            return Activator.CreateInstance(type);
+        }
+
+        private static object InvokeGcWindow(object window, string methodName, params object[] arguments)
+        {
+            MethodInfo method = window.GetType().GetMethod(
+                methodName,
+                BindingFlags.Public | BindingFlags.Instance);
+            Assert.That(method, Is.Not.Null, "Missing GC window method: " + methodName);
+            return method.Invoke(window, arguments);
+        }
+
+        private static T PublicField<T>(object instance, string fieldName)
+        {
+            FieldInfo field = instance.GetType().GetField(
+                fieldName,
+                BindingFlags.Public | BindingFlags.Instance);
+            Assert.That(field, Is.Not.Null, "Missing public field: " + fieldName);
+            return (T)field.GetValue(instance);
         }
 
         private static string[] WithProvenanceArguments(string[] arguments)
