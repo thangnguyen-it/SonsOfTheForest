@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using UnityEditor;
 
 namespace SonsOfTheForest.Tests.ForestCamp.EditMode
 {
@@ -15,6 +16,8 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             "SonsOfTheForest.Infrastructure.Benchmark.R2Perf1BenchmarkConfiguration, Assembly-CSharp";
         private const string RunnerTypeName =
             "SonsOfTheForest.Infrastructure.Benchmark.ForestBenchmarkRunner, Assembly-CSharp";
+        private const string BuildProvenanceTypeName =
+            "SonsOfTheForest.Infrastructure.Editor.ForestModelIntake.R2Perf1BuildProvenance, Assembly-CSharp-Editor";
         private const string RunnerPath =
             "Assets/_Game/Infrastructure/Benchmark/ForestBenchmarkRunner.cs";
         private const string ConfigurationPath =
@@ -31,6 +34,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
 
         private static Type RunnerType =>
             Type.GetType(RunnerTypeName, true);
+
+        private static Type BuildProvenanceType =>
+            Type.GetType(BuildProvenanceTypeName, true);
 
         [Test]
         public void CommandLineParsing_ProducesOneExplicitMeasurementTuple()
@@ -896,14 +902,490 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(builder, Does.Contain("SOTF_R2_PERF1.exe"));
             Assert.That(builder, Does.Contain("BuildOptions.Development"));
             Assert.That(builder, Does.Contain("BuildOptions.None"));
-            Assert.That(builder, Does.Contain("Release builds must never auto-run"));
+            Assert.That(builder, Does.Contain("provenance builds must never auto-run"));
             Assert.That(builder, Does.Contain("BuildOptions.ConnectWithProfiler"));
             Assert.That(builder, Does.Contain("BuildOptions.EnableDeepProfilingSupport"));
-            Assert.That(builder, Does.Contain("forbidden diagnostic or auto-run flag"));
+            Assert.That(builder, Does.Contain("ValidateBuildRoleContract"));
+            Assert.That(builder, Does.Contain("WriteCompletedBuildProvenance"));
             Assert.That(builder, Does.Contain("report.summary.options"));
             Assert.That(builder, Does.Contain("GetGraphicsAPIs"));
             Assert.That(builder, Does.Contain("GetArchitecture"));
             Assert.That(builder, Does.Contain("ComputeSha256"));
+            Assert.That(PlayerSettings.enableFrameTimingStats, Is.True);
+        }
+
+        [Test]
+        public void BuildProvenance_FrameTimingRequirementFailsClosedWithoutMutatingProjectSettings()
+        {
+            bool before = PlayerSettings.enableFrameTimingStats;
+            Assert.That(before, Is.True, "The committed project contract must enable frame timing.");
+            Assert.DoesNotThrow(() => InvokeBuildProvenance(
+                "ValidateFrameTimingStatsEnabled",
+                true));
+
+            TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+                InvokeBuildProvenance("ValidateFrameTimingStatsEnabled", false));
+
+            Assert.That(exception.InnerException.Message, Does.Contain("frame_timing_disabled"));
+            Assert.That(PlayerSettings.enableFrameTimingStats, Is.EqualTo(before));
+        }
+
+        [Test]
+        public void BuildProvenance_ContentFingerprintIsStableAcrossDependencyOrder()
+        {
+            string root = CreateProvenanceTempRoot();
+            try
+            {
+                object first = CreateFileDependency(
+                    root,
+                    "Assets/Benchmark/First.asset",
+                    "first-content",
+                    "first-meta",
+                    "guid-first",
+                    "hash-first");
+                object second = CreateFileDependency(
+                    root,
+                    "Assets/Benchmark/Second.asset",
+                    "second-content",
+                    "second-meta",
+                    "guid-second",
+                    "hash-second");
+
+                string ordered = ComputeContentFingerprint(first, second);
+                string reversed = ComputeContentFingerprint(second, first);
+                string repeated = ComputeContentFingerprint(first, second);
+
+                Assert.That(reversed, Is.EqualTo(ordered));
+                Assert.That(repeated, Is.EqualTo(ordered));
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_AssetAndMetaChangesAlterContentFingerprint()
+        {
+            string root = CreateProvenanceTempRoot();
+            try
+            {
+                const string path = "Assets/Benchmark/Mutable.asset";
+                object baseline = CreateFileDependency(
+                    root,
+                    path,
+                    "asset-v1",
+                    "meta-v1",
+                    "guid-mutable",
+                    "import-v1");
+                string baselineFingerprint = ComputeContentFingerprint(baseline);
+
+                object assetChanged = CreateFileDependency(
+                    root,
+                    path,
+                    "asset-v2",
+                    "meta-v1",
+                    "guid-mutable",
+                    "import-v1");
+                object metaChanged = CreateFileDependency(
+                    root,
+                    path,
+                    "asset-v1",
+                    "meta-v2",
+                    "guid-mutable",
+                    "import-v2");
+
+                Assert.That(
+                    ComputeContentFingerprint(assetChanged),
+                    Is.Not.EqualTo(baselineFingerprint));
+                Assert.That(
+                    ComputeContentFingerprint(metaChanged),
+                    Is.Not.EqualTo(baselineFingerprint));
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_CanonicalContentNeverContainsAbsoluteWorkspacePath()
+        {
+            string root = CreateProvenanceTempRoot();
+            try
+            {
+                object dependency = CreateFileDependency(
+                    root,
+                    "Assets/Benchmark/Canonical.asset",
+                    "content",
+                    "meta",
+                    "guid-canonical",
+                    "hash-canonical");
+                string canonical = (string)InvokeBuildProvenance(
+                    "CanonicalizeContentDependencies",
+                    CreateDependencyArray(dependency));
+
+                Assert.That(canonical, Does.Contain("Assets/Benchmark/Canonical.asset"));
+                Assert.That(canonical, Does.Not.Contain(Path.GetFullPath(root)));
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_IgnoredBenchmarkContentIsNotRepositoryReproducible()
+        {
+            string root = CreateProvenanceTempRoot();
+            try
+            {
+                object dependency = CreateFileDependency(
+                    root,
+                    "Assets/_LocalTrials/Benchmark.unity",
+                    "scene",
+                    "scene-meta",
+                    "scene-guid",
+                    "scene-import");
+                string status = (string)InvokeBuildProvenance(
+                    "DetermineContentTrackingStatus",
+                    false,
+                    true);
+                bool reproducible = (bool)InvokeBuildProvenance(
+                    "DetermineRepositoryReproducibility",
+                    false,
+                    CreateDependencyArray(dependency));
+
+                Assert.That(status, Is.EqualTo("local_ignored_content"));
+                Assert.That(reproducible, Is.False);
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_MissingRequiredDependencyFailsClosed()
+        {
+            string missing = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-missing-provenance-" + Guid.NewGuid().ToString("N"),
+                "missing.asset");
+            TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+                InvokeBuildProvenance(
+                    "CreateFileDependencyRecord",
+                    "Assets/Benchmark/Missing.asset",
+                    missing,
+                    "guid-missing",
+                    "hash-missing",
+                    "project_asset",
+                    "tracked",
+                    string.Empty));
+
+            Assert.That(exception.InnerException.Message, Does.Contain("dependency_unhashable"));
+        }
+
+        [Test]
+        public void BuildProvenance_ReleaseAndDiagnosticUseSeparateSidecarsAndExactFlags()
+        {
+            string root = CreateProvenanceTempRoot();
+            string releaseDirectory = Path.Combine(root, "R2_PERF1_Release");
+            string diagnosticDirectory = Path.Combine(root, "R2_PERF1_Diagnostic");
+            string releasePath = (string)InvokeBuildProvenance(
+                "GetSidecarPath",
+                releaseDirectory);
+            string diagnosticPath = (string)InvokeBuildProvenance(
+                "GetSidecarPath",
+                diagnosticDirectory);
+            object none = BuildOptionsValue("None");
+            object development = BuildOptionsValue("Development");
+
+            Assert.That(releasePath, Is.Not.EqualTo(diagnosticPath));
+            Assert.That(Path.GetFileName(releasePath), Is.EqualTo("r2-perf1.build-provenance.json"));
+            Assert.DoesNotThrow(() => InvokeBuildProvenance(
+                "ValidateBuildRoleContract",
+                "release_performance",
+                "release",
+                none));
+            Assert.DoesNotThrow(() => InvokeBuildProvenance(
+                "ValidateBuildRoleContract",
+                "development_gc",
+                "diagnostic",
+                development));
+            DeleteDirectory(root);
+        }
+
+        [TestCase("AutoRunPlayer")]
+        [TestCase("ConnectWithProfiler")]
+        [TestCase("EnableDeepProfilingSupport")]
+        public void BuildProvenance_ForbiddenBuildFlagsFailClosed(string forbiddenFlag)
+        {
+            object options = BuildOptionsValue(forbiddenFlag);
+            TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+                InvokeBuildProvenance(
+                    "ValidateBuildRoleContract",
+                    "release_performance",
+                    "release",
+                    options));
+
+            Assert.That(exception.InnerException.Message, Does.Contain("forbidden_build_flag"));
+        }
+
+        [Test]
+        public void BuildProvenance_FrameTimingIsRecordedAndChangesConfigurationFingerprint()
+        {
+            string root = CreateArtifactFixture(false, "assembly");
+            try
+            {
+                object sidecar = CreateReleaseSidecarFixture(root);
+                Assert.That(Field<bool>(sidecar, "frameTimingStatsEnabled"), Is.True);
+
+                object none = BuildOptionsValue("None");
+                object[] common =
+                {
+                    "6000.3.10f1",
+                    "StandaloneWindows64",
+                    "x86_64/player-settings-1",
+                    none,
+                    new[] { "Direct3D11" },
+                    "Assets/_LocalTrials/Benchmark.unity",
+                    "scene-guid",
+                    "release_performance",
+                    "release",
+                    false,
+                    false,
+                    false,
+                    false,
+                };
+                string enabled = (string)InvokeBuildProvenance(
+                    "ComputeBuildConfigurationFingerprint",
+                    common.Concat(new object[] { true }).ToArray());
+                string disabled = (string)InvokeBuildProvenance(
+                    "ComputeBuildConfigurationFingerprint",
+                    common.Concat(new object[] { false }).ToArray());
+
+                Assert.That(enabled, Is.Not.EqualTo(disabled));
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_ArtifactIdIsOrderIndependentAndTracksManagedAssembly()
+        {
+            string firstRoot = CreateArtifactFixture(false, "assembly-v1");
+            string secondRoot = CreateArtifactFixture(true, "assembly-v1");
+            try
+            {
+                object first = InvokeBuildProvenance("ComputeArtifactIdentity", firstRoot);
+                object second = InvokeBuildProvenance("ComputeArtifactIdentity", secondRoot);
+                string baseline = Field<string>(first, "buildArtifactId");
+                Assert.That(Field<string>(second, "buildArtifactId"), Is.EqualTo(baseline));
+
+                File.WriteAllText(
+                    Path.Combine(secondRoot, "SOTF_R2_PERF1_Data", "Managed", "Assembly-CSharp.dll"),
+                    "assembly-v2");
+                object changed = InvokeBuildProvenance("ComputeArtifactIdentity", secondRoot);
+                Assert.That(Field<string>(changed, "buildArtifactId"), Is.Not.EqualTo(baseline));
+            }
+            finally
+            {
+                DeleteDirectory(firstRoot);
+                DeleteDirectory(secondRoot);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_ArtifactIdExcludesSidecarAndTemporarySidecar()
+        {
+            string root = CreateArtifactFixture(false, "assembly");
+            try
+            {
+                string baseline = Field<string>(
+                    InvokeBuildProvenance("ComputeArtifactIdentity", root),
+                    "buildArtifactId");
+                File.WriteAllText(Path.Combine(root, "r2-perf1.build-provenance.json"), "old");
+                File.WriteAllText(Path.Combine(root, "r2-perf1.build-provenance.json.tmp"), "partial");
+                object withSidecars = InvokeBuildProvenance("ComputeArtifactIdentity", root);
+
+                Assert.That(Field<string>(withSidecars, "buildArtifactId"), Is.EqualTo(baseline));
+                Assert.That(Field<int>(withSidecars, "artifactFileCount"), Is.EqualTo(2));
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_ArtifactEntryRejectsReparsePointBeforeHashing()
+        {
+            string root = CreateProvenanceTempRoot();
+            try
+            {
+                string candidate = Path.Combine(root, "linked-artifact.bin");
+                TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+                    InvokeBuildProvenance(
+                        "ValidateArtifactEntryForHash",
+                        root,
+                        candidate,
+                        FileAttributes.ReparsePoint));
+
+                Assert.That(exception.InnerException.Message, Does.Contain("artifact_reparse_point"));
+                Assert.That(File.Exists(candidate), Is.False,
+                    "The behavior seam must reject before attempting to read content.");
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_ArtifactEntryRejectsPathOutsideArtifactRoot()
+        {
+            string root = CreateProvenanceTempRoot();
+            string outside = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-outside-artifact-" + Guid.NewGuid().ToString("N") + ".bin");
+            try
+            {
+                TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+                    InvokeBuildProvenance(
+                        "ValidateArtifactEntryForHash",
+                        root,
+                        outside,
+                        FileAttributes.Normal));
+
+                Assert.That(exception.InnerException.Message, Does.Contain("artifact_path_escape"));
+                Assert.That(File.Exists(outside), Is.False);
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_SerializedSchemaHasRequiredFieldsAndTypes()
+        {
+            string root = CreateArtifactFixture(false, "assembly");
+            try
+            {
+                object sidecar = CreateReleaseSidecarFixture(root);
+                string json = (string)InvokeBuildProvenance("SerializeSidecar", sidecar);
+                Type sidecarType = sidecar.GetType();
+
+                Assert.That(Field<string>(sidecar, "schemaVersion"),
+                    Is.EqualTo("r2-perf1-build-provenance/1"));
+                AssertSidecarFieldType(sidecarType, "generatedUtc", typeof(string));
+                AssertSidecarFieldType(sidecarType, "measurementRole", typeof(string));
+                AssertSidecarFieldType(sidecarType, "buildKind", typeof(string));
+                AssertSidecarFieldType(sidecarType, "sourceCommit", typeof(string));
+                AssertSidecarFieldType(sidecarType, "sourceTreeClean", typeof(bool));
+                AssertSidecarFieldType(sidecarType, "frameTimingStatsEnabled", typeof(bool));
+                AssertSidecarFieldType(sidecarType, "graphicsApis", typeof(string[]));
+                AssertSidecarFieldType(sidecarType, "benchmarkContentTracked", typeof(bool));
+                AssertSidecarFieldType(sidecarType, "repositoryReproducible", typeof(bool));
+                AssertSidecarFieldType(sidecarType, "dependencyCount", typeof(int));
+                AssertSidecarFieldType(sidecarType, "artifactFileCount", typeof(int));
+                foreach (string required in new[]
+                         {
+                             "schemaVersion", "generatedUtc", "measurementRole", "buildKind",
+                             "sourceCommit", "sourceTreeClean", "unityVersion", "platform",
+                             "architecture", "buildOptions", "developmentBuild", "autoRunPlayer",
+                             "autoConnectProfiler", "deepProfiling", "frameTimingStatsEnabled",
+                             "graphicsApis",
+                             "benchmarkScenePath", "benchmarkSceneGuid", "benchmarkContentTracked",
+                             "repositoryReproducible", "contentTrackingStatus", "dependencyCount",
+                             "contentFingerprint", "buildConfigurationFingerprint",
+                             "buildArtifactId", "artifactFileCount",
+                         })
+                {
+                    Assert.That(json, Does.Contain("\"" + required + "\""));
+                }
+
+                Assert.That(json, Does.Not.Contain(Path.GetFullPath(root)));
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_AtomicWriterReplacesFinalWithoutLeavingTemporaryFile()
+        {
+            string root = CreateArtifactFixture(false, "assembly");
+            try
+            {
+                object sidecar = CreateReleaseSidecarFixture(root);
+                string finalPath = Path.Combine(root, "r2-perf1.build-provenance.json");
+                string temporaryPath = finalPath + ".tmp";
+                File.WriteAllText(finalPath, "previous-sidecar");
+
+                InvokeBuildProvenance("WriteSidecarAtomic", finalPath, sidecar);
+
+                Assert.That(File.ReadAllText(finalPath), Does.Contain("r2-perf1-build-provenance/1"));
+                Assert.That(File.Exists(temporaryPath), Is.False);
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_AtomicWriterFailurePreservesExistingFinalAndCleansTemporaryFile()
+        {
+            string root = CreateArtifactFixture(false, "assembly");
+            try
+            {
+                object sidecar = CreateReleaseSidecarFixture(root);
+                string finalPath = Path.Combine(root, "r2-perf1.build-provenance.json");
+                string temporaryPath = finalPath + ".tmp";
+                File.WriteAllText(finalPath, "trusted-sidecar");
+                using (new FileStream(finalPath, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    Assert.Throws<TargetInvocationException>(() =>
+                        InvokeBuildProvenance("WriteSidecarAtomic", finalPath, sidecar));
+                }
+
+                Assert.That(File.ReadAllText(finalPath), Is.EqualTo("trusted-sidecar"));
+                Assert.That(File.Exists(temporaryPath), Is.False);
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        [Test]
+        public void BuildProvenance_AtomicWriterDoesNotDeleteAnotherInvocationsTemporaryFile()
+        {
+            string root = CreateArtifactFixture(false, "assembly");
+            try
+            {
+                object sidecar = CreateReleaseSidecarFixture(root);
+                string finalPath = Path.Combine(root, "r2-perf1.build-provenance.json");
+                string temporaryPath = finalPath + ".tmp";
+                File.WriteAllText(finalPath, "trusted-sidecar");
+                File.WriteAllText(temporaryPath, "other-invocation");
+
+                TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+                    InvokeBuildProvenance("WriteSidecarAtomic", finalPath, sidecar));
+
+                Assert.That(exception.InnerException.Message, Does.Contain("sidecar_write_failed"));
+                Assert.That(File.ReadAllText(finalPath), Is.EqualTo("trusted-sidecar"));
+                Assert.That(File.ReadAllText(temporaryPath), Is.EqualTo("other-invocation"));
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
         }
 
         [Test]
@@ -1105,6 +1587,178 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 BindingFlags.Public | BindingFlags.Static);
             Assert.That(method, Is.Not.Null);
             return method.Invoke(null, new object[] { arguments });
+        }
+
+        private static object InvokeBuildProvenance(string methodName, params object[] arguments)
+        {
+            MethodInfo[] candidates = BuildProvenanceType.GetMethods(
+                    BindingFlags.Public | BindingFlags.Static)
+                .Where(method => method.Name == methodName &&
+                                 method.GetParameters().Length == arguments.Length)
+                .ToArray();
+            Assert.That(candidates, Has.Length.EqualTo(1),
+                "Expected one provenance method overload: " + methodName);
+            return candidates[0].Invoke(null, arguments);
+        }
+
+        private static string CreateProvenanceTempRoot()
+        {
+            string root = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-r2-perf1-b5b1-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            return root;
+        }
+
+        private static object CreateFileDependency(
+            string root,
+            string assetPath,
+            string assetContent,
+            string metaContent,
+            string guid,
+            string dependencyHash)
+        {
+            string physical = Path.Combine(
+                root,
+                assetPath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(physical));
+            File.WriteAllText(physical, assetContent);
+            File.WriteAllText(physical + ".meta", metaContent);
+            return InvokeBuildProvenance(
+                "CreateFileDependencyRecord",
+                assetPath,
+                physical,
+                guid,
+                dependencyHash,
+                "project_asset",
+                "tracked",
+                string.Empty);
+        }
+
+        private static Array CreateDependencyArray(params object[] dependencies)
+        {
+            Type dependencyType = BuildProvenanceType.GetNestedType(
+                "ContentDependencyRecord",
+                BindingFlags.Public);
+            Assert.That(dependencyType, Is.Not.Null);
+            Array result = Array.CreateInstance(dependencyType, dependencies.Length);
+            for (int index = 0; index < dependencies.Length; index++)
+            {
+                result.SetValue(dependencies[index], index);
+            }
+
+            return result;
+        }
+
+        private static string ComputeContentFingerprint(params object[] dependencies)
+        {
+            return (string)InvokeBuildProvenance(
+                "ComputeContentFingerprint",
+                CreateDependencyArray(dependencies));
+        }
+
+        private static object BuildOptionsValue(string name)
+        {
+            MethodInfo validate = BuildProvenanceType.GetMethod(
+                "ValidateBuildRoleContract",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(validate, Is.Not.Null);
+            Type optionsType = validate.GetParameters()[2].ParameterType;
+            return Enum.Parse(optionsType, name);
+        }
+
+        private static string CreateArtifactFixture(bool reverseCreationOrder, string assemblyContent)
+        {
+            string root = CreateProvenanceTempRoot();
+            string executable = Path.Combine(root, "SOTF_R2_PERF1.exe");
+            string assembly = Path.Combine(
+                root,
+                "SOTF_R2_PERF1_Data",
+                "Managed",
+                "Assembly-CSharp.dll");
+            Directory.CreateDirectory(Path.GetDirectoryName(assembly));
+            if (reverseCreationOrder)
+            {
+                File.WriteAllText(assembly, assemblyContent);
+                File.WriteAllText(executable, "player-stub");
+            }
+            else
+            {
+                File.WriteAllText(executable, "player-stub");
+                File.WriteAllText(assembly, assemblyContent);
+            }
+
+            return root;
+        }
+
+        private static object CreateReleaseSidecarFixture(string artifactRoot)
+        {
+            object dependency = CreateFileDependency(
+                artifactRoot,
+                "Assets/_LocalTrials/Benchmark.unity",
+                "scene-content",
+                "scene-meta",
+                "scene-guid",
+                "scene-import");
+            Array dependencies = CreateDependencyArray(dependency);
+            Type sourceType = BuildProvenanceType.GetNestedType("SourceProvenance", BindingFlags.Public);
+            Type contentType = BuildProvenanceType.GetNestedType(
+                "ContentFingerprintResult",
+                BindingFlags.Public);
+            Type contextType = BuildProvenanceType.GetNestedType("PreBuildContext", BindingFlags.Public);
+            object source = Activator.CreateInstance(sourceType);
+            sourceType.GetField("sourceCommit").SetValue(
+                source,
+                "62ac676c998df1c232e9075f1fc51f6f935684ab");
+            sourceType.GetField("sourceTreeClean").SetValue(source, true);
+            object content = Activator.CreateInstance(contentType);
+            contentType.GetField("dependencies").SetValue(content, dependencies);
+            contentType.GetField("canonicalData").SetValue(content, "fixture-canonical");
+            contentType.GetField("contentFingerprint").SetValue(
+                content,
+                ComputeContentFingerprint(dependency));
+            contentType.GetField("benchmarkContentTracked").SetValue(content, false);
+            contentType.GetField("repositoryReproducible").SetValue(content, false);
+            contentType.GetField("contentTrackingStatus").SetValue(
+                content,
+                "local_ignored_content");
+            object context = Activator.CreateInstance(contextType);
+            contextType.GetField("source").SetValue(context, source);
+            contextType.GetField("content").SetValue(context, content);
+            contextType.GetField("measurementRole").SetValue(context, "release_performance");
+            contextType.GetField("buildKind").SetValue(context, "release");
+            contextType.GetField("unityVersion").SetValue(context, "6000.3.10f1");
+            contextType.GetField("platform").SetValue(context, "StandaloneWindows64");
+            contextType.GetField("architecture").SetValue(context, "x86_64/player-settings-1");
+            contextType.GetField("frameTimingStatsEnabled").SetValue(context, true);
+            contextType.GetField("graphicsApis").SetValue(context, new[] { "Direct3D11" });
+            contextType.GetField("benchmarkScenePath").SetValue(
+                context,
+                "Assets/_LocalTrials/Benchmark.unity");
+            contextType.GetField("benchmarkSceneGuid").SetValue(context, "scene-guid");
+
+            return InvokeBuildProvenance(
+                "CreateCompletedSidecar",
+                context,
+                BuildOptionsValue("None"),
+                "StandaloneWindows64",
+                artifactRoot,
+                "2026-08-01T00:00:00.0000000Z");
+        }
+
+        private static void AssertSidecarFieldType(Type sidecarType, string fieldName, Type expected)
+        {
+            FieldInfo field = sidecarType.GetField(fieldName, BindingFlags.Public | BindingFlags.Instance);
+            Assert.That(field, Is.Not.Null, "Missing sidecar field: " + fieldName);
+            Assert.That(field.FieldType, Is.EqualTo(expected), "Sidecar field type: " + fieldName);
+        }
+
+        private static void DeleteDirectory(string path)
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, true);
+            }
         }
 
         private static object InvokeConfiguration(string methodName, params object[] arguments)

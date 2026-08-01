@@ -97,6 +97,44 @@ the Unity `ProfilerRecorder` global `GC Allocated In Frame` counter; an
 unavailable counter makes the GC member incomplete/invalid under the current
 lifecycle rather than passing with a synthetic zero.
 
+## Deterministic build provenance (B5B1)
+
+Each successful benchmark build owns a separate
+`r2-perf1.build-provenance.json` sidecar in its artifact directory. The Release
+sidecar identifies the non-Development `release_performance` artifact that is
+authoritative for FPS and CPU/GPU timing. The Diagnostic sidecar identifies the
+Development-only `development_gc` artifact that is authoritative for global GC
+allocation. Actual `BuildReport` flags must match those roles exactly; Auto Run,
+Auto Connect Profiler, and Deep Profiling fail closed.
+
+Official builds also require the committed
+`PlayerSettings.enableFrameTimingStats=true` contract. The builder never mutates
+that setting: it fails closed when disabled, records the actual enabled value in
+the sidecar, and includes it in the build-configuration fingerprint.
+
+The sidecar records the clean Git commit, Unity/build configuration, an
+ordinally canonical SHA-256 fingerprint of the benchmark scene's complete
+`AssetDatabase` dependency closure, and an artifact ID over the complete player
+tree rather than the executable stub alone. Absolute workspace paths and file
+timestamps do not participate in either fingerprint.
+
+Artifact traversal rejects filesystem reparse points before reading content, so
+the artifact ID cannot follow a link outside its build directory. Sidecar writes
+use an exclusive same-directory temporary file; an existing temporary file causes
+a fail-closed result and is never deleted as though it belonged to the new write.
+
+The current benchmark scene remains ignored beneath `Assets/_LocalTrials`.
+Consequently its sidecar must report `contentTrackingStatus` as
+`local_ignored_content`, `benchmarkContentTracked=false`, and
+`repositoryReproducible=false`. The content fingerprint can prove that Release
+and Diagnostic builds used identical local content; it does not make that
+content reproducible from the repository.
+
+B5B1 does not pass build provenance into runtime reports and does not make a run
+pairing-eligible. Official paired measurement remains blocked until B5B2 adds
+run-level provenance binding and a later pairing gate verifies both authority
+members.
+
 Valid and invalid runs are written to separate CSV tables. A runtime manifest
 starts as `incomplete`, becomes `awaiting_offline_validation` only after normal
 runtime completion, and becomes `valid` only after the offline runner verifies

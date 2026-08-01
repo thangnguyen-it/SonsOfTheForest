@@ -277,7 +277,9 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
         [MenuItem("Sons Of The Forest/Forest Models/SOTF Phase 1 Local Trial/Build And Run Standalone Benchmark Player")]
         public static void BuildAndRunStandaloneBenchmarkPlayer()
         {
-            BuildStandaloneBenchmarkPlayer(BenchmarkBuildKind.Diagnostic, true);
+            throw new InvalidOperationException(
+                "R2-PERF1 provenance builds never auto-run. Build first, close the Editor, " +
+                "then launch through the approved offline runner.");
         }
 
         [MenuItem("Sons Of The Forest/Performance/R2-PERF1/Build Diagnostic Player")]
@@ -296,10 +298,10 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
             BenchmarkBuildKind buildKind,
             bool autoRun)
         {
-            if (buildKind == BenchmarkBuildKind.Release && autoRun)
+            if (autoRun)
             {
                 throw new InvalidOperationException(
-                    "R2-PERF1 Release builds must never auto-run from the builder.");
+                    "R2-PERF1 provenance builds must never auto-run from the builder.");
             }
 
             EnsureSourcesAvailable();
@@ -319,26 +321,36 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
                 ? DiagnosticBenchmarkExecutable
                 : ReleaseBenchmarkExecutable;
             string outputDirectory = Path.Combine(projectRoot, relativeOutputDirectory);
-            Directory.CreateDirectory(outputDirectory);
             string outputPath = Path.Combine(outputDirectory, executableName);
 
             BuildOptions options = developmentBuild
                 ? BuildOptions.Development
                 : BuildOptions.None;
-            if (autoRun)
-            {
-                options |= BuildOptions.AutoRunPlayer;
-            }
+            string measurementRole = developmentBuild
+                ? R2Perf1BuildProvenance.DiagnosticMeasurementRole
+                : R2Perf1BuildProvenance.ReleaseMeasurementRole;
+            string buildKindToken = developmentBuild
+                ? R2Perf1BuildProvenance.DiagnosticBuildKind
+                : R2Perf1BuildProvenance.ReleaseBuildKind;
+            GraphicsDeviceType[] graphicsApis =
+                PlayerSettings.GetGraphicsAPIs(BuildTarget.StandaloneWindows64);
+            int architectureValue = PlayerSettings.GetArchitecture(NamedBuildTarget.Standalone);
+            string architecture = "x86_64/player-settings-" +
+                                  architectureValue.ToString(CultureInfo.InvariantCulture);
+            R2Perf1BuildProvenance.PreBuildContext provenance =
+                R2Perf1BuildProvenance.CapturePreBuildContext(
+                    BenchmarkScenePath,
+                    measurementRole,
+                    buildKindToken,
+                    BuildTarget.StandaloneWindows64,
+                    architecture,
+                    graphicsApis);
 
-            if (buildKind == BenchmarkBuildKind.Release &&
-                (options & (BuildOptions.Development |
-                            BuildOptions.ConnectWithProfiler |
-                            BuildOptions.EnableDeepProfilingSupport |
-                            BuildOptions.AutoRunPlayer)) != 0)
-            {
-                throw new InvalidOperationException(
-                    "R2-PERF1 Release build options contain a forbidden diagnostic or auto-run flag.");
-            }
+            R2Perf1BuildProvenance.ValidateBuildRoleContract(
+                measurementRole,
+                buildKindToken,
+                options);
+            Directory.CreateDirectory(outputDirectory);
 
             var buildOptions = new BuildPlayerOptions
             {
@@ -347,7 +359,6 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
                 target = BuildTarget.StandaloneWindows64,
                 options = options,
             };
-            PlayerSettings.enableFrameTimingStats = true;
             BuildReport report = BuildPipeline.BuildPlayer(buildOptions);
             WriteStandaloneBuildReport(
                 report,
@@ -361,7 +372,15 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestModelIntake
                     "Standalone benchmark build failed: " + report.summary.result);
             }
 
-            Debug.Log("[SOTFForestPhase1] Built standalone benchmark player: " + outputPath);
+            R2Perf1BuildProvenance.BuildProvenanceSidecar sidecar =
+                R2Perf1BuildProvenance.WriteCompletedBuildProvenance(
+                    provenance,
+                    report,
+                    outputDirectory);
+
+            Debug.Log(
+                "[SOTFForestPhase1] Built standalone benchmark player: " + outputPath +
+                " (artifact " + sidecar.buildArtifactId + ")");
         }
 
         private static IEnumerable<GameObject> BuildChildTreeWrappers(SourcePack source, GameObject model)

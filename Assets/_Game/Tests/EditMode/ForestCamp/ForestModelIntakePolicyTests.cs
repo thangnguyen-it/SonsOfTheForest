@@ -200,12 +200,8 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(policy, Does.Contain("FarShadowCastingMode = ShadowCastingMode.Off"));
             Assert.That(builder, Does.Contain("BuildPipeline.BuildPlayer"));
             Assert.That(builder, Does.Contain("BuildTarget.StandaloneWindows64"));
-            Assert.That(builder, Does.Contain("BuildOptions.AutoRunPlayer"));
             Assert.That(builder, Does.Contain("ForestBenchmarkRunner"));
-            Assert.That(builder, Does.Contain("PlayerSettings.enableFrameTimingStats = true"));
-            Assert.That(
-                File.ReadAllText("ProjectSettings/ProjectSettings.asset"),
-                Does.Contain("enableFrameTimingStats: 1"));
+            Assert.That(PlayerSettings.enableFrameTimingStats, Is.True);
             Assert.That(runner, Does.Contain("minimumWarmupFrames"));
             Assert.That(runner, Does.Contain("ignoredStartupStallFrames"));
             Assert.That(runner, Does.Contain("startupStallFrameThresholdMs"));
