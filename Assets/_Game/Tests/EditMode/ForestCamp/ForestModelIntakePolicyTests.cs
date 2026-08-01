@@ -222,7 +222,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(runner, Does.Contain("UnityEngine.Application.runInBackground = true"));
             Assert.That(runner, Does.Contain("cpuMainThreadPresentWait"));
             Assert.That(runner, Does.Contain("p99Ms"));
-            Assert.That(runner, Does.Contain("budgetStatus"));
+            // R2Perf1BenchmarkHarnessTests owns the executable schema-v2 budget
+            // authority and serialization contract. Do not duplicate it here with
+            // a source-token assertion that comments can satisfy.
             Assert.That(sampler, Does.Contain("FrameTimingManager.CaptureFrameTimings"));
             Assert.That(sampler, Does.Contain("CPU Main Thread Frame Time"));
             Assert.That(sampler, Does.Contain("GPU Frame Time"));

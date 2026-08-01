@@ -22,6 +22,10 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
     public sealed class ForestBenchmarkRunner : MonoBehaviour
     {
         public const int StartupFailureExitCode = 2;
+        private const string ScenarioMarkdownHeader =
+            "| Scenario | Performance gate | GC gate | Avg FPS | 1% low | Avg ms | p95 | p99 | CPU avg | Main work | Present wait | Render avg | GPU avg | Bottleneck | Global GC peak B | Draws | Batches | SetPass | Tris M |";
+        private const string ScenarioMarkdownSeparator =
+            "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|";
 
         [Serializable]
         public sealed class ScenarioResult
@@ -55,10 +59,13 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public float setPassCalls;
             public float triangleMillions;
             public float vertexMillions;
-            public bool gcAllocationAvailable;
-            public float gcAllocatedAverageBytes;
-            public long gcAllocatedPeakBytes;
-            public float gcAllocationCountAverage;
+            public bool globalGcAllocationAvailable;
+            public string globalGcMetricSource;
+            public string globalGcMetricScope;
+            public bool globalGcDiagnosticOnly;
+            public float globalGcAllocatedAverageBytes;
+            public long globalGcAllocatedPeakBytes;
+            public float globalGcAllocationCountAverage;
             public bool totalUsedMemoryAvailable;
             public bool gfxUsedMemoryAvailable;
             public bool textureMemoryAvailable;
@@ -69,8 +76,10 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public float textureMemoryAverageMb;
             public float textureMemoryPeakMb;
             public string bottleneck;
-            public string budgetStatus;
-            public string budgetFailure;
+            public string performanceBudgetStatus;
+            public string performanceBudgetFailure;
+            public string gcBudgetStatus;
+            public string gcBudgetFailure;
             public int ignoredStartupStallFrames;
         }
 
@@ -121,6 +130,20 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public string benchmarkRunId;
             public string benchmarkScenario;
             public string buildKind;
+            public string measurementRole;
+            public string measurementSetId;
+            public string sourceCommit;
+            public bool sourceTreeClean;
+            public bool sourceTreeCleanAvailable;
+            public string buildArtifactId;
+            public string contentFingerprint;
+            public string configurationFingerprint;
+            public string hardwareFingerprint;
+            public bool pairingEligible;
+            public string evidenceValidity;
+            public string performanceBudgetStatus;
+            public string gcBudgetStatus;
+            public string aggregateProductGate;
             public bool screenshotRequested;
             public bool measurementEligible;
             public string screenshotPath;
@@ -136,7 +159,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         [Serializable]
         public sealed class RunManifest
         {
-            public string schemaVersion = "r2-perf1-manifest/1";
+            public string schemaVersion = R2Perf1BenchmarkConfiguration.ManifestSchemaV2;
             public string status;
             public string statusReason;
             public string createdUtc;
@@ -149,6 +172,20 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public int renderScalePercent;
             public string upscaler;
             public string buildKind;
+            public string measurementRole;
+            public string measurementSetId;
+            public string sourceCommit;
+            public bool sourceTreeClean;
+            public bool sourceTreeCleanAvailable;
+            public string buildArtifactId;
+            public string contentFingerprint;
+            public string configurationFingerprint;
+            public string hardwareFingerprint;
+            public bool pairingEligible;
+            public string evidenceValidity;
+            public string performanceBudgetStatus;
+            public string gcBudgetStatus;
+            public string aggregateProductGate;
             public bool developmentBuild;
             public bool screenshotRequested;
             public bool measurementEligible;
@@ -296,7 +333,9 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             {
                 phase = phase,
                 createdUtc = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
-                schemaVersion = _perf1.enabled ? "r2-perf1/1" : "r2-perf0/1",
+                schemaVersion = _perf1.enabled
+                    ? R2Perf1BenchmarkConfiguration.ReportSchemaV2
+                    : "r2-perf0/1",
                 unityVersion = UnityEngine.Application.unityVersion,
                 platform = UnityEngine.Application.platform.ToString(),
                 operatingSystem = SystemInfo.operatingSystem,
@@ -344,6 +383,34 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 benchmarkRunId = _perf1.enabled ? _perf1.runId : "legacy",
                 benchmarkScenario = _perf1.enabled ? _perf1.scenario : "legacy-multi-scenario",
                 buildKind = _perf1.enabled ? _perf1.buildKind : "legacy",
+                measurementRole = _perf1.enabled ? _perf1.measurementRole : string.Empty,
+                measurementSetId = _perf1.enabled ? _perf1.measurementSetId : string.Empty,
+                sourceCommit = _perf1.enabled ? _perf1.sourceCommit : string.Empty,
+                sourceTreeClean = _perf1.enabled && _perf1.sourceTreeClean,
+                sourceTreeCleanAvailable = _perf1.enabled && _perf1.sourceTreeCleanAvailable,
+                buildArtifactId = _perf1.enabled ? _perf1.buildArtifactId : string.Empty,
+                contentFingerprint = _perf1.enabled ? _perf1.contentFingerprint : string.Empty,
+                configurationFingerprint = _perf1.enabled
+                    ? _perf1.configurationFingerprint
+                    : string.Empty,
+                hardwareFingerprint = _perf1.enabled ? _perf1.hardwareFingerprint : string.Empty,
+                pairingEligible = false,
+                evidenceValidity = _perf1.enabled
+                    ? R2Perf1BenchmarkConfiguration.EvidencePendingOfflineValidation
+                    : string.Empty,
+                performanceBudgetStatus = _perf1.enabled &&
+                                          _perf1.measurementRole ==
+                                          R2Perf1BenchmarkConfiguration.DevelopmentGcRole
+                    ? R2Perf1BenchmarkConfiguration.BudgetNotAuthority
+                    : R2Perf1BenchmarkConfiguration.BudgetIncomplete,
+                gcBudgetStatus = _perf1.enabled &&
+                                 _perf1.measurementRole ==
+                                 R2Perf1BenchmarkConfiguration.ReleasePerformanceRole
+                    ? R2Perf1BenchmarkConfiguration.BudgetNotAuthority
+                    : R2Perf1BenchmarkConfiguration.BudgetIncomplete,
+                aggregateProductGate = _perf1.enabled
+                    ? R2Perf1BenchmarkConfiguration.AggregateProductGateIncomplete
+                    : string.Empty,
                 screenshotRequested = _perf1.enabled && _perf1.CaptureScreenshot,
                 measurementEligible = !_perf1.enabled || _perf1.MeasurementEligible,
                 minimumPlayableFps = ProductionForestPerformancePolicy.MinimumPlayableFps,
@@ -502,6 +569,14 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 else
                 {
                     yield return RunSelectedPerf1Scenario(report);
+                    if (report.scenarios.Count == 1)
+                    {
+                        report.performanceBudgetStatus =
+                            report.scenarios[0].performanceBudgetStatus;
+                        report.gcBudgetStatus = report.scenarios[0].gcBudgetStatus;
+                        manifest.performanceBudgetStatus = report.performanceBudgetStatus;
+                        manifest.gcBudgetStatus = report.gcBudgetStatus;
+                    }
                 }
 
                 WriteReport(report);
@@ -714,10 +789,13 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 setPassCalls = (float)setPassCalls.Average,
                 triangleMillions = (float)(triangles.Average / 1_000_000d),
                 vertexMillions = (float)(vertices.Average / 1_000_000d),
-                gcAllocationAvailable = gcAllocated.Count > 0,
-                gcAllocatedAverageBytes = (float)gcAllocated.Average,
-                gcAllocatedPeakBytes = (long)gcAllocated.Maximum,
-                gcAllocationCountAverage = (float)gcAllocationCount.Average,
+                globalGcAllocationAvailable = gcAllocated.Count > 0,
+                globalGcMetricSource = "unity_profiler_recorder",
+                globalGcMetricScope = "unity_gc_allocated_in_frame",
+                globalGcDiagnosticOnly = false,
+                globalGcAllocatedAverageBytes = (float)gcAllocated.Average,
+                globalGcAllocatedPeakBytes = (long)gcAllocated.Maximum,
+                globalGcAllocationCountAverage = (float)gcAllocationCount.Average,
                 totalUsedMemoryAvailable = totalUsedMemory.Count > 0,
                 gfxUsedMemoryAvailable = gfxUsedMemory.Count > 0,
                 textureMemoryAvailable = textureMemory.Count > 0,
@@ -732,13 +810,14 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             result.avgFps = result.avgMs > 0.0001f ? 1000f / result.avgMs : 0f;
             result.onePercentLowFps = result.p99Ms > 0.0001f ? 1000f / result.p99Ms : 0f;
             result.bottleneck = ClassifyBottleneck(result);
-            EvaluateBudget(result);
+            EvaluateBudget(result, _perf1.enabled ? _perf1.measurementRole : string.Empty);
 
             report.scenarios.Add(result);
             Debug.Log(
                 $"[ForestBenchmark] {phase}/{name}: {result.avgFps:F1} fps avg, {result.avgMs:F1} ms avg, " +
                 $"{result.p95Ms:F1} ms p95, CPU {result.cpuTotalAvgMs:F1} ms, GPU {result.gpuAvgMs:F1} ms, " +
-                $"{result.bottleneck}, budget {result.budgetStatus}");
+                $"{result.bottleneck}, performance {result.performanceBudgetStatus}, " +
+                $"GC {result.gcBudgetStatus}");
         }
 
         private void MoveCamera(float normalizedTime)
@@ -1169,53 +1248,91 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             return "MIXED_CPU_GPU";
         }
 
-        private static void EvaluateBudget(ScenarioResult result)
+        private static void EvaluateBudget(ScenarioResult result, string measurementRole)
         {
             bool frameTimePass = ProductionForestPerformancePolicy.MeetsFrameTimeBudget(
                 result.avgFps,
                 result.p95Ms,
                 result.p99Ms);
             bool allocationPass = ProductionForestPerformancePolicy.MeetsAllocationBudget(
-                result.gcAllocationAvailable,
-                result.gcAllocatedPeakBytes);
+                result.globalGcAllocationAvailable,
+                result.globalGcAllocatedPeakBytes);
 
-            var failures = new List<string>(4);
+            var performanceFailures = new List<string>(3);
             if (result.avgFps < ProductionForestPerformancePolicy.MinimumPlayableFps)
             {
-                failures.Add("average FPS below 60");
+                performanceFailures.Add("average FPS below 60");
             }
 
             if (result.p95Ms > ProductionForestPerformancePolicy.P95FrameBudgetMilliseconds)
             {
-                failures.Add("p95 above 20 ms");
+                performanceFailures.Add("p95 above 20 ms");
             }
 
             if (result.p99Ms > ProductionForestPerformancePolicy.P99FrameBudgetMilliseconds)
             {
-                failures.Add("p99 above 25 ms");
+                performanceFailures.Add("p99 above 25 ms");
             }
 
-            if (!result.gcAllocationAvailable)
+            if (string.Equals(
+                    measurementRole,
+                    R2Perf1BenchmarkConfiguration.DevelopmentGcRole,
+                    StringComparison.Ordinal))
             {
-                failures.Add("GC counter unavailable");
-            }
-            else if (!allocationPass)
-            {
-                failures.Add("steady-state GC allocation detected");
+                result.performanceBudgetStatus =
+                    R2Perf1BenchmarkConfiguration.BudgetNotAuthority;
+                result.performanceBudgetFailure = string.Empty;
+                if (!result.globalGcAllocationAvailable)
+                {
+                    result.gcBudgetStatus = R2Perf1BenchmarkConfiguration.BudgetIncomplete;
+                    result.gcBudgetFailure = "global GC recorder unavailable";
+                }
+                else
+                {
+                    result.gcBudgetStatus = allocationPass
+                        ? R2Perf1BenchmarkConfiguration.BudgetPass
+                        : R2Perf1BenchmarkConfiguration.BudgetFail;
+                    result.gcBudgetFailure = allocationPass
+                        ? string.Empty
+                        : "steady-state global GC allocation detected";
+                }
+
+                return;
             }
 
-            result.budgetFailure = failures.Count == 0 ? string.Empty : string.Join("; ", failures);
-            if (frameTimePass && allocationPass)
+            result.performanceBudgetStatus = frameTimePass
+                ? R2Perf1BenchmarkConfiguration.BudgetPass
+                : R2Perf1BenchmarkConfiguration.BudgetFail;
+            result.performanceBudgetFailure = performanceFailures.Count == 0
+                ? string.Empty
+                : string.Join("; ", performanceFailures);
+
+            if (string.Equals(
+                    measurementRole,
+                    R2Perf1BenchmarkConfiguration.ReleasePerformanceRole,
+                    StringComparison.Ordinal))
             {
-                result.budgetStatus = "PASS";
+                result.gcBudgetStatus = R2Perf1BenchmarkConfiguration.BudgetNotAuthority;
+                result.gcBudgetFailure = string.Empty;
+                return;
             }
-            else if (frameTimePass && !result.gcAllocationAvailable)
+
+            // Legacy PERF0 reports have no measurement role. Preserve separate
+            // status fields without granting paired-product authority.
+            if (!result.globalGcAllocationAvailable)
             {
-                result.budgetStatus = "INCOMPLETE";
+                result.gcBudgetStatus = R2Perf1BenchmarkConfiguration.BudgetIncomplete;
+                result.gcBudgetFailure = "global GC recorder unavailable";
+            }
+            else if (allocationPass)
+            {
+                result.gcBudgetStatus = R2Perf1BenchmarkConfiguration.BudgetPass;
+                result.gcBudgetFailure = string.Empty;
             }
             else
             {
-                result.budgetStatus = "FAIL";
+                result.gcBudgetStatus = R2Perf1BenchmarkConfiguration.BudgetFail;
+                result.gcBudgetFailure = "steady-state global GC allocation detected";
             }
         }
 
@@ -1248,7 +1365,11 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             markdown.AppendLine($"- Fullscreen effects: {report.fullscreenEffectsEnabled}; shadows: {report.shadowsEnabled}");
             markdown.AppendLine($"- Development build: {report.developmentBuild}; Profiler: {report.profilerEnabled}; binary log: {report.profilerBinaryLogEnabled}; deep profiling: {report.deepProfilingBuild}");
             markdown.AppendLine($"- Warm-up: {report.shaderWarmupProcedure}; {Format(report.shaderWarmupSeconds, 1)} seconds; run: {report.benchmarkRunId}");
-            markdown.AppendLine($"- Scenario: {report.benchmarkScenario}; build kind: {report.buildKind}; measurement eligible: {report.measurementEligible}");
+            markdown.AppendLine($"- Scenario: {report.benchmarkScenario}; build kind: {report.buildKind}; role: {report.measurementRole}; measurement eligible: {report.measurementEligible}");
+            markdown.AppendLine($"- Evidence validity: {report.evidenceValidity}; pairing eligible: {report.pairingEligible}; aggregate product gate: {report.aggregateProductGate}");
+            markdown.AppendLine($"- Performance budget: {report.performanceBudgetStatus}; GC budget: {report.gcBudgetStatus}");
+            markdown.AppendLine($"- Measurement set/source/artifact: {report.measurementSetId} / {report.sourceCommit} / {report.buildArtifactId}");
+            markdown.AppendLine($"- Content/configuration/hardware fingerprints: {report.contentFingerprint} / {report.configurationFingerprint} / {report.hardwareFingerprint}");
             markdown.AppendLine($"- Screenshot requested: {report.screenshotRequested}");
             markdown.AppendLine($"- Screenshot: {report.screenshotPath}");
             markdown.AppendLine($"- Run in background: {report.runInBackground}");
@@ -1256,22 +1377,11 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             markdown.AppendLine($"- Shadow distance at start: {report.shadowDistanceAtStart.ToString("F0", CultureInfo.InvariantCulture)} m");
             markdown.AppendLine($"- Gate: >= {report.minimumPlayableFps} FPS, p95 <= {Format(report.p95BudgetMilliseconds, 1)} ms, p99 <= {Format(report.p99BudgetMilliseconds, 1)} ms, GC allocation <= {report.maximumGcAllocationBytesPerFrame} B/frame");
             markdown.AppendLine();
-            markdown.AppendLine("| Scenario | Gate | Avg FPS | 1% low | Avg ms | p95 | p99 | CPU avg | Main work | Present wait | Render avg | GPU avg | Bottleneck | GC peak B | Draws | Batches | SetPass | Tris M |");
-            markdown.AppendLine("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|");
+            markdown.AppendLine(ScenarioMarkdownHeader);
+            markdown.AppendLine(ScenarioMarkdownSeparator);
             foreach (ScenarioResult scenario in report.scenarios)
             {
-                markdown.AppendLine(
-                    $"| {scenario.name} | {scenario.budgetStatus} | {Format(scenario.avgFps, 1)} | " +
-                    $"{Format(scenario.onePercentLowFps, 1)} | {Format(scenario.avgMs, 2)} | " +
-                    $"{Format(scenario.p95Ms, 2)} | {Format(scenario.p99Ms, 2)} | " +
-                    $"{FormatTiming(scenario.cpuTotalAvgMs)} | {FormatTiming(scenario.cpuMainThreadWorkAvgMs)} | " +
-                    $"{FormatTiming(scenario.cpuMainThreadPresentWaitAvgMs)} | " +
-                    $"{FormatTiming(scenario.cpuRenderThreadAvgMs)} | {FormatTiming(scenario.gpuAvgMs)} | " +
-                    $"{scenario.bottleneck} | {FormatAvailable(scenario.gcAllocationAvailable, scenario.gcAllocatedPeakBytes, 0)} | " +
-                    $"{FormatAvailable(scenario.drawCallsAvailable, scenario.drawCalls, 0)} | " +
-                    $"{FormatAvailable(scenario.batchesAvailable, scenario.batches, 0)} | " +
-                    $"{FormatAvailable(scenario.setPassCallsAvailable, scenario.setPassCalls, 0)} | " +
-                    $"{FormatAvailable(scenario.trianglesAvailable, scenario.triangleMillions, 3)} |");
+                markdown.AppendLine(FormatScenarioMarkdownRow(scenario));
             }
 
             markdown.AppendLine();
@@ -1283,7 +1393,8 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                     $"| {scenario.name} | {FormatPair(scenario.totalUsedMemoryAvailable, scenario.totalUsedMemoryAverageMb, scenario.totalUsedMemoryPeakMb)} | " +
                     $"{FormatPair(scenario.gfxUsedMemoryAvailable, scenario.gfxUsedMemoryAverageMb, scenario.gfxUsedMemoryPeakMb)} | " +
                     $"{FormatPair(scenario.textureMemoryAvailable, scenario.textureMemoryAverageMb, scenario.textureMemoryPeakMb)} | " +
-                    $"{scenario.timingSamples} | {scenario.ignoredStartupStallFrames} | {scenario.budgetFailure} |");
+                    $"{scenario.timingSamples} | {scenario.ignoredStartupStallFrames} | " +
+                    $"{scenario.performanceBudgetFailure}; {scenario.gcBudgetFailure} |");
             }
 
             string reportMarkdownPath = _perf1 != null && _perf1.enabled
@@ -1306,10 +1417,32 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             Report persisted = JsonUtility.FromJson<Report>(
                 File.ReadAllText(manifest.reportJsonPath));
             if (persisted == null ||
+                !string.Equals(
+                    persisted.schemaVersion,
+                    R2Perf1BenchmarkConfiguration.ReportSchemaV2,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    manifest.schemaVersion,
+                    R2Perf1BenchmarkConfiguration.ManifestSchemaV2,
+                    StringComparison.Ordinal) ||
                 !string.Equals(persisted.benchmarkRunId, manifest.runId, StringComparison.Ordinal) ||
                 !string.Equals(persisted.benchmarkScenario, manifest.scenario, StringComparison.Ordinal) ||
                 !string.Equals(persisted.buildKind, manifest.buildKind, StringComparison.Ordinal) ||
-                persisted.developmentBuild != manifest.developmentBuild)
+                !string.Equals(
+                    persisted.measurementRole,
+                    manifest.measurementRole,
+                    StringComparison.Ordinal) ||
+                persisted.developmentBuild != manifest.developmentBuild ||
+                persisted.pairingEligible ||
+                manifest.pairingEligible ||
+                !string.Equals(
+                    persisted.aggregateProductGate,
+                    R2Perf1BenchmarkConfiguration.AggregateProductGateIncomplete,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    manifest.aggregateProductGate,
+                    R2Perf1BenchmarkConfiguration.AggregateProductGateIncomplete,
+                    StringComparison.Ordinal))
             {
                 return false;
             }
@@ -1344,7 +1477,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                    IsFinite(result.cpuMainThreadAvgMs) &&
                    IsFinite(result.cpuRenderThreadAvgMs) &&
                    IsFinite(result.gpuAvgMs) &&
-                   IsFinite(result.gcAllocatedAverageBytes) &&
+                   IsFinite(result.globalGcAllocatedAverageBytes) &&
                    IsFinite(result.totalUsedMemoryAverageMb) &&
                    IsFinite(result.gfxUsedMemoryAverageMb) &&
                    IsFinite(result.textureMemoryAverageMb);
@@ -1369,6 +1502,38 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             Func<bool> restoreState,
             out string manifestPath)
         {
+            R2Perf1BenchmarkConfiguration.RecoveryEnvelope envelope = null;
+            if (settings != null && settings.enabled)
+            {
+                try
+                {
+                    envelope = new R2Perf1BenchmarkConfiguration.RecoveryEnvelope
+                    {
+                        runId = R2Perf1BenchmarkConfiguration.ValidateRunId(settings.runId),
+                        outputDirectory = R2Perf1BenchmarkConfiguration.ResolveOutputDirectory(
+                            settings,
+                            UnityEngine.Application.dataPath),
+                    };
+                }
+                catch (Exception)
+                {
+                    envelope = null;
+                }
+            }
+
+            return RecoverFromStartupFailureWithEnvelope(
+                envelope,
+                exception,
+                restoreState,
+                out manifestPath);
+        }
+
+        public static int RecoverFromStartupFailureWithEnvelope(
+            R2Perf1BenchmarkConfiguration.RecoveryEnvelope envelope,
+            Exception exception,
+            Func<bool> restoreState,
+            out string manifestPath)
+        {
             if (exception == null)
             {
                 throw new ArgumentNullException(nameof(exception));
@@ -1387,34 +1552,54 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             }
 
             manifestPath = null;
-            if (settings == null || !settings.enabled)
+            if (envelope == null)
             {
                 return StartupFailureExitCode;
             }
 
             try
             {
-                settings.runId = R2Perf1BenchmarkConfiguration.ValidateRunId(settings.runId);
-                string directory = R2Perf1BenchmarkConfiguration.EnsureOutputDirectory(
-                    settings,
-                    UnityEngine.Application.dataPath);
-                string failurePhase = settings.Phase;
+                string directory =
+                    R2Perf1BenchmarkConfiguration.ValidateRecoveryEnvelopeTarget(envelope);
+                string runId = R2Perf1BenchmarkConfiguration.ValidateRunId(envelope.runId);
                 manifestPath = R2Perf1BenchmarkConfiguration.ResolveContainedOutputPath(
                     directory,
                     R2Perf1BenchmarkConfiguration.RuntimeManifestFileName);
-                RunManifest manifest = CreateManifest(settings, failurePhase);
-                manifest.status = R2Perf1BenchmarkConfiguration.ManifestInvalid;
-                manifest.statusReason = "startup_failure: " + exception.GetType().FullName +
-                                        ": " + exception.Message;
+                Directory.CreateDirectory(directory);
+                var manifest = new RunManifest
+                {
+                    schemaVersion = envelope.schemaVersion,
+                    status = R2Perf1BenchmarkConfiguration.ManifestInvalid,
+                    statusReason = "startup_failure: " + exception.GetType().FullName +
+                                   ": " + exception.Message,
+                    createdUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                    completedUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                    phase = "r2_perf1_startup_failure",
+                    runId = runId,
+                    pairingEligible = false,
+                    evidenceValidity =
+                        R2Perf1BenchmarkConfiguration.EvidencePendingOfflineValidation,
+                    performanceBudgetStatus = R2Perf1BenchmarkConfiguration.BudgetIncomplete,
+                    gcBudgetStatus = R2Perf1BenchmarkConfiguration.BudgetIncomplete,
+                    aggregateProductGate =
+                        R2Perf1BenchmarkConfiguration.AggregateProductGateIncomplete,
+                    reportWritten = false,
+                    runtimeStateRestored = restored,
+                    reportJsonPath = R2Perf1BenchmarkConfiguration.ResolveContainedOutputPath(
+                        directory,
+                        R2Perf1BenchmarkConfiguration.RuntimeReportJsonFileName),
+                    reportMarkdownPath =
+                        R2Perf1BenchmarkConfiguration.ResolveContainedOutputPath(
+                            directory,
+                            R2Perf1BenchmarkConfiguration.RuntimeReportMarkdownFileName),
+                    screenshotPath = string.Empty,
+                };
                 if (!string.IsNullOrEmpty(restoreFailure))
                 {
                     manifest.statusReason += "; restore_failure: " + restoreFailure;
                 }
 
-                manifest.completedUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-                manifest.reportWritten = false;
-                manifest.runtimeStateRestored = restored;
-                WriteManifest(directory, manifestPath, manifest);
+                WriteRecoveryManifestCreateNew(directory, manifestPath, manifest);
             }
             catch (Exception manifestException)
             {
@@ -1425,6 +1610,49 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             }
 
             return StartupFailureExitCode;
+        }
+
+        private static void WriteRecoveryManifestCreateNew(
+            string runDirectory,
+            string manifestPath,
+            RunManifest manifest)
+        {
+            runDirectory = R2Perf1BenchmarkConfiguration.ValidateRunDirectory(runDirectory);
+            manifestPath = R2Perf1BenchmarkConfiguration.ValidateContainedOutputPath(
+                runDirectory,
+                manifestPath);
+            string temporaryPath = R2Perf1BenchmarkConfiguration.ResolveContainedOutputPath(
+                runDirectory,
+                R2Perf1BenchmarkConfiguration.RuntimeManifestFileName +
+                R2Perf1BenchmarkConfiguration.AtomicTemporarySuffix);
+
+            Directory.CreateDirectory(runDirectory);
+            bool createdTemporaryFile = false;
+            try
+            {
+                using (var stream = new FileStream(
+                           temporaryPath,
+                           FileMode.CreateNew,
+                           FileAccess.Write,
+                           FileShare.None))
+                {
+                    createdTemporaryFile = true;
+                    using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+                    {
+                        writer.Write(JsonUtility.ToJson(manifest, true));
+                    }
+                }
+
+                File.Move(temporaryPath, manifestPath);
+                createdTemporaryFile = false;
+            }
+            finally
+            {
+                if (createdTemporaryFile && File.Exists(temporaryPath))
+                {
+                    File.Delete(temporaryPath);
+                }
+            }
         }
 
         public static void RequestStartupFailureExit(int exitCode)
@@ -1485,6 +1713,28 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 renderScalePercent = settings.renderScalePercent,
                 upscaler = settings.upscaler,
                 buildKind = settings.buildKind,
+                measurementRole = settings.measurementRole,
+                measurementSetId = settings.measurementSetId,
+                sourceCommit = settings.sourceCommit,
+                sourceTreeClean = settings.sourceTreeClean,
+                sourceTreeCleanAvailable = settings.sourceTreeCleanAvailable,
+                buildArtifactId = settings.buildArtifactId,
+                contentFingerprint = settings.contentFingerprint,
+                configurationFingerprint = settings.configurationFingerprint,
+                hardwareFingerprint = settings.hardwareFingerprint,
+                pairingEligible = false,
+                evidenceValidity =
+                    R2Perf1BenchmarkConfiguration.EvidencePendingOfflineValidation,
+                performanceBudgetStatus = settings.measurementRole ==
+                                          R2Perf1BenchmarkConfiguration.DevelopmentGcRole
+                    ? R2Perf1BenchmarkConfiguration.BudgetNotAuthority
+                    : R2Perf1BenchmarkConfiguration.BudgetIncomplete,
+                gcBudgetStatus = settings.measurementRole ==
+                                 R2Perf1BenchmarkConfiguration.ReleasePerformanceRole
+                    ? R2Perf1BenchmarkConfiguration.BudgetNotAuthority
+                    : R2Perf1BenchmarkConfiguration.BudgetIncomplete,
+                aggregateProductGate =
+                    R2Perf1BenchmarkConfiguration.AggregateProductGateIncomplete,
                 developmentBuild = Debug.isDebugBuild,
                 screenshotRequested = settings.CaptureScreenshot,
                 measurementEligible = settings.MeasurementEligible,
@@ -1544,6 +1794,27 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         {
             return R2Perf1BenchmarkConfiguration.ResolveOutputDirectory(
                 UnityEngine.Application.dataPath);
+        }
+
+        private static string FormatScenarioMarkdownRow(ScenarioResult scenario)
+        {
+            if (scenario == null)
+            {
+                throw new ArgumentNullException(nameof(scenario));
+            }
+
+            return
+                $"| {scenario.name} | {scenario.performanceBudgetStatus} | {scenario.gcBudgetStatus} | {Format(scenario.avgFps, 1)} | " +
+                $"{Format(scenario.onePercentLowFps, 1)} | {Format(scenario.avgMs, 2)} | " +
+                $"{Format(scenario.p95Ms, 2)} | {Format(scenario.p99Ms, 2)} | " +
+                $"{FormatTiming(scenario.cpuTotalAvgMs)} | {FormatTiming(scenario.cpuMainThreadWorkAvgMs)} | " +
+                $"{FormatTiming(scenario.cpuMainThreadPresentWaitAvgMs)} | " +
+                $"{FormatTiming(scenario.cpuRenderThreadAvgMs)} | {FormatTiming(scenario.gpuAvgMs)} | " +
+                $"{scenario.bottleneck} | {FormatAvailable(scenario.globalGcAllocationAvailable, scenario.globalGcAllocatedPeakBytes, 0)} | " +
+                $"{FormatAvailable(scenario.drawCallsAvailable, scenario.drawCalls, 0)} | " +
+                $"{FormatAvailable(scenario.batchesAvailable, scenario.batches, 0)} | " +
+                $"{FormatAvailable(scenario.setPassCallsAvailable, scenario.setPassCalls, 0)} | " +
+                $"{FormatAvailable(scenario.trianglesAvailable, scenario.triangleMillions, 3)} |";
         }
 
         private static string Format(float value, int decimalPlaces)

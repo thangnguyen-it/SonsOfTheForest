@@ -12,6 +12,9 @@ param(
     [string]$Upscaler = "CatmullRom",
     [ValidateSet("diagnostic", "release")]
     [string]$BuildKind = "release",
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("release_performance", "development_gc")]
+    [string]$MeasurementRole,
     [ValidateRange(1, 20)]
     [int]$Runs = 3,
     [ValidateRange(30, 1800)]
@@ -634,7 +637,12 @@ function Set-ManifestResult {
         [Parameter(Mandatory = $true)][string]$Reason,
         [Nullable[int]]$ExitCode,
         [bool]$OutputsVerified,
-        [bool]$TelemetryValid
+        [bool]$TelemetryValid,
+        [string]$EvidenceValidity = "INVALID",
+        [string]$PerformanceBudgetStatus = "INCOMPLETE",
+        [string]$GcBudgetStatus = "INCOMPLETE",
+        [string]$AggregateProductGate = "INCOMPLETE",
+        [bool]$PairingEligible = $false
     )
 
     if (Test-Path -LiteralPath $ManifestPath) {
@@ -654,6 +662,11 @@ function Set-ManifestResult {
     $manifest | Add-Member -NotePropertyName processExitCode -NotePropertyValue $ExitCode -Force
     $manifest | Add-Member -NotePropertyName outputsVerified -NotePropertyValue $OutputsVerified -Force
     $manifest | Add-Member -NotePropertyName telemetryValid -NotePropertyValue $TelemetryValid -Force
+    $manifest | Add-Member -NotePropertyName evidenceValidity -NotePropertyValue $EvidenceValidity -Force
+    $manifest | Add-Member -NotePropertyName performanceBudgetStatus -NotePropertyValue $PerformanceBudgetStatus -Force
+    $manifest | Add-Member -NotePropertyName gcBudgetStatus -NotePropertyValue $GcBudgetStatus -Force
+    $manifest | Add-Member -NotePropertyName aggregateProductGate -NotePropertyValue $AggregateProductGate -Force
+    $manifest | Add-Member -NotePropertyName pairingEligible -NotePropertyValue $PairingEligible -Force
     $temporaryPath = $ManifestPath + ".offline.tmp"
     $manifest | ConvertTo-Json -Depth 12 |
         Set-Content -LiteralPath $temporaryPath -Encoding UTF8
@@ -671,6 +684,7 @@ function New-ValidatorExceptionRunResult {
         [Parameter(Mandatory = $true)][string]$Antialiasing,
         [Parameter(Mandatory = $true)][int]$RenderScalePercent,
         [Parameter(Mandatory = $true)][string]$BuildKind,
+        [Parameter(Mandatory = $true)][string]$MeasurementRole,
         [Parameter(Mandatory = $true)][bool]$MeasurementEligible
     )
 
@@ -704,7 +718,13 @@ function New-ValidatorExceptionRunResult {
         antialiasing = $Antialiasing
         renderScalePercent = $RenderScalePercent
         buildKind = $BuildKind
+        measurementRole = $MeasurementRole
         measurementEligible = $MeasurementEligible
+        evidenceValidity = "INVALID"
+        performanceBudgetStatus = "INCOMPLETE"
+        gcBudgetStatus = "INCOMPLETE"
+        aggregateProductGate = "INCOMPLETE"
+        pairingEligible = $false
         productBudgetStatus = "NOT_EVALUATED"
         productBudgetPassed = $null
         productBudgetFailure = ""
@@ -713,7 +733,10 @@ function New-ValidatorExceptionRunResult {
 }
 
 function Test-FiniteMeasurementReport {
-    param([Parameter(Mandatory = $true)][object]$ScenarioResult)
+    param(
+        [Parameter(Mandatory = $true)][object]$ScenarioResult,
+        [Parameter(Mandatory = $true)][string]$SchemaVersion
+    )
 
     $fields = @(
         "avgMs",
@@ -726,11 +749,16 @@ function Test-FiniteMeasurementReport {
         "cpuMainThreadAvgMs",
         "cpuRenderThreadAvgMs",
         "gpuAvgMs",
-        "gcAllocatedAverageBytes",
         "totalUsedMemoryAverageMb",
         "gfxUsedMemoryAverageMb",
         "textureMemoryAverageMb"
     )
+    if ($SchemaVersion -eq "r2-perf1/2") {
+        $fields += "globalGcAllocatedAverageBytes"
+    }
+    else {
+        $fields += "gcAllocatedAverageBytes"
+    }
     foreach ($field in $fields) {
         $property = $ScenarioResult.PSObject.Properties[$field]
         if ($null -eq $property -or $null -eq (Convert-ToNumber $property.Value)) {
@@ -754,6 +782,146 @@ function New-ValidationCheck {
         Passed = $Passed
         Reason = $Reason
     }
+}
+
+function New-JsonPropertyCheck {
+    param(
+        [Parameter(Mandatory = $true)][object]$Object,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("string", "boolean", "number")]
+        [string]$ExpectedType,
+        [switch]$MatchValue,
+        [AllowNull()][object]$ExpectedValue
+    )
+
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        return New-ValidationCheck `
+            -Passed $false `
+            -Reason "missing required JSON property: $Name"
+    }
+
+    $value = $property.Value
+    $typeMatches = switch ($ExpectedType) {
+        "string" { $value -is [string] }
+        "boolean" { $value -is [bool] }
+        "number" {
+            $value -is [byte] -or $value -is [sbyte] -or
+            $value -is [int16] -or $value -is [uint16] -or
+            $value -is [int32] -or $value -is [uint32] -or
+            $value -is [int64] -or $value -is [uint64] -or
+            $value -is [single] -or $value -is [double] -or
+            $value -is [decimal]
+        }
+    }
+    if (-not $typeMatches) {
+        $actualType = if ($null -eq $value) { "null" } else { $value.GetType().FullName }
+        return New-ValidationCheck `
+            -Passed $false `
+            -Reason "JSON property '$Name' has wrong type; expected $ExpectedType, found $actualType"
+    }
+
+    if ($ExpectedType -eq "number" -and $null -eq (Convert-ToNumber $value)) {
+        return New-ValidationCheck `
+            -Passed $false `
+            -Reason "JSON property '$Name' must be a finite number"
+    }
+
+    if ($MatchValue) {
+        $matches = if ($ExpectedType -eq "string") {
+            [string]$value -ceq [string]$ExpectedValue
+        }
+        else {
+            $value -eq $ExpectedValue
+        }
+        if (-not $matches) {
+            return New-ValidationCheck `
+                -Passed $false `
+                -Reason "JSON property '$Name' has an unexpected exact value"
+        }
+    }
+
+    return New-ValidationCheck -Passed $true -Reason "JSON property accepted: $Name"
+}
+
+function New-RequiredJsonStringCheck {
+    param(
+        [Parameter(Mandatory = $true)][object]$Object,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    return New-JsonPropertyCheck -Object $Object -Name $Name -ExpectedType "string"
+}
+
+function New-RequiredJsonBooleanCheck {
+    param(
+        [Parameter(Mandatory = $true)][object]$Object,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    return New-JsonPropertyCheck -Object $Object -Name $Name -ExpectedType "boolean"
+}
+
+function New-RequiredJsonNumberCheck {
+    param(
+        [Parameter(Mandatory = $true)][object]$Object,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    return New-JsonPropertyCheck -Object $Object -Name $Name -ExpectedType "number"
+}
+
+function New-RequiredJsonIntegerCheck {
+    param(
+        [Parameter(Mandatory = $true)][object]$Object,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][long]$Minimum,
+        [Parameter(Mandatory = $true)][long]$Maximum
+    )
+
+    $numberCheck = New-RequiredJsonNumberCheck -Object $Object -Name $Name
+    if (-not $numberCheck.Passed) {
+        return $numberCheck
+    }
+
+    $value = [Convert]::ToDouble(
+        $Object.PSObject.Properties[$Name].Value,
+        [Globalization.CultureInfo]::InvariantCulture)
+    if ([Math]::Truncate($value) -ne $value -or
+        $value -lt $Minimum -or
+        $value -gt $Maximum) {
+        return New-ValidationCheck `
+            -Passed $false `
+            -Reason "JSON property '$Name' must be an integral number in range [$Minimum, $Maximum]"
+    }
+
+    return New-ValidationCheck -Passed $true -Reason "JSON integer accepted: $Name"
+}
+
+function New-JsonStringEnumCheck {
+    param(
+        [Parameter(Mandatory = $true)][object]$Object,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string[]]$AllowedValues
+    )
+
+    $typeCheck = New-JsonPropertyCheck `
+        -Object $Object `
+        -Name $Name `
+        -ExpectedType "string"
+    if (-not $typeCheck.Passed) {
+        return $typeCheck
+    }
+
+    $value = [string]$Object.PSObject.Properties[$Name].Value
+    if (-not ($AllowedValues -ccontains $value)) {
+        return New-ValidationCheck `
+            -Passed $false `
+            -Reason "JSON property '$Name' has unsupported or wrong-case value: $value"
+    }
+
+    return New-ValidationCheck -Passed $true -Reason "JSON enum accepted: $Name"
 }
 
 function Get-FirstFailedValidationCheck {
@@ -784,7 +952,15 @@ function New-OutputValidationResult {
         [AllowNull()][object]$Report,
         [string]$ProductBudgetStatus = "NOT_EVALUATED",
         [AllowNull()][Nullable[bool]]$ProductBudgetPassed,
-        [string]$ProductBudgetFailure = ""
+        [string]$ProductBudgetFailure = "",
+        [string]$EvidenceValidity = $(if ($Valid) { "VALID" } else { "INVALID" }),
+        [string]$PerformanceBudgetStatus = "INCOMPLETE",
+        [string]$PerformanceBudgetFailure = "",
+        [string]$GcBudgetStatus = "INCOMPLETE",
+        [string]$GcBudgetFailure = "",
+        [string]$AggregateProductGate = "INCOMPLETE",
+        [bool]$PairingEligible = $false,
+        [string]$SchemaVersion = ""
     )
 
     return [pscustomobject]@{
@@ -795,6 +971,14 @@ function New-OutputValidationResult {
         ProductBudgetStatus = $ProductBudgetStatus
         ProductBudgetPassed = $ProductBudgetPassed
         ProductBudgetFailure = $ProductBudgetFailure
+        EvidenceValidity = $EvidenceValidity
+        PerformanceBudgetStatus = $PerformanceBudgetStatus
+        PerformanceBudgetFailure = $PerformanceBudgetFailure
+        GcBudgetStatus = $GcBudgetStatus
+        GcBudgetFailure = $GcBudgetFailure
+        AggregateProductGate = $AggregateProductGate
+        PairingEligible = $PairingEligible
+        SchemaVersion = $SchemaVersion
     }
 }
 
@@ -804,6 +988,7 @@ function Test-RunOutputs {
         [Parameter(Mandatory = $true)][string]$RunId,
         [Parameter(Mandatory = $true)][string]$ExpectedScenario,
         [Parameter(Mandatory = $true)][string]$ExpectedBuildKind,
+        [string]$ExpectedMeasurementRole = "",
         [Parameter(Mandatory = $true)][string]$ExpectedQuality,
         [Parameter(Mandatory = $true)][string]$ExpectedAntialiasing,
         [Parameter(Mandatory = $true)][int]$ExpectedRenderScalePercent,
@@ -829,6 +1014,88 @@ function Test-RunOutputs {
             -Valid $false `
             -Reason "runtime manifest is not valid JSON"
     }
+    $manifestSchemaCheck = New-JsonPropertyCheck `
+        -Object $manifest `
+        -Name "schemaVersion" `
+        -ExpectedType "string"
+    if (-not $manifestSchemaCheck.Passed) {
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason ([string]$manifestSchemaCheck.Reason) `
+            -ManifestPath $manifestPath
+    }
+    $manifestSchema = [string]$manifest.schemaVersion
+    $isV1 = $manifestSchema -eq "r2-perf1-manifest/1"
+    $isV2 = $manifestSchema -eq "r2-perf1-manifest/2"
+    if (-not $isV1 -and -not $isV2) {
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason "unsupported runtime manifest schema: $manifestSchema" `
+            -ManifestPath $manifestPath `
+            -SchemaVersion $manifestSchema
+    }
+    if ($isV2) {
+        if ($ExpectedMeasurementRole -cnotin @("release_performance", "development_gc")) {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason "schema v2 requires an explicit supported measurement role" `
+                -ManifestPath $manifestPath `
+                -SchemaVersion $manifestSchema
+        }
+        $expectedRoleBuildKind = if ($ExpectedMeasurementRole -ceq "release_performance") {
+            "release"
+        }
+        else {
+            "diagnostic"
+        }
+        if ($ExpectedBuildKind -cne $expectedRoleBuildKind) {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason "measurement role and build kind do not match" `
+                -ManifestPath $manifestPath `
+                -SchemaVersion $manifestSchema
+        }
+
+        $manifestContractChecks = @(
+            (New-JsonPropertyCheck -Object $manifest -Name "schemaVersion" -ExpectedType "string" -MatchValue -ExpectedValue "r2-perf1-manifest/2")
+            (New-JsonPropertyCheck -Object $manifest -Name "status" -ExpectedType "string" -MatchValue -ExpectedValue "awaiting_offline_validation")
+            (New-JsonPropertyCheck -Object $manifest -Name "runId" -ExpectedType "string" -MatchValue -ExpectedValue $RunId)
+            (New-JsonPropertyCheck -Object $manifest -Name "scenario" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedScenario)
+            (New-JsonStringEnumCheck -Object $manifest -Name "buildKind" -AllowedValues @("release", "diagnostic"))
+            (New-JsonPropertyCheck -Object $manifest -Name "buildKind" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedBuildKind)
+            (New-JsonPropertyCheck -Object $manifest -Name "quality" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedQuality)
+            (New-JsonStringEnumCheck -Object $manifest -Name "antialiasing" -AllowedValues @("None", "FXAA", "SMAA", "TAA"))
+            (New-JsonPropertyCheck -Object $manifest -Name "antialiasing" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedAntialiasing)
+            (New-RequiredJsonIntegerCheck -Object $manifest -Name "renderScalePercent" -Minimum 50 -Maximum 100)
+            (New-RequiredJsonStringCheck -Object $manifest -Name "upscaler")
+            (New-RequiredJsonBooleanCheck -Object $manifest -Name "screenshotRequested")
+            (New-RequiredJsonStringCheck -Object $manifest -Name "screenshotPath")
+            (New-JsonPropertyCheck -Object $manifest -Name "measurementRole" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedMeasurementRole)
+            (New-JsonPropertyCheck -Object $manifest -Name "measurementSetId" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $manifest -Name "sourceCommit" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $manifest -Name "sourceTreeClean" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
+            (New-JsonPropertyCheck -Object $manifest -Name "sourceTreeCleanAvailable" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
+            (New-JsonPropertyCheck -Object $manifest -Name "buildArtifactId" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $manifest -Name "contentFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $manifest -Name "configurationFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $manifest -Name "hardwareFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $manifest -Name "pairingEligible" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
+            (New-JsonPropertyCheck -Object $manifest -Name "evidenceValidity" -ExpectedType "string" -MatchValue -ExpectedValue "PENDING_OFFLINE_VALIDATION")
+            (New-JsonStringEnumCheck -Object $manifest -Name "performanceBudgetStatus" -AllowedValues @("PASS", "FAIL", "NOT_AUTHORITY", "INCOMPLETE"))
+            (New-JsonStringEnumCheck -Object $manifest -Name "gcBudgetStatus" -AllowedValues @("PASS", "FAIL", "NOT_AUTHORITY", "INCOMPLETE"))
+            (New-JsonPropertyCheck -Object $manifest -Name "aggregateProductGate" -ExpectedType "string" -MatchValue -ExpectedValue "INCOMPLETE")
+            (New-RequiredJsonStringCheck -Object $manifest -Name "reportJsonPath")
+            (New-RequiredJsonStringCheck -Object $manifest -Name "reportMarkdownPath")
+        )
+        $failedManifestContractCheck = Get-FirstFailedValidationCheck -Checks $manifestContractChecks
+        if ($null -ne $failedManifestContractCheck) {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason ([string]$failedManifestContractCheck.Reason) `
+                -ManifestPath $manifestPath `
+                -SchemaVersion $manifestSchema
+        }
+    }
     if ($manifest.runId -ne $RunId) {
         return New-OutputValidationResult `
             -Valid $false `
@@ -848,6 +1115,14 @@ function Test-RunOutputs {
         (New-ValidationCheck -Passed ([int]$manifest.renderScalePercent -eq $ExpectedRenderScalePercent) -Reason "manifest render-scale mismatch")
         (New-ValidationCheck -Passed ([bool]$manifest.screenshotRequested -eq $ScreenshotExpected) -Reason "manifest screenshot mode mismatch")
     )
+    if ($isV2) {
+        $manifestChecks += @(
+            (New-ValidationCheck -Passed ([string]$manifest.measurementRole -ceq $ExpectedMeasurementRole) -Reason "manifest measurement-role mismatch")
+            (New-ValidationCheck -Passed (-not [bool]$manifest.pairingEligible) -Reason "B5A member must not be pairing-eligible")
+            (New-ValidationCheck -Passed ([string]$manifest.aggregateProductGate -eq "INCOMPLETE") -Reason "member aggregate product gate must be INCOMPLETE")
+            (New-ValidationCheck -Passed ([string]$manifest.evidenceValidity -eq "PENDING_OFFLINE_VALIDATION") -Reason "runtime manifest must await offline evidence validation")
+        )
+    }
     $failedManifestCheck = Get-FirstFailedValidationCheck -Checks $manifestChecks
     if ($null -ne $failedManifestCheck) {
         return New-OutputValidationResult `
@@ -887,25 +1162,104 @@ function Test-RunOutputs {
             -Reason "runtime report is not valid JSON" `
             -ManifestPath $manifestPath
     }
+    $reportSchemaCheck = New-JsonPropertyCheck `
+        -Object $report `
+        -Name "schemaVersion" `
+        -ExpectedType "string"
+    if (-not $reportSchemaCheck.Passed) {
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason ([string]$reportSchemaCheck.Reason) `
+            -ManifestPath $manifestPath
+    }
+    $reportSchema = [string]$report.schemaVersion
+    if (($isV1 -and $reportSchema -ne "r2-perf1/1") -or
+        ($isV2 -and $reportSchema -ne "r2-perf1/2")) {
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason "runtime report/manifest schema mismatch" `
+            -ManifestPath $manifestPath `
+            -SchemaVersion $reportSchema
+    }
     $expectedDevelopment = $ExpectedBuildKind -eq "diagnostic"
+    if ($isV2) {
+        $reportContractChecks = @(
+            (New-JsonPropertyCheck -Object $report -Name "schemaVersion" -ExpectedType "string" -MatchValue -ExpectedValue "r2-perf1/2")
+            (New-JsonPropertyCheck -Object $report -Name "benchmarkRunId" -ExpectedType "string" -MatchValue -ExpectedValue $RunId)
+            (New-JsonPropertyCheck -Object $report -Name "benchmarkScenario" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedScenario)
+            (New-JsonStringEnumCheck -Object $report -Name "buildKind" -AllowedValues @("release", "diagnostic"))
+            (New-JsonPropertyCheck -Object $report -Name "buildKind" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedBuildKind)
+            (New-JsonPropertyCheck -Object $report -Name "qualityLevel" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedQuality)
+            (New-JsonStringEnumCheck -Object $report -Name "antialiasingMode" -AllowedValues @("None", "FXAA", "SMAA", "TAA"))
+            (New-JsonPropertyCheck -Object $report -Name "antialiasingMode" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedAntialiasing)
+            (New-RequiredJsonIntegerCheck -Object $report -Name "renderScalePercent" -Minimum 50 -Maximum 100)
+            (New-RequiredJsonBooleanCheck -Object $report -Name "developmentBuild")
+            (New-RequiredJsonIntegerCheck -Object $report -Name "width" -Minimum 1 -Maximum 32768)
+            (New-RequiredJsonIntegerCheck -Object $report -Name "height" -Minimum 1 -Maximum 32768)
+            (New-RequiredJsonStringCheck -Object $report -Name "graphicsDeviceName")
+            (New-RequiredJsonStringCheck -Object $report -Name "graphicsDeviceType")
+            (New-RequiredJsonBooleanCheck -Object $report -Name "profilerEnabled")
+            (New-RequiredJsonBooleanCheck -Object $report -Name "profilerBinaryLogEnabled")
+            (New-RequiredJsonBooleanCheck -Object $report -Name "deepProfilingBuild")
+            (New-RequiredJsonBooleanCheck -Object $report -Name "measurementEligible")
+            (New-RequiredJsonBooleanCheck -Object $report -Name "screenshotRequested")
+            (New-JsonPropertyCheck -Object $report -Name "measurementRole" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedMeasurementRole)
+            (New-JsonPropertyCheck -Object $report -Name "measurementSetId" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $report -Name "sourceCommit" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $report -Name "sourceTreeClean" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
+            (New-JsonPropertyCheck -Object $report -Name "sourceTreeCleanAvailable" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
+            (New-JsonPropertyCheck -Object $report -Name "buildArtifactId" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $report -Name "contentFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $report -Name "configurationFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $report -Name "hardwareFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $report -Name "pairingEligible" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
+            (New-JsonPropertyCheck -Object $report -Name "evidenceValidity" -ExpectedType "string" -MatchValue -ExpectedValue "PENDING_OFFLINE_VALIDATION")
+            (New-JsonStringEnumCheck -Object $report -Name "performanceBudgetStatus" -AllowedValues @("PASS", "FAIL", "NOT_AUTHORITY", "INCOMPLETE"))
+            (New-JsonStringEnumCheck -Object $report -Name "gcBudgetStatus" -AllowedValues @("PASS", "FAIL", "NOT_AUTHORITY", "INCOMPLETE"))
+            (New-JsonPropertyCheck -Object $report -Name "aggregateProductGate" -ExpectedType "string" -MatchValue -ExpectedValue "INCOMPLETE")
+        )
+        $failedReportContractCheck = Get-FirstFailedValidationCheck -Checks $reportContractChecks
+        if ($null -ne $failedReportContractCheck) {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason ([string]$failedReportContractCheck.Reason) `
+                -ManifestPath $manifestPath `
+                -SchemaVersion $reportSchema
+        }
+    }
     $checks = @(
-        (New-ValidationCheck -Passed ($report.benchmarkRunId -eq $RunId) -Reason "report run-id mismatch")
-        (New-ValidationCheck -Passed ($report.benchmarkScenario -eq $ExpectedScenario) -Reason "report scenario mismatch")
-        (New-ValidationCheck -Passed ($report.buildKind -eq $ExpectedBuildKind) -Reason "report build-kind mismatch")
-        (New-ValidationCheck -Passed ($report.qualityLevel -eq $ExpectedQuality) -Reason "report quality mismatch")
-        (New-ValidationCheck -Passed ($report.antialiasingMode -eq $ExpectedAntialiasing) -Reason "report AA mismatch")
+        (New-ValidationCheck -Passed ([string]$report.benchmarkRunId -ceq $RunId) -Reason "report run-id mismatch")
+        (New-ValidationCheck -Passed ([string]$report.benchmarkScenario -ceq $ExpectedScenario) -Reason "report scenario mismatch")
+        (New-ValidationCheck -Passed ([string]$report.buildKind -ceq $ExpectedBuildKind) -Reason "report build-kind mismatch")
+        (New-ValidationCheck -Passed ([string]$report.qualityLevel -ceq $ExpectedQuality) -Reason "report quality mismatch")
+        (New-ValidationCheck -Passed ([string]$report.antialiasingMode -ceq $ExpectedAntialiasing) -Reason "report AA mismatch")
         (New-ValidationCheck -Passed ([int]$report.renderScalePercent -eq $ExpectedRenderScalePercent) -Reason "report render-scale mismatch")
         (New-ValidationCheck -Passed ([bool]$report.developmentBuild -eq $expectedDevelopment) -Reason "actual build type does not match build-kind")
         (New-ValidationCheck -Passed ([int]$report.width -eq $ExpectedWidth) -Reason "standalone width mismatch")
         (New-ValidationCheck -Passed ([int]$report.height -eq $ExpectedHeight) -Reason "standalone height mismatch")
         (New-ValidationCheck -Passed ([string]$report.graphicsDeviceName -like "*$ExpectedGpuName*") -Reason "standalone GPU mismatch")
-        (New-ValidationCheck -Passed ([string]$report.graphicsDeviceType -eq "Direct3D11") -Reason "standalone graphics API mismatch")
+        (New-ValidationCheck -Passed ([string]$report.graphicsDeviceType -ceq "Direct3D11") -Reason "standalone graphics API mismatch")
     )
-    if ($ExpectedBuildKind -eq "release") {
+    if ($isV2) {
         $checks += @(
-            (New-ValidationCheck -Passed (-not [bool]$report.profilerEnabled) -Reason "Profiler was enabled in a Release measurement")
-            (New-ValidationCheck -Passed (-not [bool]$report.profilerBinaryLogEnabled) -Reason "Profiler binary logging was enabled in Release")
-            (New-ValidationCheck -Passed (-not [bool]$report.deepProfilingBuild) -Reason "Deep Profiling was enabled in Release")
+            (New-ValidationCheck -Passed ([string]$report.measurementRole -ceq $ExpectedMeasurementRole) -Reason "report measurement-role mismatch")
+            (New-ValidationCheck -Passed (-not [bool]$report.pairingEligible) -Reason "B5A report must not be pairing-eligible")
+            (New-ValidationCheck -Passed ([string]$report.aggregateProductGate -ceq "INCOMPLETE") -Reason "report aggregate product gate must be INCOMPLETE")
+            (New-ValidationCheck -Passed ([string]$report.evidenceValidity -ceq "PENDING_OFFLINE_VALIDATION") -Reason "runtime report must await offline evidence validation")
+            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.measurementSetId)) -Reason "B5A measurementSetId must remain empty")
+            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.sourceCommit)) -Reason "B5A sourceCommit must remain empty")
+            (New-ValidationCheck -Passed (-not [bool]$report.sourceTreeCleanAvailable) -Reason "B5A source-tree cleanliness must remain unavailable")
+            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.buildArtifactId)) -Reason "B5A buildArtifactId must remain empty")
+            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.contentFingerprint)) -Reason "B5A contentFingerprint must remain empty")
+            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.configurationFingerprint)) -Reason "B5A configurationFingerprint must remain empty")
+            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.hardwareFingerprint)) -Reason "B5A hardwareFingerprint must remain empty")
+        )
+    }
+    if ($ExpectedBuildKind -eq "release" -or $isV2) {
+        $checks += @(
+            (New-ValidationCheck -Passed (-not [bool]$report.profilerEnabled) -Reason "Profiler must be disabled for authoritative member evidence")
+            (New-ValidationCheck -Passed (-not [bool]$report.profilerBinaryLogEnabled) -Reason "Profiler binary logging must be disabled for authoritative member evidence")
+            (New-ValidationCheck -Passed (-not [bool]$report.deepProfilingBuild) -Reason "Deep Profiling must be disabled for authoritative member evidence")
         )
     }
     $failedReportCheck = Get-FirstFailedValidationCheck -Checks $checks
@@ -919,6 +1273,10 @@ function Test-RunOutputs {
     $productBudgetStatus = "NOT_APPLICABLE"
     $productBudgetPassed = $null
     $productBudgetFailure = ""
+    $performanceBudgetStatus = "INCOMPLETE"
+    $performanceBudgetFailure = ""
+    $gcBudgetStatus = "INCOMPLETE"
+    $gcBudgetFailure = ""
     if ($ScreenshotExpected) {
         if ([bool]$report.measurementEligible -or @($report.scenarios).Count -ne 0) {
             return New-OutputValidationResult `
@@ -944,8 +1302,27 @@ function Test-RunOutputs {
         }
 
         $scenarios = @($report.scenarios)
+        if ($isV2) {
+            foreach ($candidateScenario in $scenarios) {
+                $candidateNameCheck = New-RequiredJsonStringCheck `
+                    -Object $candidateScenario `
+                    -Name "name"
+                if (-not $candidateNameCheck.Passed) {
+                    return New-OutputValidationResult `
+                        -Valid $false `
+                        -Reason ([string]$candidateNameCheck.Reason) `
+                        -ManifestPath $manifestPath `
+                        -SchemaVersion $reportSchema
+                }
+            }
+        }
         $matchingScenarios = @($scenarios | Where-Object {
-            [string]$_.name -eq $ExpectedScenario
+            if ($isV2) {
+                [string]$_.name -ceq $ExpectedScenario
+            }
+            else {
+                [string]$_.name -eq $ExpectedScenario
+            }
         })
         if ($matchingScenarios.Count -eq 0) {
             return New-OutputValidationResult `
@@ -967,7 +1344,82 @@ function Test-RunOutputs {
         }
 
         $scenarioResult = $matchingScenarios[0]
-        $finite = Test-FiniteMeasurementReport -ScenarioResult $scenarioResult
+        if ($isV2) {
+            $scenarioContractChecks = @(
+                (New-JsonPropertyCheck -Object $scenarioResult -Name "name" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedScenario)
+                (New-JsonStringEnumCheck -Object $scenarioResult -Name "performanceBudgetStatus" -AllowedValues @("PASS", "FAIL", "NOT_AUTHORITY", "INCOMPLETE"))
+                (New-RequiredJsonStringCheck -Object $scenarioResult -Name "performanceBudgetFailure")
+                (New-JsonStringEnumCheck -Object $scenarioResult -Name "gcBudgetStatus" -AllowedValues @("PASS", "FAIL", "NOT_AUTHORITY", "INCOMPLETE"))
+                (New-RequiredJsonStringCheck -Object $scenarioResult -Name "gcBudgetFailure")
+                (New-RequiredJsonStringCheck -Object $scenarioResult -Name "globalGcMetricSource")
+                (New-RequiredJsonStringCheck -Object $scenarioResult -Name "globalGcMetricScope")
+                (New-RequiredJsonStringCheck -Object $scenarioResult -Name "bottleneck")
+                (New-RequiredJsonIntegerCheck -Object $scenarioResult -Name "frames" -Minimum 0 -Maximum ([int]::MaxValue))
+                (New-RequiredJsonIntegerCheck -Object $scenarioResult -Name "timingSamples" -Minimum 0 -Maximum ([int]::MaxValue))
+                (New-RequiredJsonIntegerCheck -Object $scenarioResult -Name "ignoredStartupStallFrames" -Minimum 0 -Maximum ([int]::MaxValue))
+                (New-RequiredJsonIntegerCheck -Object $scenarioResult -Name "globalGcAllocatedPeakBytes" -Minimum 0 -Maximum ([long]::MaxValue))
+            )
+            foreach ($booleanField in @(
+                    "drawCallsAvailable",
+                    "batchesAvailable",
+                    "setPassCallsAvailable",
+                    "trianglesAvailable",
+                    "verticesAvailable",
+                    "globalGcAllocationAvailable",
+                    "globalGcDiagnosticOnly",
+                    "totalUsedMemoryAvailable",
+                    "gfxUsedMemoryAvailable",
+                    "textureMemoryAvailable")) {
+                $scenarioContractChecks += New-RequiredJsonBooleanCheck `
+                    -Object $scenarioResult `
+                    -Name $booleanField
+            }
+            foreach ($numericField in @(
+                    "avgMs",
+                    "medianMs",
+                    "p95Ms",
+                    "p99Ms",
+                    "avgFps",
+                    "onePercentLowFps",
+                    "cpuTotalAvgMs",
+                    "cpuTotalP95Ms",
+                    "cpuMainThreadAvgMs",
+                    "cpuMainThreadP95Ms",
+                    "cpuMainThreadPresentWaitAvgMs",
+                    "cpuMainThreadWorkAvgMs",
+                    "cpuRenderThreadAvgMs",
+                    "cpuRenderThreadP95Ms",
+                    "gpuAvgMs",
+                    "gpuP95Ms",
+                    "drawCalls",
+                    "batches",
+                    "setPassCalls",
+                    "triangleMillions",
+                    "vertexMillions",
+                    "globalGcAllocatedAverageBytes",
+                    "globalGcAllocationCountAverage",
+                    "totalUsedMemoryAverageMb",
+                    "totalUsedMemoryPeakMb",
+                    "gfxUsedMemoryAverageMb",
+                    "gfxUsedMemoryPeakMb",
+                    "textureMemoryAverageMb",
+                    "textureMemoryPeakMb")) {
+                $scenarioContractChecks += New-RequiredJsonNumberCheck `
+                    -Object $scenarioResult `
+                    -Name $numericField
+            }
+            $failedScenarioContractCheck = Get-FirstFailedValidationCheck -Checks $scenarioContractChecks
+            if ($null -ne $failedScenarioContractCheck) {
+                return New-OutputValidationResult `
+                    -Valid $false `
+                    -Reason ([string]$failedScenarioContractCheck.Reason) `
+                    -ManifestPath $manifestPath `
+                    -SchemaVersion $reportSchema
+            }
+        }
+        $finite = Test-FiniteMeasurementReport `
+            -ScenarioResult $scenarioResult `
+            -SchemaVersion $reportSchema
         if (-not $finite.Valid) {
             return New-OutputValidationResult `
                 -Valid $false `
@@ -975,58 +1427,134 @@ function Test-RunOutputs {
                 -ManifestPath $manifestPath
         }
 
-        $requiredAvailabilityFields = @(
-            "drawCallsAvailable",
-            "batchesAvailable",
-            "setPassCallsAvailable",
-            "trianglesAvailable",
-            "verticesAvailable",
-            "gcAllocationAvailable",
-            "totalUsedMemoryAvailable",
-            "gfxUsedMemoryAvailable",
-            "textureMemoryAvailable"
-        )
-        foreach ($availabilityField in $requiredAvailabilityFields) {
-            $availabilityProperty = $scenarioResult.PSObject.Properties[$availabilityField]
-            if ($null -eq $availabilityProperty -or -not [bool]$availabilityProperty.Value) {
+        if ($isV1) {
+            $requiredAvailabilityFields = @(
+                "drawCallsAvailable",
+                "batchesAvailable",
+                "setPassCallsAvailable",
+                "trianglesAvailable",
+                "verticesAvailable",
+                "gcAllocationAvailable",
+                "totalUsedMemoryAvailable",
+                "gfxUsedMemoryAvailable",
+                "textureMemoryAvailable"
+            )
+            foreach ($availabilityField in $requiredAvailabilityFields) {
+                $availabilityProperty = $scenarioResult.PSObject.Properties[$availabilityField]
+                if ($null -eq $availabilityProperty -or -not [bool]$availabilityProperty.Value) {
+                    return New-OutputValidationResult `
+                        -Valid $false `
+                        -Reason "required metric is unavailable: $availabilityField" `
+                        -ManifestPath $manifestPath `
+                        -SchemaVersion $reportSchema
+                }
+            }
+
+            $budgetStatusProperty = $scenarioResult.PSObject.Properties["budgetStatus"]
+            if ($null -eq $budgetStatusProperty) {
                 return New-OutputValidationResult `
                     -Valid $false `
-                    -Reason "required metric is unavailable: $availabilityField" `
-                    -ManifestPath $manifestPath
+                    -Reason "measurement report is missing budgetStatus" `
+                    -ManifestPath $manifestPath `
+                    -SchemaVersion $reportSchema
+            }
+            $productBudgetStatus = [string]$budgetStatusProperty.Value
+            $productBudgetFailure = [string]$scenarioResult.budgetFailure
+            if ($productBudgetStatus -eq "INCOMPLETE") {
+                return New-OutputValidationResult `
+                    -Valid $false `
+                    -Reason ("measurement completeness gate failed: " + $productBudgetFailure) `
+                    -ManifestPath $manifestPath `
+                    -ProductBudgetStatus $productBudgetStatus `
+                    -ProductBudgetPassed $false `
+                    -ProductBudgetFailure $productBudgetFailure `
+                    -SchemaVersion $reportSchema
+            }
+            if ($productBudgetStatus -notin @("PASS", "FAIL")) {
+                return New-OutputValidationResult `
+                    -Valid $false `
+                    -Reason "measurement report has unsupported budgetStatus: $productBudgetStatus" `
+                    -ManifestPath $manifestPath `
+                    -ProductBudgetStatus $productBudgetStatus `
+                    -ProductBudgetFailure $productBudgetFailure `
+                    -SchemaVersion $reportSchema
+            }
+            $productBudgetPassed = $productBudgetStatus -eq "PASS"
+        }
+        else {
+            $performanceBudgetStatus = [string]$scenarioResult.performanceBudgetStatus
+            $performanceBudgetFailure = [string]$scenarioResult.performanceBudgetFailure
+            $gcBudgetStatus = [string]$scenarioResult.gcBudgetStatus
+            $gcBudgetFailure = [string]$scenarioResult.gcBudgetFailure
+            $statusChecks = @(
+                (New-ValidationCheck -Passed ([string]$report.performanceBudgetStatus -ceq $performanceBudgetStatus) -Reason "report/scenario performance budget mismatch")
+                (New-ValidationCheck -Passed ([string]$report.gcBudgetStatus -ceq $gcBudgetStatus) -Reason "report/scenario GC budget mismatch")
+                (New-ValidationCheck -Passed ([string]$manifest.performanceBudgetStatus -ceq $performanceBudgetStatus) -Reason "manifest/scenario performance budget mismatch")
+                (New-ValidationCheck -Passed ([string]$manifest.gcBudgetStatus -ceq $gcBudgetStatus) -Reason "manifest/scenario GC budget mismatch")
+                (New-ValidationCheck -Passed ([string]$report.aggregateProductGate -ceq "INCOMPLETE") -Reason "individual member aggregate gate must remain INCOMPLETE")
+            )
+            if ($ExpectedMeasurementRole -ceq "release_performance") {
+                $statusChecks += @(
+                    (New-ValidationCheck -Passed (@("PASS", "FAIL") -ccontains $performanceBudgetStatus) -Reason "release performance status must be PASS or FAIL")
+                    (New-ValidationCheck -Passed ($gcBudgetStatus -ceq "NOT_AUTHORITY") -Reason "release GC status must be NOT_AUTHORITY")
+                )
+                $requiredAvailabilityFields = @(
+                    "drawCallsAvailable",
+                    "batchesAvailable",
+                    "setPassCallsAvailable",
+                    "trianglesAvailable",
+                    "verticesAvailable",
+                    "totalUsedMemoryAvailable",
+                    "gfxUsedMemoryAvailable",
+                    "textureMemoryAvailable"
+                )
+            }
+            else {
+                $statusChecks += @(
+                    (New-ValidationCheck -Passed ($performanceBudgetStatus -ceq "NOT_AUTHORITY") -Reason "development GC performance status must be NOT_AUTHORITY")
+                    (New-ValidationCheck -Passed (@("PASS", "FAIL") -ccontains $gcBudgetStatus) -Reason "development GC status must be PASS or FAIL")
+                    (New-ValidationCheck -Passed ([bool]$scenarioResult.globalGcAllocationAvailable) -Reason "authoritative global GC recorder is unavailable")
+                    (New-ValidationCheck -Passed ([string]$scenarioResult.globalGcMetricSource -eq "unity_profiler_recorder") -Reason "global GC metric source is not authoritative")
+                    (New-ValidationCheck -Passed ([string]$scenarioResult.globalGcMetricScope -eq "unity_gc_allocated_in_frame") -Reason "global GC metric scope changed")
+                    (New-ValidationCheck -Passed (-not [bool]$scenarioResult.globalGcDiagnosticOnly) -Reason "authoritative global GC metric cannot be diagnostic-only")
+                )
+                $requiredAvailabilityFields = @("globalGcAllocationAvailable")
+            }
+            $failedStatusCheck = Get-FirstFailedValidationCheck -Checks $statusChecks
+            if ($null -ne $failedStatusCheck) {
+                return New-OutputValidationResult `
+                    -Valid $false `
+                    -Reason ([string]$failedStatusCheck.Reason) `
+                    -ManifestPath $manifestPath `
+                    -PerformanceBudgetStatus $performanceBudgetStatus `
+                    -PerformanceBudgetFailure $performanceBudgetFailure `
+                    -GcBudgetStatus $gcBudgetStatus `
+                    -GcBudgetFailure $gcBudgetFailure `
+                    -SchemaVersion $reportSchema
+            }
+            foreach ($availabilityField in $requiredAvailabilityFields) {
+                $availabilityProperty = $scenarioResult.PSObject.Properties[$availabilityField]
+                if ($null -eq $availabilityProperty -or -not [bool]$availabilityProperty.Value) {
+                    return New-OutputValidationResult `
+                        -Valid $false `
+                        -Reason "required metric is unavailable: $availabilityField" `
+                        -ManifestPath $manifestPath `
+                        -PerformanceBudgetStatus $performanceBudgetStatus `
+                        -PerformanceBudgetFailure $performanceBudgetFailure `
+                        -GcBudgetStatus $gcBudgetStatus `
+                        -GcBudgetFailure $gcBudgetFailure `
+                        -SchemaVersion $reportSchema
+                }
             }
         }
-
-        $budgetStatusProperty = $scenarioResult.PSObject.Properties["budgetStatus"]
-        if ($null -eq $budgetStatusProperty) {
-            return New-OutputValidationResult `
-                -Valid $false `
-                -Reason "measurement report is missing budgetStatus" `
-                -ManifestPath $manifestPath
-        }
-        $productBudgetStatus = [string]$budgetStatusProperty.Value
-        $productBudgetFailure = [string]$scenarioResult.budgetFailure
-        if ($productBudgetStatus -eq "INCOMPLETE") {
-            return New-OutputValidationResult `
-                -Valid $false `
-                -Reason ("measurement completeness gate failed: " + $productBudgetFailure) `
-                -ManifestPath $manifestPath `
-                -ProductBudgetStatus $productBudgetStatus `
-                -ProductBudgetPassed $false `
-                -ProductBudgetFailure $productBudgetFailure
-        }
-        if ($productBudgetStatus -notin @("PASS", "FAIL")) {
-            return New-OutputValidationResult `
-                -Valid $false `
-                -Reason "measurement report has unsupported budgetStatus: $productBudgetStatus" `
-                -ManifestPath $manifestPath `
-                -ProductBudgetStatus $productBudgetStatus `
-                -ProductBudgetFailure $productBudgetFailure
-        }
-        $productBudgetPassed = $productBudgetStatus -eq "PASS"
     }
 
-    $acceptedReason = if ($productBudgetStatus -eq "FAIL") {
-        "outputs accepted; product budget failed: $productBudgetFailure"
+    $acceptedReason = if ($isV2 -and
+        ($performanceBudgetStatus -eq "FAIL" -or $gcBudgetStatus -eq "FAIL")) {
+        "outputs accepted; authoritative member budget failed"
+    }
+    elseif ($productBudgetStatus -eq "FAIL") {
+        "outputs accepted; legacy product budget failed: $productBudgetFailure"
     }
     else {
         "outputs accepted"
@@ -1038,7 +1566,15 @@ function Test-RunOutputs {
         -Report $report `
         -ProductBudgetStatus $productBudgetStatus `
         -ProductBudgetPassed $productBudgetPassed `
-        -ProductBudgetFailure $productBudgetFailure
+        -ProductBudgetFailure $productBudgetFailure `
+        -EvidenceValidity "VALID" `
+        -PerformanceBudgetStatus $performanceBudgetStatus `
+        -PerformanceBudgetFailure $performanceBudgetFailure `
+        -GcBudgetStatus $gcBudgetStatus `
+        -GcBudgetFailure $gcBudgetFailure `
+        -AggregateProductGate "INCOMPLETE" `
+        -PairingEligible $false `
+        -SchemaVersion $reportSchema
 }
 
 function Write-ResultTables {
@@ -1085,6 +1621,18 @@ function Write-ResultTables {
 
 $Executable = Resolve-ProjectPath $ExecutablePath
 $OutputDirectory = Resolve-ProjectPath $OutputRoot
+if ($MeasurementRole -cnotin @("release_performance", "development_gc")) {
+    throw "MeasurementRole expects exactly release_performance or development_gc."
+}
+$requiredBuildKind = if ($MeasurementRole -ceq "release_performance") {
+    "release"
+}
+else {
+    "diagnostic"
+}
+if ($BuildKind -cne $requiredBuildKind) {
+    throw "MeasurementRole '$MeasurementRole' requires BuildKind '$requiredBuildKind'."
+}
 if (-not (Test-Path -LiteralPath $Executable -PathType Leaf)) {
     throw "Benchmark executable does not exist: $Executable"
 }
@@ -1119,7 +1667,8 @@ $results = @()
 
 for ($run = 1; $run -le $Runs; $run++) {
     $timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")
-    $runId = ("{0}_{1}_{2}_rs{3}_r{4}_{5}" -f
+    $runId = ("{0}_{1}_{2}_{3}_rs{4}_r{5}_{6}" -f
+        ($MeasurementRole -replace '[^A-Za-z0-9_-]', '_'),
         ($BuildKind -replace '[^A-Za-z0-9_-]', '_'),
         ($Quality -replace '[^A-Za-z0-9_-]', '_'),
         $Scenario,
@@ -1141,6 +1690,7 @@ for ($run = 1; $run -le $Runs; $run++) {
         "-sotf-scenario", $Scenario,
         "-sotf-run-id", $runId,
         "-sotf-build-kind", $BuildKind,
+        "-sotf-measurement-role", $MeasurementRole,
         "-sotf-no-screenshot", ([string](-not $CaptureScreenshot)).ToLowerInvariant(),
         "-sotf-aa", $Antialiasing,
         "-sotf-render-scale", [string]$RenderScalePercent,
@@ -1236,6 +1786,7 @@ for ($run = 1; $run -le $Runs; $run++) {
                 -RunId $runId `
                 -ExpectedScenario $Scenario `
                 -ExpectedBuildKind $BuildKind `
+                -ExpectedMeasurementRole $MeasurementRole `
                 -ExpectedQuality $Quality `
                 -ExpectedAntialiasing $Antialiasing `
                 -ExpectedRenderScalePercent $RenderScalePercent `
@@ -1263,7 +1814,9 @@ for ($run = 1; $run -le $Runs; $run++) {
         elseif ($exitCode -ne 0) { $reasonParts += "child exit code $exitCode" }
         if (-not $outputCheck.Valid) { $reasonParts += $outputCheck.Reason }
         if (-not $telemetryCheck.Valid) { $reasonParts += $telemetryCheck.Reason }
-        if ($outputCheck.Valid -and $outputCheck.ProductBudgetStatus -eq "FAIL") {
+        if ($outputCheck.Valid -and
+            ($outputCheck.PerformanceBudgetStatus -eq "FAIL" -or
+             $outputCheck.GcBudgetStatus -eq "FAIL")) {
             $reasonParts += $outputCheck.Reason
         }
         $reason = if ($reasonParts.Count -eq 0) {
@@ -1284,7 +1837,12 @@ for ($run = 1; $run -le $Runs; $run++) {
             -Reason $reason `
             -ExitCode $exitCode `
             -OutputsVerified $outputCheck.Valid `
-            -TelemetryValid $telemetryCheck.Valid
+            -TelemetryValid $telemetryCheck.Valid `
+            -EvidenceValidity $(if ($isValid) { "VALID" } else { "INVALID" }) `
+            -PerformanceBudgetStatus $outputCheck.PerformanceBudgetStatus `
+            -GcBudgetStatus $outputCheck.GcBudgetStatus `
+            -AggregateProductGate "INCOMPLETE" `
+            -PairingEligible $false
 
         $runResult = [pscustomobject]@{
             runId = $runId
@@ -1296,7 +1854,15 @@ for ($run = 1; $run -le $Runs; $run++) {
             antialiasing = $Antialiasing
             renderScalePercent = $RenderScalePercent
             buildKind = $BuildKind
+            measurementRole = $MeasurementRole
             measurementEligible = -not [bool]$CaptureScreenshot
+            evidenceValidity = if ($isValid) { "VALID" } else { "INVALID" }
+            performanceBudgetStatus = $outputCheck.PerformanceBudgetStatus
+            performanceBudgetFailure = $outputCheck.PerformanceBudgetFailure
+            gcBudgetStatus = $outputCheck.GcBudgetStatus
+            gcBudgetFailure = $outputCheck.GcBudgetFailure
+            aggregateProductGate = "INCOMPLETE"
+            pairingEligible = $false
             productBudgetStatus = $outputCheck.ProductBudgetStatus
             productBudgetPassed = $outputCheck.ProductBudgetPassed
             productBudgetFailure = $outputCheck.ProductBudgetFailure
@@ -1314,6 +1880,7 @@ for ($run = 1; $run -le $Runs; $run++) {
             -Antialiasing $Antialiasing `
             -RenderScalePercent $RenderScalePercent `
             -BuildKind $BuildKind `
+            -MeasurementRole $MeasurementRole `
             -MeasurementEligible (-not [bool]$CaptureScreenshot)
     }
 

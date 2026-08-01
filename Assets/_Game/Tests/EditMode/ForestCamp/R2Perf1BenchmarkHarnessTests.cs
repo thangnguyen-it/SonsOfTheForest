@@ -42,6 +42,7 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 "-sotf-scenario", "ground_only",
                 "-sotf-run-id", "balanced_ground_r1",
                 "-sotf-build-kind", "release",
+                "-sotf-measurement-role", "release_performance",
                 "-sotf-no-screenshot", "true",
                 "-sotf-aa", "TAA",
                 "-sotf-render-scale", "80",
@@ -52,6 +53,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(Field<string>(settings, "scenario"), Is.EqualTo("ground_only"));
             Assert.That(Field<string>(settings, "runId"), Is.EqualTo("balanced_ground_r1"));
             Assert.That(Field<string>(settings, "buildKind"), Is.EqualTo("release"));
+            Assert.That(
+                Field<string>(settings, "measurementRole"),
+                Is.EqualTo("release_performance"));
             Assert.That(Field<bool>(settings, "noScreenshot"), Is.True);
             Assert.That(Field<string>(settings, "antialiasing"), Is.EqualTo("TAA"));
             Assert.That(Field<int>(settings, "renderScalePercent"), Is.EqualTo(80));
@@ -81,7 +85,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         public void AntialiasingContract_RejectsValuesOutsideCommandContract(string value)
         {
             AssertParseFailure<ArgumentException>(
-                "player.exe", "-sotf-perf1", "-sotf-aa", value);
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-aa", value);
         }
 
         [Test]
@@ -100,7 +106,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             foreach (string value in supported)
             {
                 Assert.DoesNotThrow(() => Parse(
-                    "player.exe", "-sotf-perf1", "-sotf-aa", value));
+                    "player.exe", "-sotf-perf1",
+                    "-sotf-measurement-role", "development_gc",
+                    "-sotf-aa", value));
             }
         }
 
@@ -110,11 +118,313 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             object settings = Parse(
                 "player.exe",
                 "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
                 "-sotf-quality", "High Fidelity",
                 "-sotf-aa", "TAA");
 
             Assert.That(Field<string>(settings, "quality"), Is.EqualTo("High Fidelity"));
             Assert.That(Field<string>(settings, "antialiasing"), Is.EqualTo("TAA"));
+        }
+
+        [TestCase("release_performance")]
+        [TestCase("development_gc")]
+        public void MeasurementRoleContract_AcceptsExactlyTheTwoAuthorityTokens(string role)
+        {
+            string buildKind = role == "release_performance" ? "release" : "diagnostic";
+            object settings = Parse(
+                "player.exe", "-sotf-perf1",
+                "-sotf-build-kind", buildKind,
+                "-sotf-measurement-role", role);
+
+            Assert.That(Field<string>(settings, "measurementRole"), Is.EqualTo(role));
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("RELEASE_PERFORMANCE")]
+        [TestCase("performance")]
+        public void MeasurementRoleContract_RejectsMissingUnknownOrAliasedTokens(string role)
+        {
+            if (role == null)
+            {
+                AssertParseFailure<ArgumentException>("player.exe", "-sotf-perf1");
+                return;
+            }
+
+            AssertParseFailure<ArgumentException>(
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", role);
+        }
+
+        [Test]
+        public void UnknownMeasurementRole_UsesSafeRecoveryEnvelopeAndWritesOnlyInvalidManifest()
+        {
+            string cleanupRoot;
+            string runDirectory = CreateLongRunDirectory(
+                out cleanupRoot,
+                "unknown_role_recovery");
+            string[] arguments =
+            {
+                "player.exe",
+                "-sotf-perf1",
+                "-sotf-run-id", "unknown_role_recovery",
+                "-sotf-measurement-role", "unsupported_role",
+                "-sotf-output-directory", runDirectory,
+            };
+            try
+            {
+                object envelope = InvokeConfiguration(
+                    "TryCreateRecoveryEnvelope",
+                    new object[] { arguments });
+                Assert.That(envelope, Is.Not.Null);
+                AssertParseFailure<ArgumentException>(arguments);
+
+                MethodInfo recover = RunnerType.GetMethod(
+                    "RecoverFromStartupFailureWithEnvelope",
+                    BindingFlags.Public | BindingFlags.Static);
+                Assert.That(recover, Is.Not.Null);
+                bool restoreCalled = false;
+                var restore = new Func<bool>(() =>
+                {
+                    restoreCalled = true;
+                    return true;
+                });
+                object[] parameters =
+                {
+                    envelope,
+                    new ArgumentException("unsupported measurement role"),
+                    restore,
+                    null,
+                };
+
+                int exitCode = (int)recover.Invoke(null, parameters);
+                string manifestPath = (string)parameters[3];
+
+                Assert.That(exitCode, Is.EqualTo(2));
+                Assert.That(restoreCalled, Is.True);
+                Assert.That(Path.GetFileName(manifestPath), Is.EqualTo("runtime.manifest.json"));
+                Assert.That(File.Exists(manifestPath), Is.True);
+                string manifest = File.ReadAllText(manifestPath);
+                Assert.That(manifest, Does.Contain("\"status\": \"invalid\""));
+                Assert.That(manifest, Does.Contain("unsupported measurement role"));
+                Assert.That(manifest, Does.Contain("\"reportWritten\": false"));
+                Assert.That(File.Exists(Path.Combine(runDirectory, "runtime.report.json")), Is.False);
+                Assert.That(File.Exists(Path.Combine(runDirectory, "runtime.report.md")), Is.False);
+            }
+            finally
+            {
+                if (Directory.Exists(cleanupRoot))
+                {
+                    Directory.Delete(cleanupRoot, true);
+                }
+            }
+        }
+
+        [Test]
+        public void RecoveryEnvelope_RejectsTraversalBeforeAnyOutputIsWritten()
+        {
+            string runDirectory = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-r2-perf1-unsafe-recovery-" + Guid.NewGuid().ToString("N"));
+            string[] arguments =
+            {
+                "player.exe",
+                "-sotf-perf1",
+                "-sotf-run-id", "../escaped_run",
+                "-sotf-output-directory", runDirectory,
+            };
+
+            object envelope = InvokeConfiguration(
+                "TryCreateRecoveryEnvelope",
+                new object[] { arguments });
+
+            Assert.That(envelope, Is.Null);
+            Assert.That(Directory.Exists(runDirectory), Is.False);
+            Assert.That(File.Exists(Path.Combine(runDirectory, "runtime.manifest.json")), Is.False);
+        }
+
+        [Test]
+        public void RecoveryEnvelope_RejectsFilesystemRootAsUnsafeOutputDirectory()
+        {
+            string filesystemRoot = Path.GetPathRoot(Path.GetTempPath());
+            string[] arguments =
+            {
+                "player.exe",
+                "-sotf-perf1",
+                "-sotf-run-id", "unsafe_output_root",
+                "-sotf-output-directory", filesystemRoot,
+            };
+
+            object envelope = InvokeConfiguration(
+                "TryCreateRecoveryEnvelope",
+                new object[] { arguments });
+
+            Assert.That(envelope, Is.Null);
+        }
+
+        [Test]
+        public void RecoveryEnvelope_RejectsDirectoryLeafThatDoesNotExactlyMatchRunId()
+        {
+            string cleanupRoot;
+            string runDirectory = CreateLongRunDirectory(out cleanupRoot, "different_run");
+            try
+            {
+                object envelope = InvokeConfiguration(
+                    "TryCreateRecoveryEnvelope",
+                    new object[]
+                    {
+                        new[]
+                        {
+                            "player.exe",
+                            "-sotf-perf1",
+                            "-sotf-run-id", "expected_run",
+                            "-sotf-output-directory", runDirectory,
+                        },
+                    });
+
+                Assert.That(envelope, Is.Null);
+                Assert.That(Directory.Exists(runDirectory), Is.False);
+            }
+            finally
+            {
+                if (Directory.Exists(cleanupRoot))
+                {
+                    Directory.Delete(cleanupRoot, true);
+                }
+            }
+        }
+
+        [TestCase("runtime.manifest.json")]
+        [TestCase("runtime.report.json")]
+        [TestCase("runtime.report.md")]
+        [TestCase("runtime.manifest.json.tmp")]
+        [TestCase("runtime.report.json.tmp")]
+        [TestCase("runtime.report.md.tmp")]
+        [TestCase("runtime.screenshot.png")]
+        [TestCase("runtime.screenshot.png.tmp")]
+        public void RecoveryEnvelope_PreservesExistingForeignRuntimeOutputByteForByte(
+            string fileName)
+        {
+            const string runId = "foreign_evidence_run";
+            string cleanupRoot;
+            string runDirectory = CreateLongRunDirectory(out cleanupRoot, runId);
+            byte[] foreignBytes = { 0x00, 0x25, 0x7f, 0x80, 0xff };
+            try
+            {
+                Directory.CreateDirectory(runDirectory);
+                string foreignPath = Path.Combine(runDirectory, fileName);
+                File.WriteAllBytes(foreignPath, foreignBytes);
+
+                object envelope = InvokeConfiguration(
+                    "TryCreateRecoveryEnvelope",
+                    new object[]
+                    {
+                        RecoveryArguments(runId, runDirectory),
+                    });
+
+                Assert.That(envelope, Is.Null);
+                Assert.That(File.ReadAllBytes(foreignPath), Is.EqualTo(foreignBytes));
+                Assert.That(
+                    Directory.GetFiles(runDirectory).Select(Path.GetFileName).ToArray(),
+                    Is.EquivalentTo(new[] { fileName }));
+            }
+            finally
+            {
+                if (Directory.Exists(cleanupRoot))
+                {
+                    Directory.Delete(cleanupRoot, true);
+                }
+            }
+        }
+
+        [TestCase("runtime.manifest.json")]
+        [TestCase("runtime.manifest.json.tmp")]
+        public void RecoveryWriter_FailsClosedWhenTargetAppearsAfterEnvelopeValidation(
+            string racedFileName)
+        {
+            const string runId = "recovery_race_run";
+            string cleanupRoot;
+            string runDirectory = CreateLongRunDirectory(out cleanupRoot, runId);
+            byte[] foreignBytes = { 0xde, 0xad, 0xbe, 0xef };
+            try
+            {
+                object envelope = InvokeConfiguration(
+                    "TryCreateRecoveryEnvelope",
+                    new object[] { RecoveryArguments(runId, runDirectory) });
+                Assert.That(envelope, Is.Not.Null);
+
+                Directory.CreateDirectory(runDirectory);
+                string manifestPath = Path.Combine(runDirectory, "runtime.manifest.json");
+                string racedPath = Path.Combine(runDirectory, racedFileName);
+                File.WriteAllBytes(racedPath, foreignBytes);
+
+                UnityEngine.TestTools.LogAssert.Expect(
+                    UnityEngine.LogType.Error,
+                    new Regex(
+                        "Failed to persist startup-failure manifest:.*" +
+                        Regex.Escape(racedFileName),
+                        RegexOptions.Singleline));
+                int exitCode = RecoverWithEnvelope(envelope, out string writtenManifestPath);
+
+                Assert.That(exitCode, Is.EqualTo(2));
+                Assert.That(writtenManifestPath, Is.Null);
+                Assert.That(File.ReadAllBytes(racedPath), Is.EqualTo(foreignBytes));
+                Assert.That(
+                    File.Exists(manifestPath),
+                    Is.EqualTo(string.Equals(
+                        racedFileName,
+                        "runtime.manifest.json",
+                        StringComparison.Ordinal)));
+                Assert.That(File.Exists(Path.Combine(runDirectory, "runtime.report.json")), Is.False);
+                Assert.That(File.Exists(Path.Combine(runDirectory, "runtime.report.md")), Is.False);
+            }
+            finally
+            {
+                if (Directory.Exists(cleanupRoot))
+                {
+                    Directory.Delete(cleanupRoot, true);
+                }
+            }
+        }
+
+        [TestCase("release_performance", "diagnostic")]
+        [TestCase("development_gc", "release")]
+        public void MeasurementRoleContract_RejectsDeclaredRoleBuildMismatch(
+            string role,
+            string buildKind)
+        {
+            AssertParseFailure<InvalidOperationException>(
+                "player.exe", "-sotf-perf1",
+                "-sotf-build-kind", buildKind,
+                "-sotf-measurement-role", role);
+        }
+
+        [TestCase("release_performance", "release", false)]
+        [TestCase("development_gc", "diagnostic", true)]
+        public void MeasurementAuthority_AcceptsMatchingRuntimeBuild(
+            string role,
+            string buildKind,
+            bool developmentBuild)
+        {
+            Assert.DoesNotThrow(() => InvokeConfiguration(
+                "ValidateMeasurementAuthority",
+                role,
+                buildKind,
+                developmentBuild));
+        }
+
+        [TestCase("release_performance", "release", true)]
+        [TestCase("development_gc", "diagnostic", false)]
+        public void MeasurementAuthority_RejectsActualRuntimeBuildMismatch(
+            string role,
+            string buildKind,
+            bool developmentBuild)
+        {
+            AssertConfigurationFailure<InvalidOperationException>(
+                "ValidateMeasurementAuthority",
+                role,
+                buildKind,
+                developmentBuild);
         }
 
         [Test]
@@ -213,6 +523,7 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                     "-sotf-scenario", "empty_hdrp_camera",
                     "-sotf-run-id", "unique_configuration_that_must_not_be_in_filenames",
                     "-sotf-build-kind", "release",
+                    "-sotf-measurement-role", "release_performance",
                     "-sotf-aa", "TAA",
                     "-sotf-output-directory", runDirectory);
                 MethodInfo createManifest = RunnerType.GetMethod(
@@ -230,6 +541,26 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 Assert.That(reportJsonPath, Does.StartWith(runDirectory));
                 Assert.That(reportMarkdownPath, Does.StartWith(runDirectory));
                 Assert.That(reportJsonPath, Does.Not.Contain(Field<string>(settings, "runId")));
+                Assert.That(
+                    Field<string>(manifest, "schemaVersion"),
+                    Is.EqualTo("r2-perf1-manifest/2"));
+                Assert.That(
+                    Field<string>(manifest, "measurementRole"),
+                    Is.EqualTo("release_performance"));
+                Assert.That(Field<bool>(manifest, "pairingEligible"), Is.False);
+                Assert.That(
+                    Field<string>(manifest, "evidenceValidity"),
+                    Is.EqualTo("PENDING_OFFLINE_VALIDATION"));
+                Assert.That(
+                    Field<string>(manifest, "aggregateProductGate"),
+                    Is.EqualTo("INCOMPLETE"));
+                Assert.That(Field<string>(manifest, "measurementSetId"), Is.Empty);
+                Assert.That(Field<string>(manifest, "sourceCommit"), Is.Empty);
+                Assert.That(Field<bool>(manifest, "sourceTreeCleanAvailable"), Is.False);
+                Assert.That(Field<string>(manifest, "buildArtifactId"), Is.Empty);
+                Assert.That(Field<string>(manifest, "contentFingerprint"), Is.Empty);
+                Assert.That(Field<string>(manifest, "configurationFingerprint"), Is.Empty);
+                Assert.That(Field<string>(manifest, "hardwareFingerprint"), Is.Empty);
             }
             finally
             {
@@ -246,7 +577,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         public void ScenarioValidation_AcceptsOnlySupportedScenarios(string scenario)
         {
             object settings = Parse(
-                "player.exe", "-sotf-perf1", "-sotf-scenario", scenario);
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-scenario", scenario);
             Assert.That(Field<string>(settings, "scenario"), Is.EqualTo(scenario));
         }
 
@@ -256,7 +589,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         public void ScenarioValidation_RejectsInvalidValues(string scenario)
         {
             AssertParseFailure<ArgumentException>(
-                "player.exe", "-sotf-perf1", "-sotf-scenario", scenario);
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-scenario", scenario);
         }
 
         [TestCase("diagnostic", true)]
@@ -299,7 +634,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         public void RunIdValidation_AcceptsFileSafeUniqueIds(string runId)
         {
             object settings = Parse(
-                "player.exe", "-sotf-perf1", "-sotf-run-id", runId);
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-run-id", runId);
             Assert.That(Field<string>(settings, "runId"), Is.EqualTo(runId));
         }
 
@@ -309,15 +646,21 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         public void RunIdValidation_RejectsUnsafeIds(string runId)
         {
             AssertParseFailure<ArgumentException>(
-                "player.exe", "-sotf-perf1", "-sotf-run-id", runId);
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-run-id", runId);
         }
 
         [Test]
         public void Screenshot_DefaultsOffAndCanBeEnabledOnlyExplicitly()
         {
-            object defaultSettings = Parse("player.exe", "-sotf-perf1");
+            object defaultSettings = Parse(
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc");
             object visualSettings = Parse(
-                "player.exe", "-sotf-perf1", "-sotf-no-screenshot", "false");
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-no-screenshot", "false");
 
             Assert.That(Field<bool>(defaultSettings, "noScreenshot"), Is.True);
             Assert.That(Property<bool>(defaultSettings, "CaptureScreenshot"), Is.False);
@@ -331,11 +674,17 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         public void InvalidConfiguration_IsRejectedBeforeRuntimeMutation()
         {
             AssertParseFailure<ArgumentException>(
-                "player.exe", "-sotf-perf1", "-sotf-render-scale", "101");
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-render-scale", "101");
             AssertParseFailure<ArgumentException>(
-                "player.exe", "-sotf-perf1", "-sotf-unknown", "value");
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-unknown", "value");
             AssertParseFailure<ArgumentException>(
-                "player.exe", "-sotf-perf1", "-sotf-no-screenshot", "maybe");
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-no-screenshot", "maybe");
         }
 
         [Test]
@@ -359,7 +708,9 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         public void StartupFailure_RestoresStateWritesInvalidManifestAndRequestsNonZeroExit()
         {
             string cleanupRoot;
-            string temporaryDirectory = CreateLongRunDirectory(out cleanupRoot);
+            string temporaryDirectory = CreateLongRunDirectory(
+                out cleanupRoot,
+                "startup_failure_test");
             try
             {
                 object settings = Parse(
@@ -369,6 +720,7 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                     "-sotf-scenario", "empty_hdrp_camera",
                     "-sotf-run-id", "startup_failure_test",
                     "-sotf-build-kind", "release",
+                    "-sotf-measurement-role", "release_performance",
                     "-sotf-no-screenshot", "true",
                     "-sotf-aa", "TAA",
                     "-sotf-output-directory", temporaryDirectory);
@@ -459,6 +811,79 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(configuration, Does.Contain("RestoreRuntimeState"));
             Assert.That(configuration, Does.Contain("Application.quitting"));
             Assert.That(configuration, Does.Contain("ScalableBufferManager.ResizeBuffers"));
+            Assert.That(runner, Does.Not.Contain("GC.GetAllocatedBytesForCurrentThread"));
+            Assert.That(configuration, Does.Not.Contain("GC.GetAllocatedBytesForCurrentThread"));
+        }
+
+        [Test]
+        public void RuntimeMarkdownScenarioTable_ProductionFormatterCreatesExactlyNineteenColumns()
+        {
+            string header = StaticField<string>(RunnerType, "ScenarioMarkdownHeader");
+            string separator = StaticField<string>(RunnerType, "ScenarioMarkdownSeparator");
+            Type scenarioType = RunnerType.GetNestedType("ScenarioResult", BindingFlags.Public);
+            Assert.That(scenarioType, Is.Not.Null);
+            object scenario = Activator.CreateInstance(scenarioType);
+            scenarioType.GetField("name").SetValue(scenario, "representative");
+            scenarioType.GetField("performanceBudgetStatus").SetValue(scenario, "PASS");
+            scenarioType.GetField("gcBudgetStatus").SetValue(scenario, "NOT_AUTHORITY");
+            scenarioType.GetField("bottleneck").SetValue(scenario, "GPU");
+            scenarioType.GetField("drawCallsAvailable").SetValue(scenario, true);
+            scenarioType.GetField("batchesAvailable").SetValue(scenario, true);
+            scenarioType.GetField("setPassCallsAvailable").SetValue(scenario, true);
+            scenarioType.GetField("trianglesAvailable").SetValue(scenario, true);
+            MethodInfo formatter = RunnerType.GetMethod(
+                "FormatScenarioMarkdownRow",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(formatter, Is.Not.Null);
+            string dataRow = (string)formatter.Invoke(null, new[] { scenario });
+
+            int headerColumns = header.Split('|').Length - 2;
+            int separatorColumns = separator.Split('|').Length - 2;
+            int dataColumns = dataRow.Split('|').Length - 2;
+            Assert.That(headerColumns, Is.EqualTo(19));
+            Assert.That(separatorColumns, Is.EqualTo(headerColumns));
+            Assert.That(dataColumns, Is.EqualTo(headerColumns));
+        }
+
+        [TestCase("release_performance", false, 120f, 10f, 15f, "PASS", "NOT_AUTHORITY")]
+        [TestCase("release_performance", false, 40f, 21f, 26f, "FAIL", "NOT_AUTHORITY")]
+        [TestCase("development_gc", false, 120f, 10f, 15f, "NOT_AUTHORITY", "INCOMPLETE")]
+        [TestCase("development_gc", true, 120f, 10f, 15f, "NOT_AUTHORITY", "PASS")]
+        public void MemberBudgetMatrix_SeparatesAuthorityAndKeepsPairIncomplete(
+            string role,
+            bool globalGcAvailable,
+            float averageFps,
+            float p95Ms,
+            float p99Ms,
+            string expectedPerformance,
+            string expectedGc)
+        {
+            Type scenarioType = RunnerType.GetNestedType(
+                "ScenarioResult",
+                BindingFlags.Public);
+            Assert.That(scenarioType, Is.Not.Null);
+            object scenario = Activator.CreateInstance(scenarioType);
+            scenarioType.GetField("avgFps").SetValue(scenario, averageFps);
+            scenarioType.GetField("p95Ms").SetValue(scenario, p95Ms);
+            scenarioType.GetField("p99Ms").SetValue(scenario, p99Ms);
+            scenarioType.GetField("globalGcAllocationAvailable").SetValue(
+                scenario,
+                globalGcAvailable);
+            scenarioType.GetField("globalGcAllocatedPeakBytes").SetValue(scenario, 0L);
+
+            MethodInfo evaluate = RunnerType.GetMethod(
+                "EvaluateBudget",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(evaluate, Is.Not.Null);
+            evaluate.Invoke(null, new[] { scenario, role });
+
+            Assert.That(
+                Field<string>(scenario, "performanceBudgetStatus"),
+                Is.EqualTo(expectedPerformance));
+            Assert.That(Field<string>(scenario, "gcBudgetStatus"), Is.EqualTo(expectedGc));
+            Assert.That(
+                StaticField<string>(ConfigurationType, "AggregateProductGateIncomplete"),
+                Is.EqualTo("INCOMPLETE"));
         }
 
         [Test]
@@ -540,7 +965,7 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 {
                     FileName = "powershell.exe",
                     Arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" +
-                                harnessPath + "\"",
+                                harnessPath + "\" -MeasurementRole release_performance",
                     WorkingDirectory = Path.GetFullPath("."),
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
@@ -565,6 +990,7 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                         "PowerShell validator contract matrix failed.\nSTDOUT:\n" + output +
                         "\nSTDERR:\n" + error);
                     Assert.That(output, Does.Contain("B4_VALIDATOR_MATRIX_PASS"));
+                    Assert.That(output, Does.Contain("B5A_AUTHORITY_MATRIX_PASS"));
                 }
             }
             finally
@@ -608,6 +1034,70 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             Assert.That(wrapper, Does.Contain("exit /b %ERRORLEVEL%"));
         }
 
+        [TestCase("release_performance", "release")]
+        [TestCase("development_gc", "diagnostic")]
+        public void CmdWrapper_DryRunExecutesRoleContractWithoutLaunchingPlayerOrCreatingOutput(
+            string measurementRole,
+            string buildKind)
+        {
+            string wrapper = Path.GetFullPath(OfflineWrapperPath);
+            string executable = Path.GetFullPath(
+                "Builds/Benchmarks/R2_PERF1_Release/SOTF_R2_PERF1.exe");
+            Assert.That(File.Exists(executable), Is.True, "Release dry-run stub is missing.");
+            string outputRoot = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-r2-perf1-cmd-dry-run-" + Guid.NewGuid().ToString("N"));
+            int playerCountBefore = Process.GetProcessesByName("SOTF_R2_PERF1").Length;
+            string command = "\"" + wrapper + "\"" +
+                             " -ExecutablePath \"" + executable + "\"" +
+                             " -Quality \"High Fidelity\"" +
+                             " -Scenario empty_hdrp_camera" +
+                             " -Antialiasing TAA" +
+                             " -RenderScalePercent 100" +
+                             " -BuildKind " + buildKind +
+                             " -MeasurementRole " + measurementRole +
+                             " -Runs 1" +
+                             " -OutputRoot \"" + outputRoot + "\"" +
+                             " -DryRun";
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = "/d /s /c \"" + command + "\"",
+                WorkingDirectory = Path.GetFullPath("."),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+
+            using (Process process = Process.Start(startInfo))
+            {
+                Assert.That(process, Is.Not.Null);
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+                bool exited = process.WaitForExit(60000);
+                if (!exited)
+                {
+                    process.Kill();
+                }
+
+                Assert.That(exited, Is.True, "CMD dry-run timed out.");
+                Assert.That(
+                    process.ExitCode,
+                    Is.EqualTo(0),
+                    "CMD dry-run failed.\nSTDOUT:\n" + output + "\nSTDERR:\n" + error);
+                Assert.That(output, Does.Contain("High Fidelity"));
+                Assert.That(output, Does.Contain(measurementRole));
+                Assert.That(output, Does.Contain("-sotf-measurement-role"));
+                Assert.That(output, Does.Contain("Dry-run completed"));
+            }
+
+            Assert.That(Directory.Exists(outputRoot), Is.False);
+            Assert.That(
+                Process.GetProcessesByName("SOTF_R2_PERF1").Length,
+                Is.EqualTo(playerCountBefore));
+        }
+
         private static object Parse(params string[] arguments)
         {
             MethodInfo method = ConfigurationType.GetMethod(
@@ -638,18 +1128,54 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
 
         private static T StaticField<T>(Type type, string name)
         {
-            FieldInfo field = type.GetField(name, BindingFlags.Public | BindingFlags.Static);
+            FieldInfo field = type.GetField(
+                name,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
             Assert.That(field, Is.Not.Null, "Missing static field: " + name);
             return (T)field.GetValue(null);
         }
 
-        private static string CreateLongRunDirectory(out string cleanupRoot)
+        private static string[] RecoveryArguments(string runId, string runDirectory)
+        {
+            return new[]
+            {
+                "player.exe",
+                "-sotf-perf1",
+                "-sotf-run-id", runId,
+                "-sotf-output-directory", runDirectory,
+            };
+        }
+
+        private static int RecoverWithEnvelope(object envelope, out string manifestPath)
+        {
+            MethodInfo recover = RunnerType.GetMethod(
+                "RecoverFromStartupFailureWithEnvelope",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(recover, Is.Not.Null);
+            object[] parameters =
+            {
+                envelope,
+                new InvalidOperationException("synthetic recovery failure"),
+                new Func<bool>(() => true),
+                null,
+            };
+            int exitCode = (int)recover.Invoke(null, parameters);
+            manifestPath = (string)parameters[3];
+            return exitCode;
+        }
+
+        private static string CreateLongRunDirectory(
+            out string cleanupRoot,
+            string runId = null)
         {
             cleanupRoot = Path.Combine(
                 Path.GetTempPath(),
                 "sotf-b2-" + Guid.NewGuid().ToString("N"));
             int componentLength = Math.Max(32, 128 - cleanupRoot.Length);
-            return Path.Combine(cleanupRoot, new string('r', componentLength));
+            string longParent = Path.Combine(cleanupRoot, new string('r', componentLength));
+            return string.IsNullOrEmpty(runId)
+                ? longParent
+                : Path.Combine(longParent, runId);
         }
 
         private static T Field<T>(object target, string name)
@@ -733,6 +1259,7 @@ function New-ContractFixture {
     $reportPath = Join-Path $directory 'runtime.report.json'
     $markdownPath = Join-Path $directory 'runtime.report.md'
     $report = [pscustomobject]@{
+        schemaVersion = 'r2-perf1/1'
         benchmarkRunId = $runId
         benchmarkScenario = 'empty_hdrp_camera'
         buildKind = 'release'
@@ -752,6 +1279,7 @@ function New-ContractFixture {
         phase = 'contract_phase'
     }
     $manifest = [pscustomobject]@{
+        schemaVersion = 'r2-perf1-manifest/1'
         runId = $runId
         status = 'awaiting_offline_validation'
         scenario = 'empty_hdrp_camera'
@@ -795,6 +1323,7 @@ function Invoke-ContractValidation {
 $matching = New-ContractFixture -Label 'matching' -Scenarios @((New-ContractScenario))
 $matchingResult = Invoke-ContractValidation $matching
 Assert-Contract $matchingResult.Valid 'matching manifest/report must validate without throwing'
+Assert-Contract (-not [bool]$matchingResult.PairingEligible) 'v1 evidence must never be pairing-eligible'
 Assert-Contract ([string]::IsNullOrEmpty((Get-Content $matching.ManifestPath -Raw | ConvertFrom-Json).screenshotPath)) 'disabled screenshot must allow an empty path'
 Assert-Contract ((Split-Path $matching.ManifestPath -Leaf) -eq 'runtime.manifest.json') 'short manifest discovery changed'
 Assert-Contract ((Split-Path $matching.ReportPath -Leaf) -eq 'runtime.report.json') 'short report discovery changed'
@@ -873,6 +1402,7 @@ $exceptionResult = New-ValidatorExceptionRunResult `
     -Antialiasing 'TAA' `
     -RenderScalePercent 100 `
     -BuildKind 'release' `
+    -MeasurementRole 'release_performance' `
     -MeasurementEligible $true
 Assert-Contract ($exceptionResult.status -eq 'invalid') 'validator exception must return structured invalid result'
 $exceptionManifest = Get-Content (Join-Path $exceptionRoot 'offline.invalid.manifest.json') -Raw | ConvertFrom-Json
@@ -887,7 +1417,326 @@ Assert-Contract ($validRows.Count -eq 0) 'validator exception leaked into valid-
 Assert-Contract ($invalidRows.Count -eq 1) 'validator exception must create exactly one invalid row'
 Assert-Contract ($invalidRows[0].runId -eq 'exception_run') 'invalid row runId changed'
 
-Write-Output 'B4_VALIDATOR_MATRIX_PASS'
+function New-V2ContractFixture {
+    param(
+        [string]$Label,
+        [ValidateSet('release_performance', 'development_gc')]
+        [string]$Role,
+        [string]$PerformanceStatus,
+        [string]$GcStatus,
+        [bool]$GcAvailable
+    )
+    $directory = Join-Path $ContractRoot $Label
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $runId = 'run_' + $Label
+    $buildKind = if ($Role -ceq 'release_performance') { 'release' } else { 'diagnostic' }
+    $developmentBuild = $buildKind -eq 'diagnostic'
+    $reportPath = Join-Path $directory 'runtime.report.json'
+    $markdownPath = Join-Path $directory 'runtime.report.md'
+    $scenario = [pscustomobject]@{
+        name = 'empty_hdrp_camera'
+        frames = 480
+        avgMs = 5.0
+        medianMs = 5.0
+        p95Ms = 6.0
+        p99Ms = 7.0
+        avgFps = 200.0
+        onePercentLowFps = 142.0
+        timingSamples = 480
+        cpuTotalAvgMs = 4.0
+        cpuTotalP95Ms = 5.0
+        cpuMainThreadAvgMs = 3.5
+        cpuMainThreadP95Ms = 4.5
+        cpuMainThreadPresentWaitAvgMs = 0.5
+        cpuMainThreadWorkAvgMs = 3.0
+        cpuRenderThreadAvgMs = 1.0
+        cpuRenderThreadP95Ms = 1.5
+        gpuAvgMs = 2.0
+        gpuP95Ms = 2.5
+        drawCalls = 12.0
+        batches = 10.0
+        setPassCalls = 5.0
+        triangleMillions = 0.01
+        vertexMillions = 0.02
+        globalGcAllocationAvailable = $GcAvailable
+        globalGcMetricSource = if ($GcAvailable) { 'unity_profiler_recorder' } else { '' }
+        globalGcMetricScope = if ($GcAvailable) { 'unity_gc_allocated_in_frame' } else { '' }
+        globalGcDiagnosticOnly = $false
+        globalGcAllocatedAverageBytes = 0.0
+        globalGcAllocatedPeakBytes = 0
+        globalGcAllocationCountAverage = 0.0
+        totalUsedMemoryAverageMb = 200.0
+        totalUsedMemoryPeakMb = 205.0
+        gfxUsedMemoryAverageMb = 100.0
+        gfxUsedMemoryPeakMb = 105.0
+        textureMemoryAverageMb = 50.0
+        textureMemoryPeakMb = 52.0
+        drawCallsAvailable = $true
+        batchesAvailable = $true
+        setPassCallsAvailable = $true
+        trianglesAvailable = $true
+        verticesAvailable = $true
+        totalUsedMemoryAvailable = $true
+        gfxUsedMemoryAvailable = $true
+        textureMemoryAvailable = $true
+        bottleneck = 'GPU'
+        performanceBudgetStatus = $PerformanceStatus
+        performanceBudgetFailure = if ($PerformanceStatus -eq 'FAIL') { 'p95 exceeded' } else { '' }
+        gcBudgetStatus = $GcStatus
+        gcBudgetFailure = if ($GcStatus -in @('FAIL', 'INCOMPLETE')) { 'global GC unavailable or over budget' } else { '' }
+        ignoredStartupStallFrames = 0
+    }
+    $report = [pscustomobject]@{
+        schemaVersion = 'r2-perf1/2'
+        benchmarkRunId = $runId
+        benchmarkScenario = 'empty_hdrp_camera'
+        buildKind = $buildKind
+        measurementRole = $Role
+        measurementSetId = ''
+        sourceCommit = ''
+        sourceTreeClean = $false
+        sourceTreeCleanAvailable = $false
+        buildArtifactId = ''
+        contentFingerprint = ''
+        configurationFingerprint = ''
+        hardwareFingerprint = ''
+        pairingEligible = $false
+        evidenceValidity = 'PENDING_OFFLINE_VALIDATION'
+        performanceBudgetStatus = $PerformanceStatus
+        gcBudgetStatus = $GcStatus
+        aggregateProductGate = 'INCOMPLETE'
+        qualityLevel = 'High Fidelity'
+        antialiasingMode = 'TAA'
+        renderScalePercent = 100
+        developmentBuild = $developmentBuild
+        width = 1280
+        height = 720
+        graphicsDeviceName = 'NVIDIA GeForce MX550'
+        graphicsDeviceType = 'Direct3D11'
+        profilerEnabled = $false
+        profilerBinaryLogEnabled = $false
+        deepProfilingBuild = $false
+        measurementEligible = $true
+        screenshotRequested = $false
+        scenarios = @($scenario)
+        phase = 'contract_phase'
+    }
+    $manifest = [pscustomobject]@{
+        schemaVersion = 'r2-perf1-manifest/2'
+        runId = $runId
+        status = 'awaiting_offline_validation'
+        scenario = 'empty_hdrp_camera'
+        buildKind = $buildKind
+        measurementRole = $Role
+        measurementSetId = ''
+        sourceCommit = ''
+        sourceTreeClean = $false
+        sourceTreeCleanAvailable = $false
+        buildArtifactId = ''
+        contentFingerprint = ''
+        configurationFingerprint = ''
+        hardwareFingerprint = ''
+        pairingEligible = $false
+        evidenceValidity = 'PENDING_OFFLINE_VALIDATION'
+        performanceBudgetStatus = $PerformanceStatus
+        gcBudgetStatus = $GcStatus
+        aggregateProductGate = 'INCOMPLETE'
+        quality = 'High Fidelity'
+        antialiasing = 'TAA'
+        renderScalePercent = 100
+        upscaler = 'CatmullRom'
+        screenshotRequested = $false
+        screenshotPath = ''
+        reportJsonPath = $reportPath
+        reportMarkdownPath = $markdownPath
+    }
+    $report | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $reportPath -Encoding UTF8
+    'contract report' | Set-Content -LiteralPath $markdownPath -Encoding UTF8
+    $manifest | ConvertTo-Json -Depth 12 |
+        Set-Content -LiteralPath (Join-Path $directory 'runtime.manifest.json') -Encoding UTF8
+    return [pscustomobject]@{
+        Directory = $directory
+        RunId = $runId
+        BuildKind = $buildKind
+        Role = $Role
+        ManifestPath = Join-Path $directory 'runtime.manifest.json'
+        ReportPath = $reportPath
+    }
+}
+
+function Invoke-V2ContractValidation {
+    param([object]$Fixture)
+    return Test-RunOutputs `
+        -RunDirectory $Fixture.Directory `
+        -RunId $Fixture.RunId `
+        -ExpectedScenario 'empty_hdrp_camera' `
+        -ExpectedBuildKind $Fixture.BuildKind `
+        -ExpectedMeasurementRole $Fixture.Role `
+        -ExpectedQuality 'High Fidelity' `
+        -ExpectedAntialiasing 'TAA' `
+        -ExpectedRenderScalePercent 100 `
+        -ExpectedGpuName 'NVIDIA GeForce MX550' `
+        -ExpectedWidth 1280 `
+        -ExpectedHeight 720 `
+        -ScreenshotExpected $false
+}
+
+$releaseNoGc = New-V2ContractFixture -Label 'v2_release_no_gc' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$releaseNoGcResult = Invoke-V2ContractValidation $releaseNoGc
+Assert-Contract $releaseNoGcResult.Valid 'release evidence must remain valid when GC is unavailable'
+Assert-Contract ($releaseNoGcResult.PerformanceBudgetStatus -eq 'PASS') 'release performance authority changed'
+Assert-Contract ($releaseNoGcResult.GcBudgetStatus -eq 'NOT_AUTHORITY') 'release must not claim GC authority'
+Assert-Contract ($releaseNoGcResult.AggregateProductGate -eq 'INCOMPLETE') 'single release member cannot complete aggregate gate'
+
+$releaseFail = New-V2ContractFixture -Label 'v2_release_fail' -Role 'release_performance' -PerformanceStatus 'FAIL' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$releaseFailResult = Invoke-V2ContractValidation $releaseFail
+Assert-Contract $releaseFailResult.Valid 'budget failure must remain valid evidence'
+Assert-Contract ($releaseFailResult.PerformanceBudgetStatus -eq 'FAIL') 'performance FAIL was not preserved'
+
+$developmentGc = New-V2ContractFixture -Label 'v2_development_gc' -Role 'development_gc' -PerformanceStatus 'NOT_AUTHORITY' -GcStatus 'PASS' -GcAvailable $true
+$developmentGcResult = Invoke-V2ContractValidation $developmentGc
+Assert-Contract $developmentGcResult.Valid 'authoritative development GC evidence must validate'
+Assert-Contract ($developmentGcResult.PerformanceBudgetStatus -eq 'NOT_AUTHORITY') 'development timing must not become authoritative'
+Assert-Contract ($developmentGcResult.GcBudgetStatus -eq 'PASS') 'development global GC PASS was not preserved'
+Assert-Contract ($developmentGcResult.AggregateProductGate -eq 'INCOMPLETE') 'single GC member cannot complete aggregate gate'
+
+$developmentMissingGc = New-V2ContractFixture -Label 'v2_development_missing_gc' -Role 'development_gc' -PerformanceStatus 'NOT_AUTHORITY' -GcStatus 'INCOMPLETE' -GcAvailable $false
+$developmentMissingGcResult = Invoke-V2ContractValidation $developmentMissingGc
+Assert-Contract (-not $developmentMissingGcResult.Valid) 'missing authoritative GC recorder must not pass'
+Assert-Contract ($developmentMissingGcResult.GcBudgetStatus -ne 'PASS') 'missing global GC was converted into PASS'
+
+$missingRole = New-V2ContractFixture -Label 'v2_missing_role' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$missingRoleManifest = Get-Content $missingRole.ManifestPath -Raw | ConvertFrom-Json
+$missingRoleManifest.measurementRole = ''
+$missingRoleManifest | ConvertTo-Json -Depth 12 | Set-Content $missingRole.ManifestPath -Encoding UTF8
+$missingRoleResult = Invoke-V2ContractValidation $missingRole
+Assert-Contract (-not $missingRoleResult.Valid) 'missing runtime role must be rejected'
+
+$roleMismatch = New-V2ContractFixture -Label 'v2_role_mismatch' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$roleMismatchReport = Get-Content $roleMismatch.ReportPath -Raw | ConvertFrom-Json
+$roleMismatchReport.measurementRole = 'development_gc'
+$roleMismatchReport | ConvertTo-Json -Depth 12 | Set-Content $roleMismatch.ReportPath -Encoding UTF8
+$roleMismatchResult = Invoke-V2ContractValidation $roleMismatch
+Assert-Contract (-not $roleMismatchResult.Valid) 'runtime report role mismatch must be rejected'
+
+$roleBuildMismatch = New-V2ContractFixture -Label 'v2_role_build_mismatch' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$roleBuildMismatch.BuildKind = 'diagnostic'
+$roleBuildMismatchResult = Invoke-V2ContractValidation $roleBuildMismatch
+Assert-Contract (-not $roleBuildMismatchResult.Valid) 'role/build mismatch must fail closed'
+
+$missingManifestProperty = New-V2ContractFixture -Label 'v2_missing_manifest_property' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$missingManifestPropertyValue = Get-Content $missingManifestProperty.ManifestPath -Raw | ConvertFrom-Json
+$missingManifestPropertyValue.PSObject.Properties.Remove('sourceCommit')
+$missingManifestPropertyValue | ConvertTo-Json -Depth 12 | Set-Content $missingManifestProperty.ManifestPath -Encoding UTF8
+$missingManifestPropertyResult = Invoke-V2ContractValidation $missingManifestProperty
+Assert-Contract (-not $missingManifestPropertyResult.Valid) 'missing mandatory manifest property must fail closed'
+Assert-Contract ($missingManifestPropertyResult.Reason -match 'missing required JSON property: sourceCommit') 'missing manifest property reason changed'
+
+$wrongManifestType = New-V2ContractFixture -Label 'v2_wrong_manifest_type' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$wrongManifestTypeValue = Get-Content $wrongManifestType.ManifestPath -Raw | ConvertFrom-Json
+$wrongManifestTypeValue.sourceTreeCleanAvailable = 'false'
+$wrongManifestTypeValue | ConvertTo-Json -Depth 12 | Set-Content $wrongManifestType.ManifestPath -Encoding UTF8
+$wrongManifestTypeResult = Invoke-V2ContractValidation $wrongManifestType
+Assert-Contract (-not $wrongManifestTypeResult.Valid) 'wrong manifest property type must fail closed'
+Assert-Contract ($wrongManifestTypeResult.Reason -match 'wrong type') 'wrong manifest type reason changed'
+
+$wrongManifestCase = New-V2ContractFixture -Label 'v2_wrong_manifest_case' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$wrongManifestCaseValue = Get-Content $wrongManifestCase.ManifestPath -Raw | ConvertFrom-Json
+$wrongManifestCaseValue.performanceBudgetStatus = 'pass'
+$wrongManifestCaseValue | ConvertTo-Json -Depth 12 | Set-Content $wrongManifestCase.ManifestPath -Encoding UTF8
+$wrongManifestCaseResult = Invoke-V2ContractValidation $wrongManifestCase
+Assert-Contract (-not $wrongManifestCaseResult.Valid) 'wrong-case manifest status must fail closed'
+Assert-Contract ($wrongManifestCaseResult.Reason -match 'wrong-case') 'wrong-case manifest status reason changed'
+
+$fabricatedManifestProvenance = New-V2ContractFixture -Label 'v2_fabricated_manifest_provenance' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$fabricatedManifestProvenanceValue = Get-Content $fabricatedManifestProvenance.ManifestPath -Raw | ConvertFrom-Json
+$fabricatedManifestProvenanceValue.sourceCommit = 'fabricated-commit'
+$fabricatedManifestProvenanceValue | ConvertTo-Json -Depth 12 | Set-Content $fabricatedManifestProvenance.ManifestPath -Encoding UTF8
+$fabricatedManifestProvenanceResult = Invoke-V2ContractValidation $fabricatedManifestProvenance
+Assert-Contract (-not $fabricatedManifestProvenanceResult.Valid) 'non-empty manifest provenance placeholder must fail closed'
+
+$missingReportProperty = New-V2ContractFixture -Label 'v2_missing_report_property' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$missingReportPropertyValue = Get-Content $missingReportProperty.ReportPath -Raw | ConvertFrom-Json
+$missingReportPropertyValue.PSObject.Properties.Remove('hardwareFingerprint')
+$missingReportPropertyValue | ConvertTo-Json -Depth 12 | Set-Content $missingReportProperty.ReportPath -Encoding UTF8
+$missingReportPropertyResult = Invoke-V2ContractValidation $missingReportProperty
+Assert-Contract (-not $missingReportPropertyResult.Valid) 'missing mandatory report property must fail closed'
+Assert-Contract ($missingReportPropertyResult.Reason -match 'missing required JSON property: hardwareFingerprint') 'missing report property reason changed'
+
+$wrongReportType = New-V2ContractFixture -Label 'v2_wrong_report_type' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$wrongReportTypeValue = Get-Content $wrongReportType.ReportPath -Raw | ConvertFrom-Json
+$wrongReportTypeValue.pairingEligible = 'false'
+$wrongReportTypeValue | ConvertTo-Json -Depth 12 | Set-Content $wrongReportType.ReportPath -Encoding UTF8
+$wrongReportTypeResult = Invoke-V2ContractValidation $wrongReportType
+Assert-Contract (-not $wrongReportTypeResult.Valid) 'wrong report property type must fail closed'
+Assert-Contract ($wrongReportTypeResult.Reason -match 'wrong type') 'wrong report type reason changed'
+
+$wrongReportCase = New-V2ContractFixture -Label 'v2_wrong_report_case' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$wrongReportCaseValue = Get-Content $wrongReportCase.ReportPath -Raw | ConvertFrom-Json
+$wrongReportCaseValue.gcBudgetStatus = 'not_authority'
+$wrongReportCaseValue | ConvertTo-Json -Depth 12 | Set-Content $wrongReportCase.ReportPath -Encoding UTF8
+$wrongReportCaseResult = Invoke-V2ContractValidation $wrongReportCase
+Assert-Contract (-not $wrongReportCaseResult.Valid) 'wrong-case report status must fail closed'
+Assert-Contract ($wrongReportCaseResult.Reason -match 'wrong-case') 'wrong-case report status reason changed'
+
+$fabricatedReportProvenance = New-V2ContractFixture -Label 'v2_fabricated_report_provenance' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$fabricatedReportProvenanceValue = Get-Content $fabricatedReportProvenance.ReportPath -Raw | ConvertFrom-Json
+$fabricatedReportProvenanceValue.hardwareFingerprint = 'fabricated-hardware'
+$fabricatedReportProvenanceValue | ConvertTo-Json -Depth 12 | Set-Content $fabricatedReportProvenance.ReportPath -Encoding UTF8
+$fabricatedReportProvenanceResult = Invoke-V2ContractValidation $fabricatedReportProvenance
+Assert-Contract (-not $fabricatedReportProvenanceResult.Valid) 'non-empty report provenance placeholder must fail closed'
+
+foreach ($missingProfilerField in @('profilerEnabled', 'profilerBinaryLogEnabled', 'deepProfilingBuild')) {
+    $fixture = New-V2ContractFixture -Label ('v2_missing_' + $missingProfilerField) -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+    $value = Get-Content $fixture.ReportPath -Raw | ConvertFrom-Json
+    $value.PSObject.Properties.Remove($missingProfilerField)
+    $value | ConvertTo-Json -Depth 12 | Set-Content $fixture.ReportPath -Encoding UTF8
+    $result = Invoke-V2ContractValidation $fixture
+    Assert-Contract (-not $result.Valid) ('missing ' + $missingProfilerField + ' must return structured invalid')
+    Assert-Contract ($result.Reason -match ('missing required JSON property: ' + $missingProfilerField)) ('missing ' + $missingProfilerField + ' reason changed')
+}
+
+$availabilityString = New-V2ContractFixture -Label 'v2_availability_string' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$availabilityStringValue = Get-Content $availabilityString.ReportPath -Raw | ConvertFrom-Json
+$availabilityStringValue.scenarios[0].drawCallsAvailable = 'false'
+$availabilityStringValue | ConvertTo-Json -Depth 12 | Set-Content $availabilityString.ReportPath -Encoding UTF8
+$availabilityStringResult = Invoke-V2ContractValidation $availabilityString
+Assert-Contract (-not $availabilityStringResult.Valid) 'string availability flag must return structured invalid'
+Assert-Contract ($availabilityStringResult.Reason -match 'wrong type') 'string availability reason changed'
+
+$widthString = New-V2ContractFixture -Label 'v2_width_string' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$widthStringValue = Get-Content $widthString.ReportPath -Raw | ConvertFrom-Json
+$widthStringValue.width = '1280'
+$widthStringValue | ConvertTo-Json -Depth 12 | Set-Content $widthString.ReportPath -Encoding UTF8
+$widthStringResult = Invoke-V2ContractValidation $widthString
+Assert-Contract (-not $widthStringResult.Valid) 'string width must return structured invalid'
+Assert-Contract ($widthStringResult.Reason -match 'wrong type') 'string width reason changed'
+
+$numericString = New-V2ContractFixture -Label 'v2_numeric_string' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$numericStringValue = Get-Content $numericString.ReportPath -Raw | ConvertFrom-Json
+$numericStringValue.scenarios[0].avgMs = '5.0'
+$numericStringValue | ConvertTo-Json -Depth 12 | Set-Content $numericString.ReportPath -Encoding UTF8
+$numericStringResult = Invoke-V2ContractValidation $numericString
+Assert-Contract (-not $numericStringResult.Valid) 'string numeric metric must return structured invalid'
+Assert-Contract ($numericStringResult.Reason -match 'wrong type') 'string numeric metric reason changed'
+
+$missingAvailableMetric = New-V2ContractFixture -Label 'v2_available_metric_missing' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$missingAvailableMetricValue = Get-Content $missingAvailableMetric.ReportPath -Raw | ConvertFrom-Json
+$missingAvailableMetricValue.PSObject.Properties['scenarios'].Value[0].PSObject.Properties.Remove('drawCalls')
+$missingAvailableMetricValue | ConvertTo-Json -Depth 12 | Set-Content $missingAvailableMetric.ReportPath -Encoding UTF8
+$missingAvailableMetricResult = Invoke-V2ContractValidation $missingAvailableMetric
+Assert-Contract (-not $missingAvailableMetricResult.Valid) 'available metric without value must return structured invalid'
+Assert-Contract ($missingAvailableMetricResult.Reason -match 'missing required JSON property: drawCalls') 'missing available metric reason changed'
+
+$booleanMetric = New-V2ContractFixture -Label 'v2_boolean_metric' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+$booleanMetricValue = Get-Content $booleanMetric.ReportPath -Raw | ConvertFrom-Json
+$booleanMetricValue.scenarios[0].avgMs = $false
+$booleanMetricValue | ConvertTo-Json -Depth 12 | Set-Content $booleanMetric.ReportPath -Encoding UTF8
+$booleanMetricResult = Invoke-V2ContractValidation $booleanMetric
+Assert-Contract (-not $booleanMetricResult.Valid) 'boolean numeric metric must return structured invalid'
+Assert-Contract ($booleanMetricResult.Reason -match 'wrong type') 'boolean numeric metric reason changed'
+
+Write-Output 'B4_VALIDATOR_MATRIX_PASS B5A_AUTHORITY_MATRIX_PASS'
 ";
     }
 }

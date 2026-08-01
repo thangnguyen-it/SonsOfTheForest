@@ -20,6 +20,16 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         public const string FullForestScenario = "full_forest";
         public const string DiagnosticBuildKind = "diagnostic";
         public const string ReleaseBuildKind = "release";
+        public const string ReleasePerformanceRole = "release_performance";
+        public const string DevelopmentGcRole = "development_gc";
+        public const string EvidencePendingOfflineValidation = "PENDING_OFFLINE_VALIDATION";
+        public const string BudgetPass = "PASS";
+        public const string BudgetFail = "FAIL";
+        public const string BudgetNotAuthority = "NOT_AUTHORITY";
+        public const string BudgetIncomplete = "INCOMPLETE";
+        public const string AggregateProductGateIncomplete = "INCOMPLETE";
+        public const string ReportSchemaV2 = "r2-perf1/2";
+        public const string ManifestSchemaV2 = "r2-perf1-manifest/2";
         public const string ManifestIncomplete = "incomplete";
         public const string ManifestAwaitingValidation = "awaiting_offline_validation";
         public const string ManifestValid = "valid";
@@ -43,6 +53,18 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             AntialiasingTaa,
         };
 
+        private static readonly string[] FixedRecoveryOutputFileNames =
+        {
+            RuntimeManifestFileName,
+            RuntimeManifestFileName + AtomicTemporarySuffix,
+            RuntimeReportJsonFileName,
+            RuntimeReportJsonFileName + AtomicTemporarySuffix,
+            RuntimeReportMarkdownFileName,
+            RuntimeReportMarkdownFileName + AtomicTemporarySuffix,
+            RuntimeScreenshotFileName,
+            RuntimeScreenshotFileName + AtomicTemporarySuffix,
+        };
+
         public sealed class Settings
         {
             public bool enabled;
@@ -50,6 +72,15 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public string scenario = FullForestScenario;
             public string runId = "run1";
             public string buildKind = DiagnosticBuildKind;
+            public string measurementRole = string.Empty;
+            public string measurementSetId = string.Empty;
+            public string sourceCommit = string.Empty;
+            public bool sourceTreeClean;
+            public bool sourceTreeCleanAvailable;
+            public string buildArtifactId = string.Empty;
+            public string contentFingerprint = string.Empty;
+            public string configurationFingerprint = string.Empty;
+            public string hardwareFingerprint = string.Empty;
             public bool noScreenshot = true;
             public string antialiasing = "None";
             public int renderScalePercent = 100;
@@ -68,8 +99,15 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public bool MeasurementEligible => noScreenshot;
 
             public string Phase => Sanitize(
-                "r2_perf1_" + buildKind + "_" + scenario + "_" + quality + "_" +
+                "r2_perf1_" + measurementRole + "_" + buildKind + "_" + scenario + "_" + quality + "_" +
                 antialiasing + "_rs" + renderScalePercent + "_" + upscaler + "_" + runId);
+        }
+
+        public sealed class RecoveryEnvelope
+        {
+            public string schemaVersion = ManifestSchemaV2;
+            public string runId = string.Empty;
+            public string outputDirectory = string.Empty;
         }
 
         private sealed class RuntimeStateSnapshot
@@ -112,11 +150,13 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void ConfigureBeforeSceneLoad()
         {
+            string[] arguments = Environment.GetCommandLineArgs();
+            RecoveryEnvelope recoveryEnvelope = TryCreateRecoveryEnvelope(arguments);
             Settings candidate = null;
             StartupFailurePending = false;
             try
             {
-                candidate = ParseValues(Environment.GetCommandLineArgs());
+                candidate = ParseValues(arguments);
                 ValidateSettings(candidate);
                 Current = candidate;
                 if (!Current.enabled)
@@ -150,8 +190,8 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             {
                 Current = candidate ?? new Settings();
                 StartupFailurePending = true;
-                int exitCode = ForestBenchmarkRunner.RecoverFromStartupFailure(
-                    candidate,
+                int exitCode = ForestBenchmarkRunner.RecoverFromStartupFailureWithEnvelope(
+                    recoveryEnvelope,
                     exception,
                     RestoreRuntimeState,
                     out _);
@@ -204,6 +244,12 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                     case "-sotf-build-kind":
                         settings.buildKind = ValidateBuildKind(value);
                         break;
+                    case "-sotf-measurement-role":
+                        // Keep the raw token until the complete command line has been parsed.
+                        // This preserves the independently validated recovery envelope when
+                        // the role itself is invalid; ValidateSettings remains authoritative.
+                        settings.measurementRole = RequireText(value, argument);
+                        break;
                     case "-sotf-no-screenshot":
                         settings.noScreenshot = ParseBool(value, argument);
                         break;
@@ -249,6 +295,120 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             }
 
             return settings;
+        }
+
+        public static RecoveryEnvelope TryCreateRecoveryEnvelope(
+            IReadOnlyList<string> arguments)
+        {
+            if (arguments == null)
+            {
+                return null;
+            }
+
+            bool enabled = false;
+            string runId = null;
+            string outputDirectory = null;
+            for (int index = 0; index < arguments.Count; index++)
+            {
+                string argument = arguments[index] ?? string.Empty;
+                if (string.Equals(argument, "-sotf-perf1", StringComparison.OrdinalIgnoreCase))
+                {
+                    enabled = true;
+                    continue;
+                }
+
+                bool isRunId = string.Equals(
+                    argument,
+                    "-sotf-run-id",
+                    StringComparison.OrdinalIgnoreCase);
+                bool isOutputDirectory = string.Equals(
+                    argument,
+                    "-sotf-output-directory",
+                    StringComparison.OrdinalIgnoreCase);
+                if (!isRunId && !isOutputDirectory)
+                {
+                    continue;
+                }
+
+                if (index + 1 >= arguments.Count ||
+                    string.IsNullOrWhiteSpace(arguments[index + 1]) ||
+                    arguments[index + 1].StartsWith(
+                        "-sotf-",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+
+                string value = arguments[++index];
+                if (isRunId)
+                {
+                    runId = value;
+                }
+                else
+                {
+                    outputDirectory = value;
+                }
+            }
+
+            if (!enabled || string.IsNullOrWhiteSpace(runId) ||
+                string.IsNullOrWhiteSpace(outputDirectory))
+            {
+                return null;
+            }
+
+            try
+            {
+                var envelope = new RecoveryEnvelope
+                {
+                    runId = ValidateRunId(runId),
+                    outputDirectory = ValidateRunDirectory(outputDirectory),
+                };
+                ValidateRecoveryEnvelopeTarget(envelope);
+                return envelope;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    "[R2Perf1] Startup recovery envelope rejected: " + exception.Message);
+                return null;
+            }
+        }
+
+        public static string ValidateRecoveryEnvelopeTarget(RecoveryEnvelope envelope)
+        {
+            if (envelope == null)
+            {
+                throw new ArgumentNullException(nameof(envelope));
+            }
+
+            if (!string.Equals(
+                    envelope.schemaVersion,
+                    ManifestSchemaV2,
+                    StringComparison.Ordinal))
+            {
+                throw new ArgumentException("Recovery envelope schema is unsupported.");
+            }
+
+            string runId = ValidateRunId(envelope.runId);
+            string directory = ValidateRunDirectory(envelope.outputDirectory);
+            string directoryLeaf = new DirectoryInfo(directory).Name;
+            if (!string.Equals(directoryLeaf, runId, StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    "Recovery run directory leaf must exactly match the validated run-id.");
+            }
+
+            foreach (string fileName in FixedRecoveryOutputFileNames)
+            {
+                string outputPath = ResolveContainedOutputPath(directory, fileName);
+                if (File.Exists(outputPath))
+                {
+                    throw new IOException(
+                        "Recovery target already contains fixed runtime output: " + fileName);
+                }
+            }
+
+            return directory;
         }
 
         public static string ValidateScenario(string value)
@@ -324,6 +484,46 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             }
         }
 
+        public static string ValidateMeasurementRole(string value)
+        {
+            if (string.Equals(value, ReleasePerformanceRole, StringComparison.Ordinal))
+            {
+                return ReleasePerformanceRole;
+            }
+
+            if (string.Equals(value, DevelopmentGcRole, StringComparison.Ordinal))
+            {
+                return DevelopmentGcRole;
+            }
+
+            throw new ArgumentException(
+                "-sotf-measurement-role expects exactly release_performance or development_gc.");
+        }
+
+        public static void ValidateMeasurementAuthority(
+            string measurementRole,
+            string buildKind,
+            bool isDevelopmentBuild)
+        {
+            string validatedRole = ValidateMeasurementRole(measurementRole);
+            string validatedBuildKind = ValidateBuildKind(buildKind);
+            ValidateRuntimeBuildKind(validatedBuildKind, isDevelopmentBuild);
+
+            if (validatedRole == ReleasePerformanceRole &&
+                validatedBuildKind != ReleaseBuildKind)
+            {
+                throw new InvalidOperationException(
+                    "release_performance requires the release build kind.");
+            }
+
+            if (validatedRole == DevelopmentGcRole &&
+                validatedBuildKind != DiagnosticBuildKind)
+            {
+                throw new InvalidOperationException(
+                    "development_gc requires the diagnostic build kind.");
+            }
+        }
+
         public static string ValidateAntialiasing(string value)
         {
             string normalized = RequireText(value, "-sotf-aa").ToUpperInvariant();
@@ -373,7 +573,10 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 return;
             }
 
-            ValidateRuntimeBuildKind(settings.buildKind, isDevelopmentBuild);
+            ValidateMeasurementAuthority(
+                settings.measurementRole,
+                settings.buildKind,
+                isDevelopmentBuild);
             ResolveAntialiasingMode(settings.antialiasing);
             ResolveUpscaler(settings.upscaler);
             if (Array.FindIndex(
@@ -590,6 +793,11 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
 
             settings.scenario = ValidateScenario(settings.scenario);
             settings.buildKind = ValidateBuildKind(settings.buildKind);
+            settings.measurementRole = ValidateMeasurementRole(settings.measurementRole);
+            ValidateMeasurementAuthority(
+                settings.measurementRole,
+                settings.buildKind,
+                settings.buildKind == DiagnosticBuildKind);
             settings.runId = ValidateRunId(settings.runId);
             settings.quality = RequireText(settings.quality, "-sotf-quality");
             settings.antialiasing = ValidateAntialiasing(settings.antialiasing);
