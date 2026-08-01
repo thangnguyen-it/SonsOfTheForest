@@ -993,14 +993,13 @@ function Test-FiniteMeasurementReport {
         "cpuRenderThreadAvgMs",
         "gpuAvgMs",
         "totalUsedMemoryAverageMb",
-        "gfxUsedMemoryAverageMb",
         "textureMemoryAverageMb"
     )
     if ($SchemaVersion -eq "r2-perf1/2") {
         $fields += "globalGcAllocatedAverageBytes"
     }
     else {
-        $fields += "gcAllocatedAverageBytes"
+        $fields += @("gcAllocatedAverageBytes", "gfxUsedMemoryAverageMb")
     }
     foreach ($field in $fields) {
         $property = $ScenarioResult.PSObject.Properties[$field]
@@ -1684,8 +1683,6 @@ function Test-RunOutputs {
                     "globalGcAllocationCountAverage",
                     "totalUsedMemoryAverageMb",
                     "totalUsedMemoryPeakMb",
-                    "gfxUsedMemoryAverageMb",
-                    "gfxUsedMemoryPeakMb",
                     "textureMemoryAverageMb",
                     "textureMemoryPeakMb")) {
                 $scenarioContractChecks += New-RequiredJsonNumberCheck `
@@ -1699,6 +1696,20 @@ function Test-RunOutputs {
                     -Reason ([string]$failedScenarioContractCheck.Reason) `
                     -ManifestPath $manifestPath `
                     -SchemaVersion $reportSchema
+            }
+            if ([bool]$scenarioResult.gfxUsedMemoryAvailable) {
+                $gfxMemoryChecks = @(
+                    (New-RequiredJsonNumberCheck -Object $scenarioResult -Name "gfxUsedMemoryAverageMb")
+                    (New-RequiredJsonNumberCheck -Object $scenarioResult -Name "gfxUsedMemoryPeakMb")
+                )
+                $failedGfxMemoryCheck = Get-FirstFailedValidationCheck -Checks $gfxMemoryChecks
+                if ($null -ne $failedGfxMemoryCheck) {
+                    return New-OutputValidationResult `
+                        -Valid $false `
+                        -Reason ([string]$failedGfxMemoryCheck.Reason) `
+                        -ManifestPath $manifestPath `
+                        -SchemaVersion $reportSchema
+                }
             }
         }
         $finite = Test-FiniteMeasurementReport `
@@ -1789,7 +1800,6 @@ function Test-RunOutputs {
                     "trianglesAvailable",
                     "verticesAvailable",
                     "totalUsedMemoryAvailable",
-                    "gfxUsedMemoryAvailable",
                     "textureMemoryAvailable"
                 )
             }
