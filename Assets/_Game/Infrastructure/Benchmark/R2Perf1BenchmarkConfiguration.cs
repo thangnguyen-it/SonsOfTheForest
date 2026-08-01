@@ -81,6 +81,9 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public string contentFingerprint = string.Empty;
             public string configurationFingerprint = string.Empty;
             public string hardwareFingerprint = string.Empty;
+            public bool repositoryReproducible;
+            public string contentTrackingStatus = string.Empty;
+            public string comparisonScope = string.Empty;
             public bool noScreenshot = true;
             public string antialiasing = "None";
             public int renderScalePercent = 100;
@@ -249,6 +252,37 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                         // This preserves the independently validated recovery envelope when
                         // the role itself is invalid; ValidateSettings remains authoritative.
                         settings.measurementRole = RequireText(value, argument);
+                        break;
+                    case "-sotf-measurement-set-id":
+                        settings.measurementSetId = ValidateIdentifier(value, argument);
+                        break;
+                    case "-sotf-source-commit":
+                        settings.sourceCommit = ValidateHex(value, 40, argument);
+                        break;
+                    case "-sotf-source-tree-clean":
+                        settings.sourceTreeClean = ParseBool(value, argument);
+                        settings.sourceTreeCleanAvailable = true;
+                        break;
+                    case "-sotf-build-artifact-id":
+                        settings.buildArtifactId = ValidateHex(value, 64, argument);
+                        break;
+                    case "-sotf-content-fingerprint":
+                        settings.contentFingerprint = ValidateHex(value, 64, argument);
+                        break;
+                    case "-sotf-configuration-fingerprint":
+                        settings.configurationFingerprint = ValidateHex(value, 64, argument);
+                        break;
+                    case "-sotf-hardware-fingerprint":
+                        settings.hardwareFingerprint = ValidateHex(value, 64, argument);
+                        break;
+                    case "-sotf-repository-reproducible":
+                        settings.repositoryReproducible = ParseBool(value, argument);
+                        break;
+                    case "-sotf-content-tracking-status":
+                        settings.contentTrackingStatus = RequireText(value, argument);
+                        break;
+                    case "-sotf-comparison-scope":
+                        settings.comparisonScope = RequireText(value, argument);
                         break;
                     case "-sotf-no-screenshot":
                         settings.noScreenshot = ParseBool(value, argument);
@@ -802,6 +836,87 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             settings.quality = RequireText(settings.quality, "-sotf-quality");
             settings.antialiasing = ValidateAntialiasing(settings.antialiasing);
             settings.upscaler = RequireText(settings.upscaler, "-sotf-upscaler");
+            settings.measurementSetId = ValidateIdentifier(
+                settings.measurementSetId,
+                "-sotf-measurement-set-id");
+            settings.sourceCommit = ValidateHex(settings.sourceCommit, 40, "-sotf-source-commit");
+            if (!settings.sourceTreeCleanAvailable)
+            {
+                throw new ArgumentException("-sotf-source-tree-clean is required.");
+            }
+
+            settings.buildArtifactId = ValidateHex(
+                settings.buildArtifactId,
+                64,
+                "-sotf-build-artifact-id");
+            settings.contentFingerprint = ValidateHex(
+                settings.contentFingerprint,
+                64,
+                "-sotf-content-fingerprint");
+            settings.configurationFingerprint = ValidateHex(
+                settings.configurationFingerprint,
+                64,
+                "-sotf-configuration-fingerprint");
+            settings.hardwareFingerprint = ValidateHex(
+                settings.hardwareFingerprint,
+                64,
+                "-sotf-hardware-fingerprint");
+            settings.contentTrackingStatus = RequireText(
+                settings.contentTrackingStatus,
+                "-sotf-content-tracking-status");
+            settings.comparisonScope = RequireText(settings.comparisonScope, "-sotf-comparison-scope");
+            if (string.Equals(settings.contentTrackingStatus, "local_ignored_content", StringComparison.Ordinal))
+            {
+                if (settings.repositoryReproducible ||
+                    !string.Equals(settings.comparisonScope, "local_comparable", StringComparison.Ordinal))
+                {
+                    throw new ArgumentException(
+                        "local_ignored_content must be local_comparable and not repository reproducible.");
+                }
+            }
+        }
+
+        private static string ValidateIdentifier(string value, string argument)
+        {
+            value = RequireText(value, argument);
+            if (value.Length > 96)
+            {
+                throw new ArgumentException(argument + " exceeds 96 characters.");
+            }
+
+            for (int index = 0; index < value.Length; index++)
+            {
+                char character = value[index];
+                if (!char.IsLetterOrDigit(character) && character != '-' && character != '_')
+                {
+                    throw new ArgumentException(argument + " contains unsupported characters.");
+                }
+            }
+
+            return value;
+        }
+
+        private static string ValidateHex(string value, int length, string argument)
+        {
+            value = RequireText(value, argument);
+            if (value.Length != length)
+            {
+                throw new ArgumentException(argument + " must be exactly " + length + " hexadecimal characters.");
+            }
+
+            for (int index = 0; index < value.Length; index++)
+            {
+                char character = value[index];
+                bool hexadecimal = character >= '0' && character <= '9' ||
+                                   character >= 'a' && character <= 'f' ||
+                                   character >= 'A' && character <= 'F';
+                if (!hexadecimal)
+                {
+                    throw new ArgumentException(argument + " must contain only hexadecimal characters.");
+                }
+            }
+
+            return value.ToUpperInvariant();
         }
 
         private static void CaptureRuntimeState()

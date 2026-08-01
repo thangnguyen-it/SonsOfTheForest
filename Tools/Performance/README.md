@@ -31,10 +31,11 @@ validator may finalize evidence as valid or invalid. Budget failure does not
 make otherwise complete evidence invalid. Conversely, missing authoritative
 global-GC data never becomes zero or `PASS`.
 
-B5A intentionally leaves `measurementSetId`, source/build/content/configuration/
-hardware provenance empty and sets `pairingEligible=false`. Pairing and the
-aggregate product gate are deferred. Schema-v1 evidence remains readable, is
-never rewritten solely for migration, and is never pairing-eligible.
+The final B5 contract binds build-sidecar provenance and a deterministic runtime
+configuration/hardware fingerprint into every schema-v2 member. Runtime output
+remains pending and non-pairable until the offline validator verifies the
+artifact, telemetry, report, and exit lifecycle. Schema-v1 evidence remains
+readable but is never pairing-eligible.
 
 After closing Unity and VS Code, open Windows Terminal in the repository root:
 
@@ -46,6 +47,7 @@ After closing Unity and VS Code, open Windows Terminal in the repository root:
   -RenderScalePercent 100 `
   -BuildKind release `
   -MeasurementRole release_performance `
+  -MeasurementSetId manual_release_set `
   -Runs 3
 ```
 
@@ -57,6 +59,7 @@ Inspect the command without launching the executable:
   -Scenario full_forest `
   -BuildKind release `
   -MeasurementRole release_performance `
+  -MeasurementSetId dry_run_set `
   -Runs 3 `
   -DryRun
 ```
@@ -74,6 +77,7 @@ Visual capture is a separate, non-measurement run:
   -Scenario full_forest `
   -BuildKind release `
   -MeasurementRole release_performance `
+  -MeasurementSetId visual_release_set `
   -Runs 1 `
   -CaptureScreenshot
 ```
@@ -82,13 +86,14 @@ A GC-authority member uses the separately built Diagnostic Development player:
 
 ```powershell
 .\Tools\Performance\Invoke-R2Perf1Offline.cmd `
-  -ExecutablePath "Builds/Benchmarks/R2_PERF1_Diagnostic/SOTF_R2_PERF1.exe" `
+  -ExecutablePath "Builds/Benchmarks/R2_PERF1_Diagnostic/SOTF_R2_PERF1_Diagnostic.exe" `
   -Quality Balanced `
   -Scenario full_forest `
   -Antialiasing TAA `
   -RenderScalePercent 100 `
   -BuildKind diagnostic `
   -MeasurementRole development_gc `
+  -MeasurementSetId manual_gc_set `
   -Runs 3
 ```
 
@@ -130,10 +135,23 @@ Consequently its sidecar must report `contentTrackingStatus` as
 and Diagnostic builds used identical local content; it does not make that
 content reproducible from the repository.
 
-B5B1 does not pass build provenance into runtime reports and does not make a run
-pairing-eligible. Official paired measurement remains blocked until B5B2 adds
-run-level provenance binding and a later pairing gate verifies both authority
-members.
+B5 FINAL verifies the sidecar and recomputes the artifact ID before launch. Use
+the paired runner for a product-gate set containing exactly one Release timing
+member and one Diagnostic GC member:
+
+```powershell
+.\Tools\Performance\Invoke-R2Perf1Pair.cmd `
+  -ReleaseExecutablePath "Builds/Benchmarks/R2_PERF1_Release/SOTF_R2_PERF1.exe" `
+  -DiagnosticExecutablePath "Builds/Benchmarks/R2_PERF1_Diagnostic/SOTF_R2_PERF1_Diagnostic.exe" `
+  -Quality "High Fidelity" -Scenario empty_hdrp_camera `
+  -Antialiasing TAA -RenderScalePercent 100
+```
+
+The set writer compares commit, content, runtime configuration, hardware,
+scenario, Direct3D 11 API, and resolution. Build artifact IDs may differ.
+`local_ignored_content` is only `local_comparable`; it can never set
+`repositoryReproducible=true`. Pair dry-run launches no player and creates no
+measurement output.
 
 Valid and invalid runs are written to separate CSV tables. A runtime manifest
 starts as `incomplete`, becomes `awaiting_offline_validation` only after normal

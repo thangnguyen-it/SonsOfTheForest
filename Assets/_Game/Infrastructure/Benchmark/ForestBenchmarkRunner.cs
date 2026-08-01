@@ -139,6 +139,9 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public string contentFingerprint;
             public string configurationFingerprint;
             public string hardwareFingerprint;
+            public bool repositoryReproducible;
+            public string contentTrackingStatus;
+            public string comparisonScope;
             public bool pairingEligible;
             public string evidenceValidity;
             public string performanceBudgetStatus;
@@ -181,6 +184,9 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             public string contentFingerprint;
             public string configurationFingerprint;
             public string hardwareFingerprint;
+            public bool repositoryReproducible;
+            public string contentTrackingStatus;
+            public string comparisonScope;
             public bool pairingEligible;
             public string evidenceValidity;
             public string performanceBudgetStatus;
@@ -394,6 +400,9 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                     ? _perf1.configurationFingerprint
                     : string.Empty,
                 hardwareFingerprint = _perf1.enabled ? _perf1.hardwareFingerprint : string.Empty,
+                repositoryReproducible = _perf1.enabled && _perf1.repositoryReproducible,
+                contentTrackingStatus = _perf1.enabled ? _perf1.contentTrackingStatus : string.Empty,
+                comparisonScope = _perf1.enabled ? _perf1.comparisonScope : string.Empty,
                 pairingEligible = false,
                 evidenceValidity = _perf1.enabled
                     ? R2Perf1BenchmarkConfiguration.EvidencePendingOfflineValidation
@@ -1370,6 +1379,7 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
             markdown.AppendLine($"- Performance budget: {report.performanceBudgetStatus}; GC budget: {report.gcBudgetStatus}");
             markdown.AppendLine($"- Measurement set/source/artifact: {report.measurementSetId} / {report.sourceCommit} / {report.buildArtifactId}");
             markdown.AppendLine($"- Content/configuration/hardware fingerprints: {report.contentFingerprint} / {report.configurationFingerprint} / {report.hardwareFingerprint}");
+            markdown.AppendLine($"- Content tracking/comparison: {report.contentTrackingStatus} / {report.comparisonScope}; repository reproducible: {report.repositoryReproducible}");
             markdown.AppendLine($"- Screenshot requested: {report.screenshotRequested}");
             markdown.AppendLine($"- Screenshot: {report.screenshotPath}");
             markdown.AppendLine($"- Run in background: {report.runInBackground}");
@@ -1432,6 +1442,17 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                     persisted.measurementRole,
                     manifest.measurementRole,
                     StringComparison.Ordinal) ||
+                !string.Equals(persisted.measurementSetId, manifest.measurementSetId, StringComparison.Ordinal) ||
+                !string.Equals(persisted.sourceCommit, manifest.sourceCommit, StringComparison.Ordinal) ||
+                persisted.sourceTreeClean != manifest.sourceTreeClean ||
+                persisted.sourceTreeCleanAvailable != manifest.sourceTreeCleanAvailable ||
+                !string.Equals(persisted.buildArtifactId, manifest.buildArtifactId, StringComparison.Ordinal) ||
+                !string.Equals(persisted.contentFingerprint, manifest.contentFingerprint, StringComparison.Ordinal) ||
+                !string.Equals(persisted.configurationFingerprint, manifest.configurationFingerprint, StringComparison.Ordinal) ||
+                !string.Equals(persisted.hardwareFingerprint, manifest.hardwareFingerprint, StringComparison.Ordinal) ||
+                persisted.repositoryReproducible != manifest.repositoryReproducible ||
+                !string.Equals(persisted.contentTrackingStatus, manifest.contentTrackingStatus, StringComparison.Ordinal) ||
+                !string.Equals(persisted.comparisonScope, manifest.comparisonScope, StringComparison.Ordinal) ||
                 persisted.developmentBuild != manifest.developmentBuild ||
                 persisted.pairingEligible ||
                 manifest.pairingEligible ||
@@ -1722,6 +1743,9 @@ namespace SonsOfTheForest.Infrastructure.Benchmark
                 contentFingerprint = settings.contentFingerprint,
                 configurationFingerprint = settings.configurationFingerprint,
                 hardwareFingerprint = settings.hardwareFingerprint,
+                repositoryReproducible = settings.repositoryReproducible,
+                contentTrackingStatus = settings.contentTrackingStatus,
+                comparisonScope = settings.comparisonScope,
                 pairingEligible = false,
                 evidenceValidity =
                     R2Perf1BenchmarkConfiguration.EvidencePendingOfflineValidation,

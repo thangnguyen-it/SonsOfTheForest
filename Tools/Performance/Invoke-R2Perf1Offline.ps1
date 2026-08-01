@@ -15,6 +15,9 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateSet("release_performance", "development_gc")]
     [string]$MeasurementRole,
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[A-Za-z0-9_-]{1,96}$')]
+    [string]$MeasurementSetId,
     [ValidateRange(1, 20)]
     [int]$Runs = 3,
     [ValidateRange(30, 1800)]
@@ -47,6 +50,181 @@ function Resolve-ProjectPath {
     }
 
     return [System.IO.Path]::GetFullPath((Join-Path $ProjectRoot $Path))
+}
+
+function Get-Sha256Text {
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($Text)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha.ComputeHash($bytes))).Replace("-", "")
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+
+function Add-CanonicalField {
+    param(
+        [Parameter(Mandatory = $true)][System.Text.StringBuilder]$Builder,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [AllowEmptyString()][string]$Value
+    )
+
+    $safe = if ($null -eq $Value) { "" } else { $Value }
+    [void]$Builder.Append($Name).Append(":").Append(
+        $safe.Length.ToString([System.Globalization.CultureInfo]::InvariantCulture)).Append(":").Append($safe).Append("|")
+}
+
+function Get-BuildArtifactIdentity {
+    param([Parameter(Mandatory = $true)][string]$ArtifactRoot)
+
+    $root = [System.IO.Path]::GetFullPath($ArtifactRoot).TrimEnd('\', '/')
+    if (-not (Test-Path -LiteralPath $root -PathType Container)) {
+        throw "Build artifact directory does not exist: $root"
+    }
+
+    $allEntries = @(Get-ChildItem -LiteralPath $root -Recurse -Force)
+    $reparse = @($allEntries | Where-Object {
+        ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    })
+    if ($reparse.Count -gt 0) {
+        throw "Build artifact contains a reparse point: $($reparse[0].FullName)"
+    }
+
+    $records = @($allEntries | Where-Object {
+        -not $_.PSIsContainer -and
+        $_.Name -cne "r2-perf1.build-provenance.json" -and
+        $_.Name -cne "r2-perf1.build-provenance.json.tmp"
+    } | ForEach-Object {
+        $full = [System.IO.Path]::GetFullPath($_.FullName)
+        $prefix = $root + [System.IO.Path]::DirectorySeparatorChar
+        if (-not $full.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "Build artifact path escaped artifact root: $full"
+        }
+        [pscustomobject]@{
+            RelativePath = $full.Substring($prefix.Length).Replace('\', '/')
+            FullPath = $full
+            Length = $_.Length
+        }
+    })
+    if ($records.Count -eq 0) { throw "Build artifact tree contains no files." }
+
+    $recordByPath = @{}
+    foreach ($record in $records) { $recordByPath[[string]$record.RelativePath] = $record }
+    [string[]]$orderedPaths = @($records | ForEach-Object { [string]$_.RelativePath })
+    [System.Array]::Sort($orderedPaths, [System.StringComparer]::Ordinal)
+    $builder = [System.Text.StringBuilder]::new()
+    foreach ($relativePath in $orderedPaths) {
+        $record = $recordByPath[$relativePath]
+        Add-CanonicalField -Builder $builder -Name "path" -Value $record.RelativePath
+        Add-CanonicalField -Builder $builder -Name "length" -Value (
+            $record.Length.ToString([System.Globalization.CultureInfo]::InvariantCulture))
+        Add-CanonicalField -Builder $builder -Name "sha256" -Value (
+            (Get-FileHash -LiteralPath $record.FullPath -Algorithm SHA256).Hash)
+        [void]$builder.Append("`n")
+    }
+    return [pscustomobject]@{
+        BuildArtifactId = Get-Sha256Text -Text $builder.ToString()
+        ArtifactFileCount = $records.Count
+    }
+}
+
+function Read-VerifiedBuildProvenance {
+    param(
+        [Parameter(Mandatory = $true)][string]$Executable,
+        [Parameter(Mandatory = $true)][string]$ExpectedRole,
+        [Parameter(Mandatory = $true)][string]$ExpectedBuildKind
+    )
+
+    $artifactRoot = Split-Path -Parent $Executable
+    $sidecarPath = Join-Path $artifactRoot "r2-perf1.build-provenance.json"
+    if (-not (Test-Path -LiteralPath $sidecarPath -PathType Leaf)) {
+        throw "Build provenance sidecar does not exist: $sidecarPath"
+    }
+    $sidecar = Get-Content -LiteralPath $sidecarPath -Raw | ConvertFrom-Json
+    foreach ($name in @(
+        "schemaVersion", "provenanceStatus", "measurementRole", "buildKind", "sourceCommit",
+        "contentFingerprint", "buildConfigurationFingerprint", "buildArtifactId", "contentTrackingStatus")) {
+        if ($sidecar.PSObject.Properties.Name -cnotcontains $name -or
+            $sidecar.$name -isnot [string]) {
+            throw "Build provenance field '$name' is missing or has the wrong type."
+        }
+    }
+    foreach ($name in @(
+        "sourceTreeClean", "developmentBuild", "autoRunPlayer", "autoConnectProfiler",
+        "deepProfiling", "frameTimingStatsEnabled", "repositoryReproducible")) {
+        if ($sidecar.PSObject.Properties.Name -cnotcontains $name -or
+            $sidecar.$name -isnot [bool]) {
+            throw "Build provenance field '$name' is missing or has the wrong type."
+        }
+    }
+    if ($sidecar.PSObject.Properties.Name -cnotcontains "artifactFileCount" -or
+        $sidecar.artifactFileCount -isnot [int]) {
+        throw "Build provenance artifactFileCount is missing or has the wrong type."
+    }
+    if ([string]$sidecar.schemaVersion -cne "r2-perf1-build-provenance/1" -or
+        [string]$sidecar.provenanceStatus -cne "valid" -or
+        [string]$sidecar.measurementRole -cne $ExpectedRole -or
+        [string]$sidecar.buildKind -cne $ExpectedBuildKind) {
+        throw "Build provenance sidecar does not match the requested role/build contract."
+    }
+    if ([bool]$sidecar.autoRunPlayer -or [bool]$sidecar.autoConnectProfiler -or [bool]$sidecar.deepProfiling -or
+        -not [bool]$sidecar.frameTimingStatsEnabled) {
+        throw "Build provenance sidecar contains forbidden or incomplete build flags."
+    }
+    $expectedDevelopment = $ExpectedRole -ceq "development_gc"
+    if ([bool]$sidecar.developmentBuild -ne $expectedDevelopment) {
+        throw "Build provenance development flag does not match measurement role."
+    }
+    foreach ($name in @("sourceCommit", "contentFingerprint", "buildConfigurationFingerprint", "buildArtifactId")) {
+        if ([string]$sidecar.$name -cnotmatch '^[0-9A-Fa-f]{64}$' -and $name -cne "sourceCommit") {
+            throw "Build provenance field '$name' is not a SHA-256 value."
+        }
+    }
+    if ([string]$sidecar.sourceCommit -cnotmatch '^[0-9A-Fa-f]{40}$') {
+        throw "Build provenance sourceCommit is invalid."
+    }
+    $artifact = Get-BuildArtifactIdentity -ArtifactRoot $artifactRoot
+    if ([string]$sidecar.buildArtifactId -cne $artifact.BuildArtifactId -or
+        [int]$sidecar.artifactFileCount -ne $artifact.ArtifactFileCount) {
+        throw "Build artifact identity no longer matches its provenance sidecar."
+    }
+    $scope = "repository_comparable"
+    if ([string]$sidecar.contentTrackingStatus -ceq "local_ignored_content") {
+        if ([bool]$sidecar.repositoryReproducible) {
+            throw "local_ignored_content must not be repository reproducible."
+        }
+        $scope = "local_comparable"
+    }
+    return [pscustomobject]@{ Sidecar = $sidecar; Artifact = $artifact; ComparisonScope = $scope }
+}
+
+function Get-RuntimeConfigurationFingerprint {
+    param([string]$Quality, [string]$Scenario, [string]$Antialiasing, [int]$RenderScalePercent,
+        [string]$Upscaler, [int]$Width, [int]$Height, [int]$WarmupSeconds, [int]$SampleSeconds)
+    $builder = [System.Text.StringBuilder]::new()
+    foreach ($pair in @(
+        @("quality", $Quality), @("scenario", $Scenario), @("aa", $Antialiasing),
+        @("renderScale", [string]$RenderScalePercent), @("upscaler", $Upscaler),
+        @("width", [string]$Width), @("height", [string]$Height),
+        @("warmup", [string]$WarmupSeconds), @("sample", [string]$SampleSeconds),
+        @("graphicsApi", "Direct3D11"), @("fullscreen", "false"))) {
+        Add-CanonicalField -Builder $builder -Name $pair[0] -Value $pair[1]
+    }
+    return Get-Sha256Text -Text $builder.ToString()
+}
+
+function Get-HardwareFingerprint {
+    param([string]$GpuName, [string]$DriverVersion)
+    $builder = [System.Text.StringBuilder]::new()
+    Add-CanonicalField -Builder $builder -Name "gpu" -Value $GpuName
+    Add-CanonicalField -Builder $builder -Name "driver" -Value $DriverVersion
+    Add-CanonicalField -Builder $builder -Name "cpu" -Value ([Environment]::GetEnvironmentVariable("PROCESSOR_IDENTIFIER"))
+    Add-CanonicalField -Builder $builder -Name "machine" -Value ([Environment]::MachineName)
+    Add-CanonicalField -Builder $builder -Name "os" -Value ([Environment]::OSVersion.VersionString)
+    return Get-Sha256Text -Text $builder.ToString()
 }
 
 function Assert-BenchmarkApplicationsClosed {
@@ -989,6 +1167,17 @@ function Test-RunOutputs {
         [Parameter(Mandatory = $true)][string]$ExpectedScenario,
         [Parameter(Mandatory = $true)][string]$ExpectedBuildKind,
         [string]$ExpectedMeasurementRole = "",
+        [string]$ExpectedMeasurementSetId = "",
+        [string]$ExpectedSourceCommit = "",
+        [bool]$ExpectedSourceTreeClean = $false,
+        [bool]$ExpectedSourceTreeCleanAvailable = $false,
+        [string]$ExpectedBuildArtifactId = "",
+        [string]$ExpectedContentFingerprint = "",
+        [string]$ExpectedConfigurationFingerprint = "",
+        [string]$ExpectedHardwareFingerprint = "",
+        [bool]$ExpectedRepositoryReproducible = $false,
+        [string]$ExpectedContentTrackingStatus = "",
+        [string]$ExpectedComparisonScope = "",
         [Parameter(Mandatory = $true)][string]$ExpectedQuality,
         [Parameter(Mandatory = $true)][string]$ExpectedAntialiasing,
         [Parameter(Mandatory = $true)][int]$ExpectedRenderScalePercent,
@@ -1071,14 +1260,17 @@ function Test-RunOutputs {
             (New-RequiredJsonBooleanCheck -Object $manifest -Name "screenshotRequested")
             (New-RequiredJsonStringCheck -Object $manifest -Name "screenshotPath")
             (New-JsonPropertyCheck -Object $manifest -Name "measurementRole" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedMeasurementRole)
-            (New-JsonPropertyCheck -Object $manifest -Name "measurementSetId" -ExpectedType "string" -MatchValue -ExpectedValue "")
-            (New-JsonPropertyCheck -Object $manifest -Name "sourceCommit" -ExpectedType "string" -MatchValue -ExpectedValue "")
-            (New-JsonPropertyCheck -Object $manifest -Name "sourceTreeClean" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
-            (New-JsonPropertyCheck -Object $manifest -Name "sourceTreeCleanAvailable" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
-            (New-JsonPropertyCheck -Object $manifest -Name "buildArtifactId" -ExpectedType "string" -MatchValue -ExpectedValue "")
-            (New-JsonPropertyCheck -Object $manifest -Name "contentFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
-            (New-JsonPropertyCheck -Object $manifest -Name "configurationFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
-            (New-JsonPropertyCheck -Object $manifest -Name "hardwareFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $manifest -Name "measurementSetId" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedMeasurementSetId)
+            (New-JsonPropertyCheck -Object $manifest -Name "sourceCommit" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedSourceCommit)
+            (New-JsonPropertyCheck -Object $manifest -Name "sourceTreeClean" -ExpectedType "boolean" -MatchValue -ExpectedValue $ExpectedSourceTreeClean)
+            (New-JsonPropertyCheck -Object $manifest -Name "sourceTreeCleanAvailable" -ExpectedType "boolean" -MatchValue -ExpectedValue $ExpectedSourceTreeCleanAvailable)
+            (New-JsonPropertyCheck -Object $manifest -Name "buildArtifactId" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedBuildArtifactId)
+            (New-JsonPropertyCheck -Object $manifest -Name "contentFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedContentFingerprint)
+            (New-JsonPropertyCheck -Object $manifest -Name "configurationFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedConfigurationFingerprint)
+            (New-JsonPropertyCheck -Object $manifest -Name "hardwareFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedHardwareFingerprint)
+            (New-JsonPropertyCheck -Object $manifest -Name "repositoryReproducible" -ExpectedType "boolean" -MatchValue -ExpectedValue $ExpectedRepositoryReproducible)
+            (New-JsonPropertyCheck -Object $manifest -Name "contentTrackingStatus" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedContentTrackingStatus)
+            (New-JsonPropertyCheck -Object $manifest -Name "comparisonScope" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedComparisonScope)
             (New-JsonPropertyCheck -Object $manifest -Name "pairingEligible" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
             (New-JsonPropertyCheck -Object $manifest -Name "evidenceValidity" -ExpectedType "string" -MatchValue -ExpectedValue "PENDING_OFFLINE_VALIDATION")
             (New-JsonStringEnumCheck -Object $manifest -Name "performanceBudgetStatus" -AllowedValues @("PASS", "FAIL", "NOT_AUTHORITY", "INCOMPLETE"))
@@ -1118,7 +1310,7 @@ function Test-RunOutputs {
     if ($isV2) {
         $manifestChecks += @(
             (New-ValidationCheck -Passed ([string]$manifest.measurementRole -ceq $ExpectedMeasurementRole) -Reason "manifest measurement-role mismatch")
-            (New-ValidationCheck -Passed (-not [bool]$manifest.pairingEligible) -Reason "B5A member must not be pairing-eligible")
+            (New-ValidationCheck -Passed (-not [bool]$manifest.pairingEligible) -Reason "runtime member must await offline pairing eligibility")
             (New-ValidationCheck -Passed ([string]$manifest.aggregateProductGate -eq "INCOMPLETE") -Reason "member aggregate product gate must be INCOMPLETE")
             (New-ValidationCheck -Passed ([string]$manifest.evidenceValidity -eq "PENDING_OFFLINE_VALIDATION") -Reason "runtime manifest must await offline evidence validation")
         )
@@ -1204,14 +1396,17 @@ function Test-RunOutputs {
             (New-RequiredJsonBooleanCheck -Object $report -Name "measurementEligible")
             (New-RequiredJsonBooleanCheck -Object $report -Name "screenshotRequested")
             (New-JsonPropertyCheck -Object $report -Name "measurementRole" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedMeasurementRole)
-            (New-JsonPropertyCheck -Object $report -Name "measurementSetId" -ExpectedType "string" -MatchValue -ExpectedValue "")
-            (New-JsonPropertyCheck -Object $report -Name "sourceCommit" -ExpectedType "string" -MatchValue -ExpectedValue "")
-            (New-JsonPropertyCheck -Object $report -Name "sourceTreeClean" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
-            (New-JsonPropertyCheck -Object $report -Name "sourceTreeCleanAvailable" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
-            (New-JsonPropertyCheck -Object $report -Name "buildArtifactId" -ExpectedType "string" -MatchValue -ExpectedValue "")
-            (New-JsonPropertyCheck -Object $report -Name "contentFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
-            (New-JsonPropertyCheck -Object $report -Name "configurationFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
-            (New-JsonPropertyCheck -Object $report -Name "hardwareFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue "")
+            (New-JsonPropertyCheck -Object $report -Name "measurementSetId" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedMeasurementSetId)
+            (New-JsonPropertyCheck -Object $report -Name "sourceCommit" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedSourceCommit)
+            (New-JsonPropertyCheck -Object $report -Name "sourceTreeClean" -ExpectedType "boolean" -MatchValue -ExpectedValue $ExpectedSourceTreeClean)
+            (New-JsonPropertyCheck -Object $report -Name "sourceTreeCleanAvailable" -ExpectedType "boolean" -MatchValue -ExpectedValue $ExpectedSourceTreeCleanAvailable)
+            (New-JsonPropertyCheck -Object $report -Name "buildArtifactId" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedBuildArtifactId)
+            (New-JsonPropertyCheck -Object $report -Name "contentFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedContentFingerprint)
+            (New-JsonPropertyCheck -Object $report -Name "configurationFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedConfigurationFingerprint)
+            (New-JsonPropertyCheck -Object $report -Name "hardwareFingerprint" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedHardwareFingerprint)
+            (New-JsonPropertyCheck -Object $report -Name "repositoryReproducible" -ExpectedType "boolean" -MatchValue -ExpectedValue $ExpectedRepositoryReproducible)
+            (New-JsonPropertyCheck -Object $report -Name "contentTrackingStatus" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedContentTrackingStatus)
+            (New-JsonPropertyCheck -Object $report -Name "comparisonScope" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedComparisonScope)
             (New-JsonPropertyCheck -Object $report -Name "pairingEligible" -ExpectedType "boolean" -MatchValue -ExpectedValue $false)
             (New-JsonPropertyCheck -Object $report -Name "evidenceValidity" -ExpectedType "string" -MatchValue -ExpectedValue "PENDING_OFFLINE_VALIDATION")
             (New-JsonStringEnumCheck -Object $report -Name "performanceBudgetStatus" -AllowedValues @("PASS", "FAIL", "NOT_AUTHORITY", "INCOMPLETE"))
@@ -1243,16 +1438,12 @@ function Test-RunOutputs {
     if ($isV2) {
         $checks += @(
             (New-ValidationCheck -Passed ([string]$report.measurementRole -ceq $ExpectedMeasurementRole) -Reason "report measurement-role mismatch")
-            (New-ValidationCheck -Passed (-not [bool]$report.pairingEligible) -Reason "B5A report must not be pairing-eligible")
+            (New-ValidationCheck -Passed (-not [bool]$report.pairingEligible) -Reason "runtime report must await offline pairing eligibility")
             (New-ValidationCheck -Passed ([string]$report.aggregateProductGate -ceq "INCOMPLETE") -Reason "report aggregate product gate must be INCOMPLETE")
             (New-ValidationCheck -Passed ([string]$report.evidenceValidity -ceq "PENDING_OFFLINE_VALIDATION") -Reason "runtime report must await offline evidence validation")
-            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.measurementSetId)) -Reason "B5A measurementSetId must remain empty")
-            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.sourceCommit)) -Reason "B5A sourceCommit must remain empty")
-            (New-ValidationCheck -Passed (-not [bool]$report.sourceTreeCleanAvailable) -Reason "B5A source-tree cleanliness must remain unavailable")
-            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.buildArtifactId)) -Reason "B5A buildArtifactId must remain empty")
-            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.contentFingerprint)) -Reason "B5A contentFingerprint must remain empty")
-            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.configurationFingerprint)) -Reason "B5A configurationFingerprint must remain empty")
-            (New-ValidationCheck -Passed ([string]::IsNullOrEmpty([string]$report.hardwareFingerprint)) -Reason "B5A hardwareFingerprint must remain empty")
+            (New-ValidationCheck -Passed ([string]$report.measurementSetId -ceq $ExpectedMeasurementSetId) -Reason "report measurement-set mismatch")
+            (New-ValidationCheck -Passed ([string]$report.sourceCommit -ceq $ExpectedSourceCommit) -Reason "report source-commit mismatch")
+            (New-ValidationCheck -Passed ([bool]$report.sourceTreeCleanAvailable -eq $ExpectedSourceTreeCleanAvailable) -Reason "report source-tree availability mismatch")
         )
     }
     if ($ExpectedBuildKind -eq "release" -or $isV2) {
@@ -1633,9 +1824,39 @@ else {
 if ($BuildKind -cne $requiredBuildKind) {
     throw "MeasurementRole '$MeasurementRole' requires BuildKind '$requiredBuildKind'."
 }
-if (-not (Test-Path -LiteralPath $Executable -PathType Leaf)) {
+if (-not $DryRun -and -not (Test-Path -LiteralPath $Executable -PathType Leaf)) {
     throw "Benchmark executable does not exist: $Executable"
 }
+$buildProvenance = $null
+$sidecar = $null
+if ($DryRun) {
+    $sidecar = [pscustomobject]@{
+        sourceCommit = "0000000000000000000000000000000000000000"
+        sourceTreeClean = $false
+        buildArtifactId = "0000000000000000000000000000000000000000000000000000000000000000"
+        contentFingerprint = "0000000000000000000000000000000000000000000000000000000000000000"
+        repositoryReproducible = $false
+        contentTrackingStatus = "dry_run_unverified"
+    }
+    $buildProvenance = [pscustomobject]@{ ComparisonScope = "dry_run_unverified" }
+}
+else {
+    $buildProvenance = Read-VerifiedBuildProvenance `
+        -Executable $Executable `
+        -ExpectedRole $MeasurementRole `
+        -ExpectedBuildKind $BuildKind
+    $sidecar = $buildProvenance.Sidecar
+}
+$configurationFingerprint = Get-RuntimeConfigurationFingerprint `
+    -Quality $Quality `
+    -Scenario $Scenario `
+    -Antialiasing $Antialiasing `
+    -RenderScalePercent $RenderScalePercent `
+    -Upscaler $Upscaler `
+    -Width $Width `
+    -Height $Height `
+    -WarmupSeconds $WarmupSeconds `
+    -SampleSeconds $SampleSeconds
 if ($CaptureScreenshot -and $Runs -ne 1) {
     throw "Visual capture is a separate run and requires -Runs 1."
 }
@@ -1663,6 +1884,7 @@ if (-not $DryRun) {
     }
     $driverVersion = [string]$initialGpu[0].driver_version
 }
+$hardwareFingerprint = Get-HardwareFingerprint -GpuName $ExpectedGpu -DriverVersion $driverVersion
 $results = @()
 
 for ($run = 1; $run -le $Runs; $run++) {
@@ -1691,6 +1913,16 @@ for ($run = 1; $run -le $Runs; $run++) {
         "-sotf-run-id", $runId,
         "-sotf-build-kind", $BuildKind,
         "-sotf-measurement-role", $MeasurementRole,
+        "-sotf-measurement-set-id", $MeasurementSetId,
+        "-sotf-source-commit", ([string]$sidecar.sourceCommit),
+        "-sotf-source-tree-clean", ([string]([bool]$sidecar.sourceTreeClean)).ToLowerInvariant(),
+        "-sotf-build-artifact-id", ([string]$sidecar.buildArtifactId),
+        "-sotf-content-fingerprint", ([string]$sidecar.contentFingerprint),
+        "-sotf-configuration-fingerprint", $configurationFingerprint,
+        "-sotf-hardware-fingerprint", $hardwareFingerprint,
+        "-sotf-repository-reproducible", ([string]([bool]$sidecar.repositoryReproducible)).ToLowerInvariant(),
+        "-sotf-content-tracking-status", ([string]$sidecar.contentTrackingStatus),
+        "-sotf-comparison-scope", ([string]$buildProvenance.ComparisonScope),
         "-sotf-no-screenshot", ([string](-not $CaptureScreenshot)).ToLowerInvariant(),
         "-sotf-aa", $Antialiasing,
         "-sotf-render-scale", [string]$RenderScalePercent,
@@ -1787,6 +2019,17 @@ for ($run = 1; $run -le $Runs; $run++) {
                 -ExpectedScenario $Scenario `
                 -ExpectedBuildKind $BuildKind `
                 -ExpectedMeasurementRole $MeasurementRole `
+                -ExpectedMeasurementSetId $MeasurementSetId `
+                -ExpectedSourceCommit ([string]$sidecar.sourceCommit) `
+                -ExpectedSourceTreeClean ([bool]$sidecar.sourceTreeClean) `
+                -ExpectedSourceTreeCleanAvailable $true `
+                -ExpectedBuildArtifactId ([string]$sidecar.buildArtifactId) `
+                -ExpectedContentFingerprint ([string]$sidecar.contentFingerprint) `
+                -ExpectedConfigurationFingerprint $configurationFingerprint `
+                -ExpectedHardwareFingerprint $hardwareFingerprint `
+                -ExpectedRepositoryReproducible ([bool]$sidecar.repositoryReproducible) `
+                -ExpectedContentTrackingStatus ([string]$sidecar.contentTrackingStatus) `
+                -ExpectedComparisonScope ([string]$buildProvenance.ComparisonScope) `
                 -ExpectedQuality $Quality `
                 -ExpectedAntialiasing $Antialiasing `
                 -ExpectedRenderScalePercent $RenderScalePercent `
@@ -1842,7 +2085,7 @@ for ($run = 1; $run -le $Runs; $run++) {
             -PerformanceBudgetStatus $outputCheck.PerformanceBudgetStatus `
             -GcBudgetStatus $outputCheck.GcBudgetStatus `
             -AggregateProductGate "INCOMPLETE" `
-            -PairingEligible $false
+            -PairingEligible ($isValid -and [bool]$sidecar.sourceTreeClean)
 
         $runResult = [pscustomobject]@{
             runId = $runId
@@ -1862,7 +2105,17 @@ for ($run = 1; $run -le $Runs; $run++) {
             gcBudgetStatus = $outputCheck.GcBudgetStatus
             gcBudgetFailure = $outputCheck.GcBudgetFailure
             aggregateProductGate = "INCOMPLETE"
-            pairingEligible = $false
+            pairingEligible = $isValid -and [bool]$sidecar.sourceTreeClean
+            measurementSetId = $MeasurementSetId
+            sourceCommit = [string]$sidecar.sourceCommit
+            sourceTreeClean = [bool]$sidecar.sourceTreeClean
+            buildArtifactId = [string]$sidecar.buildArtifactId
+            contentFingerprint = [string]$sidecar.contentFingerprint
+            configurationFingerprint = $configurationFingerprint
+            hardwareFingerprint = $hardwareFingerprint
+            repositoryReproducible = [bool]$sidecar.repositoryReproducible
+            contentTrackingStatus = [string]$sidecar.contentTrackingStatus
+            comparisonScope = [string]$buildProvenance.ComparisonScope
             productBudgetStatus = $outputCheck.ProductBudgetStatus
             productBudgetPassed = $outputCheck.ProductBudgetPassed
             productBudgetFailure = $outputCheck.ProductBudgetFailure
@@ -1889,7 +2142,7 @@ for ($run = 1; $run -le $Runs; $run++) {
 
 if ($DryRun) {
     Write-Host "Dry-run completed. No benchmark process was started."
-    exit 0
+    return
 }
 
 Write-ResultTables -Results $results -Directory $OutputDirectory

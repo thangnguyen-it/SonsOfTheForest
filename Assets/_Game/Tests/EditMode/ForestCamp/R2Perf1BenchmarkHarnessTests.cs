@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -28,6 +29,10 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
             "Tools/Performance/Invoke-R2Perf1Offline.ps1";
         private const string OfflineWrapperPath =
             "Tools/Performance/Invoke-R2Perf1Offline.cmd";
+        private const string PairRunnerPath =
+            "Tools/Performance/Invoke-R2Perf1Pair.ps1";
+        private const string PairWrapperPath =
+            "Tools/Performance/Invoke-R2Perf1Pair.cmd";
 
         private static Type ConfigurationType =>
             Type.GetType(ConfigurationTypeName, true);
@@ -560,13 +565,13 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 Assert.That(
                     Field<string>(manifest, "aggregateProductGate"),
                     Is.EqualTo("INCOMPLETE"));
-                Assert.That(Field<string>(manifest, "measurementSetId"), Is.Empty);
-                Assert.That(Field<string>(manifest, "sourceCommit"), Is.Empty);
-                Assert.That(Field<bool>(manifest, "sourceTreeCleanAvailable"), Is.False);
-                Assert.That(Field<string>(manifest, "buildArtifactId"), Is.Empty);
-                Assert.That(Field<string>(manifest, "contentFingerprint"), Is.Empty);
-                Assert.That(Field<string>(manifest, "configurationFingerprint"), Is.Empty);
-                Assert.That(Field<string>(manifest, "hardwareFingerprint"), Is.Empty);
+                Assert.That(Field<string>(manifest, "measurementSetId"), Is.EqualTo("test_measurement_set"));
+                Assert.That(Field<string>(manifest, "sourceCommit"), Is.EqualTo("EA1086D2887C2B3F985F3376520BA9E99339AD58"));
+                Assert.That(Field<bool>(manifest, "sourceTreeCleanAvailable"), Is.True);
+                Assert.That(Field<string>(manifest, "buildArtifactId"), Is.EqualTo(new string('A', 64)));
+                Assert.That(Field<string>(manifest, "contentFingerprint"), Is.EqualTo(new string('B', 64)));
+                Assert.That(Field<string>(manifest, "configurationFingerprint"), Is.EqualTo(new string('C', 64)));
+                Assert.That(Field<string>(manifest, "hardwareFingerprint"), Is.EqualTo(new string('D', 64)));
             }
             finally
             {
@@ -1447,7 +1452,8 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 {
                     FileName = "powershell.exe",
                     Arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" +
-                                harnessPath + "\" -MeasurementRole release_performance",
+                                harnessPath + "\" -MeasurementRole release_performance " +
+                                "-MeasurementSetId validator_contract_set",
                     WorkingDirectory = Path.GetFullPath("."),
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
@@ -1538,6 +1544,7 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                              " -RenderScalePercent 100" +
                              " -BuildKind " + buildKind +
                              " -MeasurementRole " + measurementRole +
+                             " -MeasurementSetId cmd_dry_run_set" +
                              " -Runs 1" +
                              " -OutputRoot \"" + outputRoot + "\"" +
                              " -DryRun";
@@ -1580,13 +1587,106 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 Is.EqualTo(playerCountBefore));
         }
 
+        [Test]
+        public void ProvenanceContract_LocalIgnoredContentIsOnlyLocalComparable()
+        {
+            AssertParseFailure<ArgumentException>(
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-content-tracking-status", "local_ignored_content",
+                "-sotf-repository-reproducible", "true",
+                "-sotf-comparison-scope", "repository_comparable");
+
+            object settings = Parse(
+                "player.exe", "-sotf-perf1",
+                "-sotf-measurement-role", "development_gc",
+                "-sotf-content-tracking-status", "local_ignored_content",
+                "-sotf-repository-reproducible", "false",
+                "-sotf-comparison-scope", "local_comparable");
+            Assert.That(Field<bool>(settings, "repositoryReproducible"), Is.False);
+            Assert.That(Field<string>(settings, "comparisonScope"), Is.EqualTo("local_comparable"));
+        }
+
+        [Test]
+        public void PairCmd_DryRunDoesNotLaunchPlayerOrCreateMeasurementOutput()
+        {
+            string wrapper = Path.GetFullPath(PairWrapperPath);
+            Assert.That(File.Exists(wrapper), Is.True);
+            Assert.That(File.ReadAllText(wrapper), Does.Contain("\"%~dp0Invoke-R2Perf1Pair.ps1\" %*"));
+            string outputRoot = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-r2-perf1-pair-dry-run-" + Guid.NewGuid().ToString("N"));
+            int playerCountBefore = Process.GetProcessesByName("SOTF_R2_PERF1").Length +
+                                    Process.GetProcessesByName("SOTF_R2_PERF1_Diagnostic").Length;
+            string command = "\"" + wrapper + "\"" +
+                             " -ReleaseExecutablePath \"missing release path.exe\"" +
+                             " -DiagnosticExecutablePath \"missing diagnostic path.exe\"" +
+                             " -Quality \"High Fidelity\"" +
+                             " -Scenario empty_hdrp_camera -Antialiasing TAA" +
+                             " -RenderScalePercent 100 -OutputRoot \"" + outputRoot + "\" -DryRun";
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = "/d /s /c \"" + command + "\"",
+                WorkingDirectory = Path.GetFullPath("."),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            using (Process process = Process.Start(startInfo))
+            {
+                Assert.That(process, Is.Not.Null);
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+                Assert.That(process.WaitForExit(60000), Is.True);
+                Assert.That(process.ExitCode, Is.EqualTo(0), output + "\n" + error);
+                Assert.That(output, Does.Contain("Paired dry-run completed"));
+            }
+            Assert.That(Directory.Exists(outputRoot), Is.False);
+            Assert.That(
+                Process.GetProcessesByName("SOTF_R2_PERF1").Length +
+                Process.GetProcessesByName("SOTF_R2_PERF1_Diagnostic").Length,
+                Is.EqualTo(playerCountBefore));
+        }
+
         private static object Parse(params string[] arguments)
         {
             MethodInfo method = ConfigurationType.GetMethod(
                 "Parse",
                 BindingFlags.Public | BindingFlags.Static);
             Assert.That(method, Is.Not.Null);
-            return method.Invoke(null, new object[] { arguments });
+            return method.Invoke(null, new object[] { WithProvenanceArguments(arguments) });
+        }
+
+        private static string[] WithProvenanceArguments(string[] arguments)
+        {
+            if (arguments == null || !arguments.Contains("-sotf-perf1"))
+            {
+                return arguments;
+            }
+
+            var result = new List<string>(arguments);
+            void AddIfMissing(string name, string value)
+            {
+                if (!result.Contains(name))
+                {
+                    result.Add(name);
+                    result.Add(value);
+                }
+            }
+
+            AddIfMissing("-sotf-measurement-set-id", "test_measurement_set");
+            AddIfMissing("-sotf-source-commit", "ea1086d2887c2b3f985f3376520ba9e99339ad58");
+            AddIfMissing("-sotf-source-tree-clean", "true");
+            AddIfMissing("-sotf-build-artifact-id", new string('A', 64));
+            AddIfMissing("-sotf-content-fingerprint", new string('B', 64));
+            AddIfMissing("-sotf-configuration-fingerprint", new string('C', 64));
+            AddIfMissing("-sotf-hardware-fingerprint", new string('D', 64));
+            AddIfMissing("-sotf-repository-reproducible", "true");
+            AddIfMissing("-sotf-content-tracking-status", "tracked_content");
+            AddIfMissing("-sotf-comparison-scope", "repository_comparable");
+            return result.ToArray();
         }
 
         private static object InvokeBuildProvenance(string methodName, params object[] arguments)
@@ -2154,6 +2254,9 @@ function New-V2ContractFixture {
         contentFingerprint = ''
         configurationFingerprint = ''
         hardwareFingerprint = ''
+        repositoryReproducible = $false
+        contentTrackingStatus = ''
+        comparisonScope = ''
         pairingEligible = $false
         evidenceValidity = 'PENDING_OFFLINE_VALIDATION'
         performanceBudgetStatus = $PerformanceStatus
@@ -2190,6 +2293,9 @@ function New-V2ContractFixture {
         contentFingerprint = ''
         configurationFingerprint = ''
         hardwareFingerprint = ''
+        repositoryReproducible = $false
+        contentTrackingStatus = ''
+        comparisonScope = ''
         pairingEligible = $false
         evidenceValidity = 'PENDING_OFFLINE_VALIDATION'
         performanceBudgetStatus = $PerformanceStatus
