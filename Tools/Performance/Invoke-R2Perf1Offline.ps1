@@ -991,15 +991,17 @@ function Test-FiniteMeasurementReport {
         "cpuTotalAvgMs",
         "cpuMainThreadAvgMs",
         "cpuRenderThreadAvgMs",
-        "gpuAvgMs",
-        "totalUsedMemoryAverageMb",
-        "textureMemoryAverageMb"
+        "gpuAvgMs"
     )
     if ($SchemaVersion -eq "r2-perf1/2") {
         $fields += "globalGcAllocatedAverageBytes"
     }
     else {
-        $fields += @("gcAllocatedAverageBytes", "gfxUsedMemoryAverageMb")
+        $fields += @(
+            "gcAllocatedAverageBytes",
+            "totalUsedMemoryAverageMb",
+            "gfxUsedMemoryAverageMb",
+            "textureMemoryAverageMb")
     }
     foreach ($field in $fields) {
         $property = $ScenarioResult.PSObject.Properties[$field]
@@ -1012,6 +1014,23 @@ function Test-FiniteMeasurementReport {
     }
 
     return [pscustomobject]@{ Valid = $true; Reason = "finite metrics accepted" }
+}
+
+function Get-MemoryDiagnosticContracts {
+    return @(
+        [pscustomobject]@{
+            AvailabilityField = "totalUsedMemoryAvailable"
+            MetricFields = @("totalUsedMemoryAverageMb", "totalUsedMemoryPeakMb")
+        }
+        [pscustomobject]@{
+            AvailabilityField = "gfxUsedMemoryAvailable"
+            MetricFields = @("gfxUsedMemoryAverageMb", "gfxUsedMemoryPeakMb")
+        }
+        [pscustomobject]@{
+            AvailabilityField = "textureMemoryAvailable"
+            MetricFields = @("textureMemoryAverageMb", "textureMemoryPeakMb")
+        }
+    )
 }
 
 function New-ValidationCheck {
@@ -1628,6 +1647,7 @@ function Test-RunOutputs {
 
         $scenarioResult = $matchingScenarios[0]
         if ($isV2) {
+            $memoryDiagnosticContracts = @(Get-MemoryDiagnosticContracts)
             $scenarioContractChecks = @(
                 (New-JsonPropertyCheck -Object $scenarioResult -Name "name" -ExpectedType "string" -MatchValue -ExpectedValue $ExpectedScenario)
                 (New-JsonStringEnumCheck -Object $scenarioResult -Name "performanceBudgetStatus" -AllowedValues @("PASS", "FAIL", "NOT_AUTHORITY", "INCOMPLETE"))
@@ -1649,13 +1669,15 @@ function Test-RunOutputs {
                     "trianglesAvailable",
                     "verticesAvailable",
                     "globalGcAllocationAvailable",
-                    "globalGcDiagnosticOnly",
-                    "totalUsedMemoryAvailable",
-                    "gfxUsedMemoryAvailable",
-                    "textureMemoryAvailable")) {
+                    "globalGcDiagnosticOnly")) {
                 $scenarioContractChecks += New-RequiredJsonBooleanCheck `
                     -Object $scenarioResult `
                     -Name $booleanField
+            }
+            foreach ($memoryContract in $memoryDiagnosticContracts) {
+                $scenarioContractChecks += New-RequiredJsonBooleanCheck `
+                    -Object $scenarioResult `
+                    -Name ([string]$memoryContract.AvailabilityField)
             }
             foreach ($numericField in @(
                     "avgMs",
@@ -1681,10 +1703,7 @@ function Test-RunOutputs {
                     "vertexMillions",
                     "globalGcAllocatedAverageBytes",
                     "globalGcAllocationCountAverage",
-                    "totalUsedMemoryAverageMb",
-                    "totalUsedMemoryPeakMb",
-                    "textureMemoryAverageMb",
-                    "textureMemoryPeakMb")) {
+                    "globalGcAllocationCountAverage")) {
                 $scenarioContractChecks += New-RequiredJsonNumberCheck `
                     -Object $scenarioResult `
                     -Name $numericField
@@ -1697,18 +1716,20 @@ function Test-RunOutputs {
                     -ManifestPath $manifestPath `
                     -SchemaVersion $reportSchema
             }
-            if ([bool]$scenarioResult.gfxUsedMemoryAvailable) {
-                $gfxMemoryChecks = @(
-                    (New-RequiredJsonNumberCheck -Object $scenarioResult -Name "gfxUsedMemoryAverageMb")
-                    (New-RequiredJsonNumberCheck -Object $scenarioResult -Name "gfxUsedMemoryPeakMb")
-                )
-                $failedGfxMemoryCheck = Get-FirstFailedValidationCheck -Checks $gfxMemoryChecks
-                if ($null -ne $failedGfxMemoryCheck) {
-                    return New-OutputValidationResult `
-                        -Valid $false `
-                        -Reason ([string]$failedGfxMemoryCheck.Reason) `
-                        -ManifestPath $manifestPath `
-                        -SchemaVersion $reportSchema
+            foreach ($memoryContract in $memoryDiagnosticContracts) {
+                $availabilityField = [string]$memoryContract.AvailabilityField
+                if ([bool]$scenarioResult.$availabilityField) {
+                    $memoryMetricChecks = @($memoryContract.MetricFields | ForEach-Object {
+                        New-RequiredJsonNumberCheck -Object $scenarioResult -Name ([string]$_)
+                    })
+                    $failedMemoryMetricCheck = Get-FirstFailedValidationCheck -Checks $memoryMetricChecks
+                    if ($null -ne $failedMemoryMetricCheck) {
+                        return New-OutputValidationResult `
+                            -Valid $false `
+                            -Reason ([string]$failedMemoryMetricCheck.Reason) `
+                            -ManifestPath $manifestPath `
+                            -SchemaVersion $reportSchema
+                    }
                 }
             }
         }
@@ -1798,9 +1819,7 @@ function Test-RunOutputs {
                     "batchesAvailable",
                     "setPassCallsAvailable",
                     "trianglesAvailable",
-                    "verticesAvailable",
-                    "totalUsedMemoryAvailable",
-                    "textureMemoryAvailable"
+                    "verticesAvailable"
                 )
             }
             else {

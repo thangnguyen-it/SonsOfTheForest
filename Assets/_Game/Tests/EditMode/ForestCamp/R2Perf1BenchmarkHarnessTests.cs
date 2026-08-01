@@ -2385,7 +2385,9 @@ function New-V2ContractFixture {
         [string]$PerformanceStatus,
         [string]$GcStatus,
         [bool]$GcAvailable,
+        [bool]$TotalMemoryAvailable = $true,
         [bool]$GfxMemoryAvailable = $true,
+        [bool]$TextureMemoryAvailable = $true,
         [string]$SourceCommit = '2e55294f9321819e770914eafaab6a449d6e92db'
     )
     $directory = Join-Path $ContractRoot $Label
@@ -2438,9 +2440,9 @@ function New-V2ContractFixture {
         setPassCallsAvailable = $true
         trianglesAvailable = $true
         verticesAvailable = $true
-        totalUsedMemoryAvailable = $true
+        totalUsedMemoryAvailable = $TotalMemoryAvailable
         gfxUsedMemoryAvailable = $GfxMemoryAvailable
-        textureMemoryAvailable = $true
+        textureMemoryAvailable = $TextureMemoryAvailable
         bottleneck = 'GPU'
         performanceBudgetStatus = $PerformanceStatus
         performanceBudgetFailure = if ($PerformanceStatus -eq 'FAIL') { 'p95 exceeded' } else { '' }
@@ -2577,35 +2579,48 @@ $developmentMissingGcResult = Invoke-V2ContractValidation $developmentMissingGc
 Assert-Contract (-not $developmentMissingGcResult.Valid) 'missing authoritative GC recorder must not pass'
 Assert-Contract ($developmentMissingGcResult.GcBudgetStatus -ne 'PASS') 'missing global GC was converted into PASS'
 
-$releaseNoGfxMemory = New-V2ContractFixture -Label 'v2_release_no_gfx_memory' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false -GfxMemoryAvailable $false
-$releaseNoGfxMemoryValue = Get-Content $releaseNoGfxMemory.ReportPath -Raw | ConvertFrom-Json
-$releaseNoGfxMemoryValue.scenarios[0].PSObject.Properties.Remove('gfxUsedMemoryAverageMb')
-$releaseNoGfxMemoryValue.scenarios[0].PSObject.Properties.Remove('gfxUsedMemoryPeakMb')
-$releaseNoGfxMemoryValue | ConvertTo-Json -Depth 12 | Set-Content $releaseNoGfxMemory.ReportPath -Encoding UTF8
-$releaseNoGfxMemoryResult = Invoke-V2ContractValidation $releaseNoGfxMemory
-Assert-Contract $releaseNoGfxMemoryResult.Valid 'release evidence must allow unavailable optional graphics memory diagnostics'
+$memoryContracts = @(Get-MemoryDiagnosticContracts)
+$expectedMemoryAvailabilityFields = @('gfxUsedMemoryAvailable', 'textureMemoryAvailable', 'totalUsedMemoryAvailable')
+$actualMemoryAvailabilityFields = @($memoryContracts | ForEach-Object { [string]$_.AvailabilityField } | Sort-Object)
+Assert-Contract (($actualMemoryAvailabilityFields -join ',') -ceq ($expectedMemoryAvailabilityFields -join ',')) 'memory diagnostic authority table is incomplete'
 
-$developmentNoGfxMemory = New-V2ContractFixture -Label 'v2_development_no_gfx_memory' -Role 'development_gc' -PerformanceStatus 'NOT_AUTHORITY' -GcStatus 'PASS' -GcAvailable $true -GfxMemoryAvailable $false
-$developmentNoGfxMemoryValue = Get-Content $developmentNoGfxMemory.ReportPath -Raw | ConvertFrom-Json
-$developmentNoGfxMemoryValue.scenarios[0].PSObject.Properties.Remove('gfxUsedMemoryAverageMb')
-$developmentNoGfxMemoryValue.scenarios[0].PSObject.Properties.Remove('gfxUsedMemoryPeakMb')
-$developmentNoGfxMemoryValue | ConvertTo-Json -Depth 12 | Set-Content $developmentNoGfxMemory.ReportPath -Encoding UTF8
-$developmentNoGfxMemoryResult = Invoke-V2ContractValidation $developmentNoGfxMemory
-Assert-Contract $developmentNoGfxMemoryResult.Valid 'development evidence must allow unavailable optional graphics memory diagnostics'
+foreach ($memoryContract in $memoryContracts) {
+    $availabilityField = [string]$memoryContract.AvailabilityField
+    foreach ($role in @('release_performance', 'development_gc')) {
+        $parameters = @{
+            Label = ('v2_optional_' + $role + '_' + $availabilityField)
+            Role = $role
+            PerformanceStatus = if ($role -ceq 'release_performance') { 'PASS' } else { 'NOT_AUTHORITY' }
+            GcStatus = if ($role -ceq 'release_performance') { 'NOT_AUTHORITY' } else { 'PASS' }
+            GcAvailable = $role -ceq 'development_gc'
+        }
+        if ($availabilityField -ceq 'totalUsedMemoryAvailable') { $parameters.TotalMemoryAvailable = $false }
+        elseif ($availabilityField -ceq 'gfxUsedMemoryAvailable') { $parameters.GfxMemoryAvailable = $false }
+        elseif ($availabilityField -ceq 'textureMemoryAvailable') { $parameters.TextureMemoryAvailable = $false }
+        $fixture = New-V2ContractFixture @parameters
+        $value = Get-Content $fixture.ReportPath -Raw | ConvertFrom-Json
+        foreach ($metricField in @($memoryContract.MetricFields)) {
+            $value.scenarios[0].PSObject.Properties.Remove([string]$metricField)
+        }
+        $value | ConvertTo-Json -Depth 12 | Set-Content $fixture.ReportPath -Encoding UTF8
+        $result = Invoke-V2ContractValidation $fixture
+        Assert-Contract $result.Valid ($role + ' must allow unavailable optional diagnostic ' + $availabilityField)
+    }
 
-$availableGfxMemoryMissingMetric = New-V2ContractFixture -Label 'v2_available_gfx_memory_missing' -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
-$availableGfxMemoryMissingValue = Get-Content $availableGfxMemoryMissingMetric.ReportPath -Raw | ConvertFrom-Json
-$availableGfxMemoryMissingValue.scenarios[0].PSObject.Properties.Remove('gfxUsedMemoryAverageMb')
-$availableGfxMemoryMissingValue | ConvertTo-Json -Depth 12 | Set-Content $availableGfxMemoryMissingMetric.ReportPath -Encoding UTF8
-$availableGfxMemoryMissingResult = Invoke-V2ContractValidation $availableGfxMemoryMissingMetric
-Assert-Contract (-not $availableGfxMemoryMissingResult.Valid) 'available graphics memory diagnostic must require its numeric metric'
+    $missingFixture = New-V2ContractFixture -Label ('v2_missing_' + $availabilityField) -Role 'release_performance' -PerformanceStatus 'PASS' -GcStatus 'NOT_AUTHORITY' -GcAvailable $false
+    $missingValue = Get-Content $missingFixture.ReportPath -Raw | ConvertFrom-Json
+    $missingValue.scenarios[0].PSObject.Properties.Remove([string]$memoryContract.MetricFields[0])
+    $missingValue | ConvertTo-Json -Depth 12 | Set-Content $missingFixture.ReportPath -Encoding UTF8
+    $missingResult = Invoke-V2ContractValidation $missingFixture
+    Assert-Contract (-not $missingResult.Valid) ('available diagnostic must require ' + $memoryContract.MetricFields[0])
 
-$availableGfxMemoryWrongType = New-V2ContractFixture -Label 'v2_available_gfx_memory_wrong_type' -Role 'development_gc' -PerformanceStatus 'NOT_AUTHORITY' -GcStatus 'PASS' -GcAvailable $true
-$availableGfxMemoryWrongTypeValue = Get-Content $availableGfxMemoryWrongType.ReportPath -Raw | ConvertFrom-Json
-$availableGfxMemoryWrongTypeValue.scenarios[0].gfxUsedMemoryPeakMb = '105.0'
-$availableGfxMemoryWrongTypeValue | ConvertTo-Json -Depth 12 | Set-Content $availableGfxMemoryWrongType.ReportPath -Encoding UTF8
-$availableGfxMemoryWrongTypeResult = Invoke-V2ContractValidation $availableGfxMemoryWrongType
-Assert-Contract (-not $availableGfxMemoryWrongTypeResult.Valid) 'available graphics memory diagnostic must reject wrong metric types'
+    $wrongTypeFixture = New-V2ContractFixture -Label ('v2_wrong_type_' + $availabilityField) -Role 'development_gc' -PerformanceStatus 'NOT_AUTHORITY' -GcStatus 'PASS' -GcAvailable $true
+    $wrongTypeValue = Get-Content $wrongTypeFixture.ReportPath -Raw | ConvertFrom-Json
+    $wrongTypeValue.scenarios[0].($memoryContract.MetricFields[1]) = '1.0'
+    $wrongTypeValue | ConvertTo-Json -Depth 12 | Set-Content $wrongTypeFixture.ReportPath -Encoding UTF8
+    $wrongTypeResult = Invoke-V2ContractValidation $wrongTypeFixture
+    Assert-Contract (-not $wrongTypeResult.Valid) ('available diagnostic must reject wrong type for ' + $memoryContract.MetricFields[1])
+}
 
 $uppercaseCommit = '2E55294F9321819E770914EAFAAB6A449D6E92DB'
 $lowercaseCommit = $uppercaseCommit.ToLowerInvariant()

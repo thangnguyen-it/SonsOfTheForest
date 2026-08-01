@@ -31,9 +31,10 @@ validator may finalize evidence as valid or invalid. Budget failure does not
 make otherwise complete evidence invalid. Conversely, missing authoritative
 global-GC data never becomes zero or `PASS`.
 
-`Gfx Used Memory` is an optional diagnostic for both roles. When its availability
-flag is false, no memory value is inferred; when true, its average and peak values
-must both be present as finite numbers.
+The currently reported total-used, graphics-used, and texture-memory counters are
+optional diagnostics for both roles; none participates in the product budget.
+Every availability flag remains mandatory and boolean. A false flag implies no
+memory value, while a true flag requires finite numeric average and peak values.
 
 The final B5 contract binds build-sidecar provenance and a deterministic runtime
 configuration/hardware fingerprint into every schema-v2 member. Runtime output
