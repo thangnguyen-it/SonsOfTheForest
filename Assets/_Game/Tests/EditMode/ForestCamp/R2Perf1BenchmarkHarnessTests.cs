@@ -1,7 +1,9 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 
@@ -513,6 +515,91 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
         }
 
         [Test]
+        public void OfflineValidator_FunctionalSafetyAndCompletenessMatrixPasses()
+        {
+            string runner = File.ReadAllText(OfflineRunnerPath);
+            int mainBoundary = runner.IndexOf(
+                "$Executable = Resolve-ProjectPath",
+                StringComparison.Ordinal);
+            Assert.That(mainBoundary, Is.GreaterThan(0), "Offline runner main boundary was not found.");
+
+            string cleanupRoot = Path.Combine(
+                Path.GetTempPath(),
+                "sotf-r2-perf1-b4-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(cleanupRoot);
+            string harnessPath = Path.Combine(cleanupRoot, "validator-contract.ps1");
+            try
+            {
+                var harness = new StringBuilder(runner.Substring(0, mainBoundary));
+                harness.AppendLine();
+                harness.AppendLine("$ContractRoot = '" + EscapePowerShellLiteral(cleanupRoot) + "'");
+                harness.AppendLine(OfflineValidatorContractMatrixScript);
+                File.WriteAllText(harnessPath, harness.ToString());
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" +
+                                harnessPath + "\"",
+                    WorkingDirectory = Path.GetFullPath("."),
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                };
+                using (Process process = Process.Start(startInfo))
+                {
+                    Assert.That(process, Is.Not.Null);
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+                    bool exited = process.WaitForExit(60000);
+                    if (!exited)
+                    {
+                        process.Kill();
+                    }
+
+                    Assert.That(exited, Is.True, "PowerShell validator contract matrix timed out.");
+                    Assert.That(
+                        process.ExitCode,
+                        Is.EqualTo(0),
+                        "PowerShell validator contract matrix failed.\nSTDOUT:\n" + output +
+                        "\nSTDERR:\n" + error);
+                    Assert.That(output, Does.Contain("B4_VALIDATOR_MATRIX_PASS"));
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(cleanupRoot))
+                {
+                    Directory.Delete(cleanupRoot, true);
+                }
+            }
+        }
+
+        [Test]
+        public void OfflineValidator_UsesNamedChecksAndPerRunExceptionBoundary()
+        {
+            string script = File.ReadAllText(OfflineRunnerPath);
+
+            Assert.That(script, Does.Contain("function New-ValidationCheck"));
+            Assert.That(script, Does.Contain("Passed = $Passed"));
+            Assert.That(script, Does.Contain("Reason = $Reason"));
+            Assert.That(script, Does.Not.Contain("$check[0]"));
+            Assert.That(script, Does.Not.Contain("$check[1]"));
+            Assert.That(script, Does.Contain("$scenarios = @($report.scenarios)"));
+            Assert.That(script, Does.Contain("$matchingScenarios.Count -eq 0"));
+            Assert.That(script, Does.Contain("$matchingScenarios.Count -gt 1"));
+            Assert.That(script, Does.Contain("required metric is unavailable"));
+            Assert.That(script, Does.Contain("measurement completeness gate failed"));
+            Assert.That(script, Does.Contain("New-ValidatorExceptionRunResult"));
+            Assert.That(script, Does.Contain("offline.invalid.manifest.json"));
+            Assert.That(
+                Regex.Matches(script, "\\$results \\+= \\$runResult").Count,
+                Is.EqualTo(1),
+                "Each run must append exactly one structured result.");
+        }
+
+        [Test]
         public void CmdWrapper_ForwardsQuotedArgumentsWithoutReconstruction()
         {
             string wrapper = File.ReadAllText(OfflineWrapperPath);
@@ -588,5 +675,219 @@ namespace SonsOfTheForest.Tests.ForestCamp.EditMode
                 () => Parse(arguments));
             Assert.That(exception.InnerException, Is.TypeOf<TException>());
         }
+
+        private static string EscapePowerShellLiteral(string value)
+        {
+            return value.Replace("'", "''");
+        }
+
+        private const string OfflineValidatorContractMatrixScript = @"
+function Assert-Contract {
+    param([bool]$Condition, [string]$Message)
+    if (-not $Condition) { throw $Message }
+}
+
+function New-ContractScenario {
+    param(
+        [string]$Name = 'empty_hdrp_camera',
+        [string]$BudgetStatus = 'PASS',
+        [string]$BudgetFailure = '',
+        [bool]$GcAvailable = $true,
+        [bool]$GfxMemoryAvailable = $true
+    )
+    return [pscustomobject]@{
+        name = $Name
+        avgMs = 5.0
+        medianMs = 5.0
+        p95Ms = 6.0
+        p99Ms = 7.0
+        avgFps = 200.0
+        onePercentLowFps = 142.0
+        cpuTotalAvgMs = 4.0
+        cpuMainThreadAvgMs = 3.5
+        cpuRenderThreadAvgMs = 1.0
+        gpuAvgMs = 2.0
+        gcAllocatedAverageBytes = 0.0
+        totalUsedMemoryAverageMb = 200.0
+        gfxUsedMemoryAverageMb = 100.0
+        textureMemoryAverageMb = 50.0
+        drawCallsAvailable = $true
+        batchesAvailable = $true
+        setPassCallsAvailable = $true
+        trianglesAvailable = $true
+        verticesAvailable = $true
+        gcAllocationAvailable = $GcAvailable
+        totalUsedMemoryAvailable = $true
+        gfxUsedMemoryAvailable = $GfxMemoryAvailable
+        textureMemoryAvailable = $true
+        budgetStatus = $BudgetStatus
+        budgetFailure = $BudgetFailure
+    }
+}
+
+function New-ContractFixture {
+    param([string]$Label, [object[]]$Scenarios)
+    $directory = Join-Path $ContractRoot $Label
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $runId = 'run_' + $Label
+    $reportPath = Join-Path $directory 'runtime.report.json'
+    $markdownPath = Join-Path $directory 'runtime.report.md'
+    $report = [pscustomobject]@{
+        benchmarkRunId = $runId
+        benchmarkScenario = 'empty_hdrp_camera'
+        buildKind = 'release'
+        qualityLevel = 'High Fidelity'
+        antialiasingMode = 'TAA'
+        renderScalePercent = 100
+        developmentBuild = $false
+        width = 1280
+        height = 720
+        graphicsDeviceName = 'NVIDIA GeForce MX550'
+        graphicsDeviceType = 'Direct3D11'
+        profilerEnabled = $false
+        profilerBinaryLogEnabled = $false
+        deepProfilingBuild = $false
+        measurementEligible = $true
+        scenarios = @($Scenarios)
+        phase = 'contract_phase'
+    }
+    $manifest = [pscustomobject]@{
+        runId = $runId
+        status = 'awaiting_offline_validation'
+        scenario = 'empty_hdrp_camera'
+        buildKind = 'release'
+        quality = 'High Fidelity'
+        antialiasing = 'TAA'
+        renderScalePercent = 100
+        screenshotRequested = $false
+        screenshotPath = ''
+        reportJsonPath = $reportPath
+        reportMarkdownPath = $markdownPath
+    }
+    $report | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $reportPath -Encoding UTF8
+    'contract report' | Set-Content -LiteralPath $markdownPath -Encoding UTF8
+    $manifest | ConvertTo-Json -Depth 12 |
+        Set-Content -LiteralPath (Join-Path $directory 'runtime.manifest.json') -Encoding UTF8
+    return [pscustomobject]@{
+        Directory = $directory
+        RunId = $runId
+        ReportPath = $reportPath
+        ManifestPath = Join-Path $directory 'runtime.manifest.json'
+    }
+}
+
+function Invoke-ContractValidation {
+    param([object]$Fixture)
+    return Test-RunOutputs `
+        -RunDirectory $Fixture.Directory `
+        -RunId $Fixture.RunId `
+        -ExpectedScenario 'empty_hdrp_camera' `
+        -ExpectedBuildKind 'release' `
+        -ExpectedQuality 'High Fidelity' `
+        -ExpectedAntialiasing 'TAA' `
+        -ExpectedRenderScalePercent 100 `
+        -ExpectedGpuName 'NVIDIA GeForce MX550' `
+        -ExpectedWidth 1280 `
+        -ExpectedHeight 720 `
+        -ScreenshotExpected $false
+}
+
+$matching = New-ContractFixture -Label 'matching' -Scenarios @((New-ContractScenario))
+$matchingResult = Invoke-ContractValidation $matching
+Assert-Contract $matchingResult.Valid 'matching manifest/report must validate without throwing'
+Assert-Contract ([string]::IsNullOrEmpty((Get-Content $matching.ManifestPath -Raw | ConvertFrom-Json).screenshotPath)) 'disabled screenshot must allow an empty path'
+Assert-Contract ((Split-Path $matching.ManifestPath -Leaf) -eq 'runtime.manifest.json') 'short manifest discovery changed'
+Assert-Contract ((Split-Path $matching.ReportPath -Leaf) -eq 'runtime.report.json') 'short report discovery changed'
+
+$manifestMismatch = New-ContractFixture -Label 'manifest_mismatch' -Scenarios @((New-ContractScenario))
+$manifestObject = Get-Content $manifestMismatch.ManifestPath -Raw | ConvertFrom-Json
+$manifestObject.quality = 'Balanced'
+$manifestObject | ConvertTo-Json -Depth 12 | Set-Content $manifestMismatch.ManifestPath -Encoding UTF8
+$manifestMismatchResult = Invoke-ContractValidation $manifestMismatch
+Assert-Contract (-not $manifestMismatchResult.Valid) 'manifest mismatch must be rejected'
+Assert-Contract ($manifestMismatchResult.Reason -eq 'manifest quality mismatch') 'manifest mismatch reason changed'
+
+$reportMismatch = New-ContractFixture -Label 'report_mismatch' -Scenarios @((New-ContractScenario))
+$reportObject = Get-Content $reportMismatch.ReportPath -Raw | ConvertFrom-Json
+$reportObject.qualityLevel = 'Balanced'
+$reportObject | ConvertTo-Json -Depth 12 | Set-Content $reportMismatch.ReportPath -Encoding UTF8
+$reportMismatchResult = Invoke-ContractValidation $reportMismatch
+Assert-Contract (-not $reportMismatchResult.Valid) 'report mismatch must be rejected'
+Assert-Contract ($reportMismatchResult.Reason -eq 'report quality mismatch') 'report mismatch reason changed'
+
+$zeroManifest = New-ContractFixture -Label 'zero_manifest' -Scenarios @((New-ContractScenario))
+Remove-Item -LiteralPath $zeroManifest.ManifestPath
+$zeroManifestResult = Invoke-ContractValidation $zeroManifest
+Assert-Contract ($zeroManifestResult.Reason -match 'found 0') 'zero manifest count must be structured'
+
+$multipleManifest = New-ContractFixture -Label 'multiple_manifest' -Scenarios @((New-ContractScenario))
+Copy-Item $multipleManifest.ManifestPath (Join-Path $multipleManifest.Directory 'duplicate.manifest.json')
+$multipleManifestResult = Invoke-ContractValidation $multipleManifest
+Assert-Contract ($multipleManifestResult.Reason -match 'found 2') 'multiple manifest count must be structured'
+
+$zeroScenario = New-ContractFixture -Label 'zero_scenario' -Scenarios @()
+$zeroScenarioResult = Invoke-ContractValidation $zeroScenario
+Assert-Contract ($zeroScenarioResult.Reason -match 'was not found') 'zero scenarios must be rejected before indexing'
+
+$missingScenario = New-ContractFixture -Label 'missing_scenario' -Scenarios @((New-ContractScenario -Name 'ground_only'))
+$missingScenarioResult = Invoke-ContractValidation $missingScenario
+Assert-Contract ($missingScenarioResult.Reason -match 'was not found') 'missing expected scenario must be rejected'
+
+$duplicateScenario = New-ContractFixture -Label 'duplicate_scenario' -Scenarios @((New-ContractScenario), (New-ContractScenario))
+$duplicateScenarioResult = Invoke-ContractValidation $duplicateScenario
+Assert-Contract ($duplicateScenarioResult.Reason -match 'duplicated') 'duplicate expected scenario must be rejected'
+
+$extraScenario = New-ContractFixture -Label 'extra_scenario' -Scenarios @((New-ContractScenario), (New-ContractScenario -Name 'ground_only'))
+$extraScenarioResult = Invoke-ContractValidation $extraScenario
+Assert-Contract ($extraScenarioResult.Reason -match 'unexpected extra') 'multiple scenarios must be rejected safely'
+
+$incomplete = New-ContractFixture -Label 'incomplete' -Scenarios @((New-ContractScenario -BudgetStatus 'INCOMPLETE' -BudgetFailure 'counter unavailable'))
+$incompleteResult = Invoke-ContractValidation $incomplete
+Assert-Contract (-not $incompleteResult.Valid) 'INCOMPLETE evidence must be rejected'
+Assert-Contract ($incompleteResult.Reason -match 'completeness gate') 'INCOMPLETE reason changed'
+
+$gcUnavailable = New-ContractFixture -Label 'gc_unavailable' -Scenarios @((New-ContractScenario -GcAvailable $false))
+$gcUnavailableResult = Invoke-ContractValidation $gcUnavailable
+Assert-Contract (-not $gcUnavailableResult.Valid) 'unavailable GC counter must be rejected even when value is zero'
+Assert-Contract ($gcUnavailableResult.Reason -match 'gcAllocationAvailable') 'GC availability reason changed'
+
+$requiredUnavailable = New-ContractFixture -Label 'required_unavailable' -Scenarios @((New-ContractScenario -GfxMemoryAvailable $false))
+$requiredUnavailableResult = Invoke-ContractValidation $requiredUnavailable
+Assert-Contract (-not $requiredUnavailableResult.Valid) 'unavailable required metric must be rejected'
+
+$budgetFail = New-ContractFixture -Label 'budget_fail' -Scenarios @((New-ContractScenario -BudgetStatus 'FAIL' -BudgetFailure 'p95 exceeded'))
+$budgetFailResult = Invoke-ContractValidation $budgetFail
+Assert-Contract $budgetFailResult.Valid 'complete FAIL data remains valid evidence'
+Assert-Contract ($budgetFailResult.ProductBudgetStatus -eq 'FAIL') 'product budget status was not preserved'
+Assert-Contract (-not [bool]$budgetFailResult.ProductBudgetPassed) 'product budget failure was confused with evidence invalidity'
+
+$exceptionRoot = Join-Path $ContractRoot 'exception_boundary'
+New-Item -ItemType Directory -Path $exceptionRoot -Force | Out-Null
+$exceptionResult = New-ValidatorExceptionRunResult `
+    -RunDirectory $exceptionRoot `
+    -RunId 'exception_run' `
+    -Exception ([InvalidOperationException]::new('synthetic validator failure')) `
+    -ExitCode 0 `
+    -Scenario 'empty_hdrp_camera' `
+    -Quality 'High Fidelity' `
+    -Antialiasing 'TAA' `
+    -RenderScalePercent 100 `
+    -BuildKind 'release' `
+    -MeasurementEligible $true
+Assert-Contract ($exceptionResult.status -eq 'invalid') 'validator exception must return structured invalid result'
+$exceptionManifest = Get-Content (Join-Path $exceptionRoot 'offline.invalid.manifest.json') -Raw | ConvertFrom-Json
+Assert-Contract ($exceptionManifest.status -eq 'invalid') 'validator exception manifest must be invalid'
+Assert-Contract ($exceptionManifest.statusReason -match 'synthetic validator failure') 'validator exception reason was not persisted'
+$tablesRoot = Join-Path $ContractRoot 'exception_tables'
+New-Item -ItemType Directory -Path $tablesRoot -Force | Out-Null
+Write-ResultTables -Results @($exceptionResult) -Directory $tablesRoot
+$validRows = @(Import-Csv (Join-Path $tablesRoot 'valid-runs.csv'))
+$invalidRows = @(Import-Csv (Join-Path $tablesRoot 'invalid-runs.csv'))
+Assert-Contract ($validRows.Count -eq 0) 'validator exception leaked into valid-runs.csv'
+Assert-Contract ($invalidRows.Count -eq 1) 'validator exception must create exactly one invalid row'
+Assert-Contract ($invalidRows[0].runId -eq 'exception_run') 'invalid row runId changed'
+
+Write-Output 'B4_VALIDATOR_MATRIX_PASS'
+";
     }
 }

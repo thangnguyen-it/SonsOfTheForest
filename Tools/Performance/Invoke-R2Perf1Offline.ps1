@@ -660,6 +660,58 @@ function Set-ManifestResult {
     Move-Item -LiteralPath $temporaryPath -Destination $ManifestPath -Force
 }
 
+function New-ValidatorExceptionRunResult {
+    param(
+        [Parameter(Mandatory = $true)][string]$RunDirectory,
+        [Parameter(Mandatory = $true)][string]$RunId,
+        [Parameter(Mandatory = $true)][System.Exception]$Exception,
+        [Nullable[int]]$ExitCode,
+        [Parameter(Mandatory = $true)][string]$Scenario,
+        [Parameter(Mandatory = $true)][string]$Quality,
+        [Parameter(Mandatory = $true)][string]$Antialiasing,
+        [Parameter(Mandatory = $true)][int]$RenderScalePercent,
+        [Parameter(Mandatory = $true)][string]$BuildKind,
+        [Parameter(Mandatory = $true)][bool]$MeasurementEligible
+    )
+
+    $reason = "offline validator exception: {0}: {1}" -f
+        $Exception.GetType().FullName,
+        $Exception.Message
+    $offlineManifestPath = Join-Path $RunDirectory "offline.invalid.manifest.json"
+    try {
+        Set-ManifestResult `
+            -ManifestPath $offlineManifestPath `
+            -RunId $RunId `
+            -Status "invalid" `
+            -Reason $reason `
+            -ExitCode $ExitCode `
+            -OutputsVerified $false `
+            -TelemetryValid $false
+    }
+    catch {
+        $reason += "; failed to persist offline invalid manifest: {0}: {1}" -f
+            $_.Exception.GetType().FullName,
+            $_.Exception.Message
+    }
+
+    return [pscustomobject]@{
+        runId = $RunId
+        status = "invalid"
+        exitCode = $ExitCode
+        reason = $reason
+        scenario = $Scenario
+        quality = $Quality
+        antialiasing = $Antialiasing
+        renderScalePercent = $RenderScalePercent
+        buildKind = $BuildKind
+        measurementEligible = $MeasurementEligible
+        productBudgetStatus = "NOT_EVALUATED"
+        productBudgetPassed = $null
+        productBudgetFailure = ""
+        report = ""
+    }
+}
+
 function Test-FiniteMeasurementReport {
     param([Parameter(Mandatory = $true)][object]$ScenarioResult)
 
@@ -692,6 +744,60 @@ function Test-FiniteMeasurementReport {
     return [pscustomobject]@{ Valid = $true; Reason = "finite metrics accepted" }
 }
 
+function New-ValidationCheck {
+    param(
+        [Parameter(Mandatory = $true)][bool]$Passed,
+        [Parameter(Mandatory = $true)][string]$Reason
+    )
+
+    return [pscustomobject]@{
+        Passed = $Passed
+        Reason = $Reason
+    }
+}
+
+function Get-FirstFailedValidationCheck {
+    param([Parameter(Mandatory = $true)][object[]]$Checks)
+
+    foreach ($check in @($Checks)) {
+        if ($null -eq $check -or
+            $null -eq $check.PSObject.Properties["Passed"] -or
+            $null -eq $check.PSObject.Properties["Reason"]) {
+            return [pscustomobject]@{
+                Passed = $false
+                Reason = "validator produced a malformed named check"
+            }
+        }
+        if (-not [bool]$check.Passed) {
+            return $check
+        }
+    }
+
+    return $null
+}
+
+function New-OutputValidationResult {
+    param(
+        [Parameter(Mandatory = $true)][bool]$Valid,
+        [Parameter(Mandatory = $true)][string]$Reason,
+        [AllowNull()][string]$ManifestPath,
+        [AllowNull()][object]$Report,
+        [string]$ProductBudgetStatus = "NOT_EVALUATED",
+        [AllowNull()][Nullable[bool]]$ProductBudgetPassed,
+        [string]$ProductBudgetFailure = ""
+    )
+
+    return [pscustomobject]@{
+        Valid = $Valid
+        Reason = $Reason
+        ManifestPath = $ManifestPath
+        Report = $Report
+        ProductBudgetStatus = $ProductBudgetStatus
+        ProductBudgetPassed = $ProductBudgetPassed
+        ProductBudgetFailure = $ProductBudgetFailure
+    }
+}
+
 function Test-RunOutputs {
     param(
         [Parameter(Mandatory = $true)][string]$RunDirectory,
@@ -709,11 +815,9 @@ function Test-RunOutputs {
 
     $manifestFiles = @(Get-ChildItem -LiteralPath $RunDirectory -Filter "*.manifest.json" -File)
     if ($manifestFiles.Count -ne 1) {
-        return [pscustomobject]@{
-            Valid = $false
-            Reason = "expected exactly one runtime manifest, found $($manifestFiles.Count)"
-            ManifestPath = $null
-        }
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason "expected exactly one runtime manifest, found $($manifestFiles.Count)"
     }
 
     $manifestPath = $manifestFiles[0].FullName
@@ -721,126 +825,220 @@ function Test-RunOutputs {
         $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     }
     catch {
-        return [pscustomobject]@{
-            Valid = $false
-            Reason = "runtime manifest is not valid JSON"
-            ManifestPath = $null
-        }
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason "runtime manifest is not valid JSON"
     }
     if ($manifest.runId -ne $RunId) {
-        return [pscustomobject]@{
-            Valid = $false
-            Reason = "manifest run-id mismatch; foreign manifest was not modified"
-            ManifestPath = $null
-        }
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason "manifest run-id mismatch; foreign manifest was not modified"
     }
     if ($manifest.status -ne "awaiting_offline_validation") {
-        return [pscustomobject]@{ Valid = $false; Reason = "runtime manifest is not awaiting validation"; ManifestPath = $manifestPath }
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason "runtime manifest is not awaiting validation" `
+            -ManifestPath $manifestPath
     }
     $manifestChecks = @(
-        @($manifest.scenario -eq $ExpectedScenario, "manifest scenario mismatch"),
-        @($manifest.buildKind -eq $ExpectedBuildKind, "manifest build-kind mismatch"),
-        @($manifest.quality -eq $ExpectedQuality, "manifest quality mismatch"),
-        @($manifest.antialiasing -eq $ExpectedAntialiasing, "manifest AA mismatch"),
-        @([int]$manifest.renderScalePercent -eq $ExpectedRenderScalePercent, "manifest render-scale mismatch"),
-        @([bool]$manifest.screenshotRequested -eq $ScreenshotExpected, "manifest screenshot mode mismatch")
+        (New-ValidationCheck -Passed ($manifest.scenario -eq $ExpectedScenario) -Reason "manifest scenario mismatch")
+        (New-ValidationCheck -Passed ($manifest.buildKind -eq $ExpectedBuildKind) -Reason "manifest build-kind mismatch")
+        (New-ValidationCheck -Passed ($manifest.quality -eq $ExpectedQuality) -Reason "manifest quality mismatch")
+        (New-ValidationCheck -Passed ($manifest.antialiasing -eq $ExpectedAntialiasing) -Reason "manifest AA mismatch")
+        (New-ValidationCheck -Passed ([int]$manifest.renderScalePercent -eq $ExpectedRenderScalePercent) -Reason "manifest render-scale mismatch")
+        (New-ValidationCheck -Passed ([bool]$manifest.screenshotRequested -eq $ScreenshotExpected) -Reason "manifest screenshot mode mismatch")
     )
-    foreach ($check in $manifestChecks) {
-        if (-not [bool]$check[0]) {
-            return [pscustomobject]@{
-                Valid = $false
-                Reason = [string]$check[1]
-                ManifestPath = $manifestPath
-            }
-        }
+    $failedManifestCheck = Get-FirstFailedValidationCheck -Checks $manifestChecks
+    if ($null -ne $failedManifestCheck) {
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason ([string]$failedManifestCheck.Reason) `
+            -ManifestPath $manifestPath
     }
     if ([string]::IsNullOrWhiteSpace([string]$manifest.reportJsonPath) -or
         [string]::IsNullOrWhiteSpace([string]$manifest.reportMarkdownPath)) {
-        return [pscustomobject]@{
-            Valid = $false
-            Reason = "manifest report path is missing"
-            ManifestPath = $manifestPath
-        }
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason "manifest report path is missing" `
+            -ManifestPath $manifestPath
     }
     if (-not (Test-PathWithinDirectory -Path $manifestPath -Directory $RunDirectory) -or
         -not (Test-PathWithinDirectory -Path $manifest.reportJsonPath -Directory $RunDirectory) -or
         -not (Test-PathWithinDirectory -Path $manifest.reportMarkdownPath -Directory $RunDirectory)) {
-        return [pscustomobject]@{
-            Valid = $false
-            Reason = "manifest or report path escapes the current run directory"
-            ManifestPath = $manifestPath
-        }
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason "manifest or report path escapes the current run directory" `
+            -ManifestPath $manifestPath
     }
     if (-not (Test-Path -LiteralPath $manifest.reportJsonPath -PathType Leaf) -or
         -not (Test-Path -LiteralPath $manifest.reportMarkdownPath -PathType Leaf)) {
-        return [pscustomobject]@{ Valid = $false; Reason = "missing JSON report"; ManifestPath = $manifestPath }
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason "missing JSON report" `
+            -ManifestPath $manifestPath
     }
 
     try {
         $report = Get-Content -LiteralPath $manifest.reportJsonPath -Raw | ConvertFrom-Json
     }
     catch {
-        return [pscustomobject]@{
-            Valid = $false
-            Reason = "runtime report is not valid JSON"
-            ManifestPath = $manifestPath
-        }
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason "runtime report is not valid JSON" `
+            -ManifestPath $manifestPath
     }
     $expectedDevelopment = $ExpectedBuildKind -eq "diagnostic"
     $checks = @(
-        @($report.benchmarkRunId -eq $RunId, "report run-id mismatch"),
-        @($report.benchmarkScenario -eq $ExpectedScenario, "report scenario mismatch"),
-        @($report.buildKind -eq $ExpectedBuildKind, "report build-kind mismatch"),
-        @($report.qualityLevel -eq $ExpectedQuality, "report quality mismatch"),
-        @($report.antialiasingMode -eq $ExpectedAntialiasing, "report AA mismatch"),
-        @([int]$report.renderScalePercent -eq $ExpectedRenderScalePercent, "report render-scale mismatch"),
-        @([bool]$report.developmentBuild -eq $expectedDevelopment, "actual build type does not match build-kind"),
-        @([int]$report.width -eq $ExpectedWidth, "standalone width mismatch"),
-        @([int]$report.height -eq $ExpectedHeight, "standalone height mismatch"),
-        @([string]$report.graphicsDeviceName -like "*$ExpectedGpuName*", "standalone GPU mismatch"),
-        @([string]$report.graphicsDeviceType -eq "Direct3D11", "standalone graphics API mismatch")
+        (New-ValidationCheck -Passed ($report.benchmarkRunId -eq $RunId) -Reason "report run-id mismatch")
+        (New-ValidationCheck -Passed ($report.benchmarkScenario -eq $ExpectedScenario) -Reason "report scenario mismatch")
+        (New-ValidationCheck -Passed ($report.buildKind -eq $ExpectedBuildKind) -Reason "report build-kind mismatch")
+        (New-ValidationCheck -Passed ($report.qualityLevel -eq $ExpectedQuality) -Reason "report quality mismatch")
+        (New-ValidationCheck -Passed ($report.antialiasingMode -eq $ExpectedAntialiasing) -Reason "report AA mismatch")
+        (New-ValidationCheck -Passed ([int]$report.renderScalePercent -eq $ExpectedRenderScalePercent) -Reason "report render-scale mismatch")
+        (New-ValidationCheck -Passed ([bool]$report.developmentBuild -eq $expectedDevelopment) -Reason "actual build type does not match build-kind")
+        (New-ValidationCheck -Passed ([int]$report.width -eq $ExpectedWidth) -Reason "standalone width mismatch")
+        (New-ValidationCheck -Passed ([int]$report.height -eq $ExpectedHeight) -Reason "standalone height mismatch")
+        (New-ValidationCheck -Passed ([string]$report.graphicsDeviceName -like "*$ExpectedGpuName*") -Reason "standalone GPU mismatch")
+        (New-ValidationCheck -Passed ([string]$report.graphicsDeviceType -eq "Direct3D11") -Reason "standalone graphics API mismatch")
     )
     if ($ExpectedBuildKind -eq "release") {
         $checks += @(
-            @(-not [bool]$report.profilerEnabled, "Profiler was enabled in a Release measurement"),
-            @(-not [bool]$report.profilerBinaryLogEnabled, "Profiler binary logging was enabled in Release"),
-            @(-not [bool]$report.deepProfilingBuild, "Deep Profiling was enabled in Release")
+            (New-ValidationCheck -Passed (-not [bool]$report.profilerEnabled) -Reason "Profiler was enabled in a Release measurement")
+            (New-ValidationCheck -Passed (-not [bool]$report.profilerBinaryLogEnabled) -Reason "Profiler binary logging was enabled in Release")
+            (New-ValidationCheck -Passed (-not [bool]$report.deepProfilingBuild) -Reason "Deep Profiling was enabled in Release")
         )
     }
-    foreach ($check in $checks) {
-        if (-not [bool]$check[0]) {
-            return [pscustomobject]@{ Valid = $false; Reason = [string]$check[1]; ManifestPath = $manifestPath }
-        }
+    $failedReportCheck = Get-FirstFailedValidationCheck -Checks $checks
+    if ($null -ne $failedReportCheck) {
+        return New-OutputValidationResult `
+            -Valid $false `
+            -Reason ([string]$failedReportCheck.Reason) `
+            -ManifestPath $manifestPath
     }
 
+    $productBudgetStatus = "NOT_APPLICABLE"
+    $productBudgetPassed = $null
+    $productBudgetFailure = ""
     if ($ScreenshotExpected) {
         if ([bool]$report.measurementEligible -or @($report.scenarios).Count -ne 0) {
-            return [pscustomobject]@{ Valid = $false; Reason = "visual run contains product measurements"; ManifestPath = $manifestPath }
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason "visual run contains product measurements" `
+                -ManifestPath $manifestPath
         }
         if ([string]::IsNullOrWhiteSpace([string]$manifest.screenshotPath) -or
             -not (Test-PathWithinDirectory -Path $manifest.screenshotPath -Directory $RunDirectory) -or
             -not (Test-Path -LiteralPath $manifest.screenshotPath -PathType Leaf)) {
-            return [pscustomobject]@{ Valid = $false; Reason = "visual run screenshot missing"; ManifestPath = $manifestPath }
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason "visual run screenshot missing" `
+                -ManifestPath $manifestPath
         }
     }
     else {
-        if (-not [bool]$report.measurementEligible -or @($report.scenarios).Count -ne 1) {
-            return [pscustomobject]@{ Valid = $false; Reason = "measurement run does not contain exactly one scenario"; ManifestPath = $manifestPath }
+        if (-not [bool]$report.measurementEligible) {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason "measurement run is not marked measurement-eligible" `
+                -ManifestPath $manifestPath
         }
-        if ($report.scenarios[0].name -ne $ExpectedScenario) {
-            return [pscustomobject]@{ Valid = $false; Reason = "measured scenario mismatch"; ManifestPath = $manifestPath }
+
+        $scenarios = @($report.scenarios)
+        $matchingScenarios = @($scenarios | Where-Object {
+            [string]$_.name -eq $ExpectedScenario
+        })
+        if ($matchingScenarios.Count -eq 0) {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason "expected measured scenario was not found: $ExpectedScenario" `
+                -ManifestPath $manifestPath
         }
-        $finite = Test-FiniteMeasurementReport -ScenarioResult $report.scenarios[0]
+        if ($matchingScenarios.Count -gt 1) {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason "expected measured scenario is duplicated: $ExpectedScenario" `
+                -ManifestPath $manifestPath
+        }
+        if ($scenarios.Count -ne 1) {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason "measurement report contains unexpected extra scenarios" `
+                -ManifestPath $manifestPath
+        }
+
+        $scenarioResult = $matchingScenarios[0]
+        $finite = Test-FiniteMeasurementReport -ScenarioResult $scenarioResult
         if (-not $finite.Valid) {
-            return [pscustomobject]@{
-                Valid = $false
-                Reason = $finite.Reason
-                ManifestPath = $manifestPath
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason ([string]$finite.Reason) `
+                -ManifestPath $manifestPath
+        }
+
+        $requiredAvailabilityFields = @(
+            "drawCallsAvailable",
+            "batchesAvailable",
+            "setPassCallsAvailable",
+            "trianglesAvailable",
+            "verticesAvailable",
+            "gcAllocationAvailable",
+            "totalUsedMemoryAvailable",
+            "gfxUsedMemoryAvailable",
+            "textureMemoryAvailable"
+        )
+        foreach ($availabilityField in $requiredAvailabilityFields) {
+            $availabilityProperty = $scenarioResult.PSObject.Properties[$availabilityField]
+            if ($null -eq $availabilityProperty -or -not [bool]$availabilityProperty.Value) {
+                return New-OutputValidationResult `
+                    -Valid $false `
+                    -Reason "required metric is unavailable: $availabilityField" `
+                    -ManifestPath $manifestPath
             }
         }
+
+        $budgetStatusProperty = $scenarioResult.PSObject.Properties["budgetStatus"]
+        if ($null -eq $budgetStatusProperty) {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason "measurement report is missing budgetStatus" `
+                -ManifestPath $manifestPath
+        }
+        $productBudgetStatus = [string]$budgetStatusProperty.Value
+        $productBudgetFailure = [string]$scenarioResult.budgetFailure
+        if ($productBudgetStatus -eq "INCOMPLETE") {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason ("measurement completeness gate failed: " + $productBudgetFailure) `
+                -ManifestPath $manifestPath `
+                -ProductBudgetStatus $productBudgetStatus `
+                -ProductBudgetPassed $false `
+                -ProductBudgetFailure $productBudgetFailure
+        }
+        if ($productBudgetStatus -notin @("PASS", "FAIL")) {
+            return New-OutputValidationResult `
+                -Valid $false `
+                -Reason "measurement report has unsupported budgetStatus: $productBudgetStatus" `
+                -ManifestPath $manifestPath `
+                -ProductBudgetStatus $productBudgetStatus `
+                -ProductBudgetFailure $productBudgetFailure
+        }
+        $productBudgetPassed = $productBudgetStatus -eq "PASS"
     }
 
-    return [pscustomobject]@{ Valid = $true; Reason = "outputs accepted"; ManifestPath = $manifestPath; Report = $report }
+    $acceptedReason = if ($productBudgetStatus -eq "FAIL") {
+        "outputs accepted; product budget failed: $productBudgetFailure"
+    }
+    else {
+        "outputs accepted"
+    }
+    return New-OutputValidationResult `
+        -Valid $true `
+        -Reason $acceptedReason `
+        -ManifestPath $manifestPath `
+        -Report $report `
+        -ProductBudgetStatus $productBudgetStatus `
+        -ProductBudgetPassed $productBudgetPassed `
+        -ProductBudgetFailure $productBudgetFailure
 }
 
 function Write-ResultTables {
@@ -1022,75 +1220,104 @@ for ($run = 1; $run -le $Runs; $run++) {
         Export-Csv -LiteralPath $telemetryPath -NoTypeInformation -Encoding UTF8
     (& nvidia-smi pmon -c 1 2>&1) | Out-File -LiteralPath (Join-Path $runDirectory "nvidia-pmon-after.txt") -Encoding utf8
 
-    $telemetryCheck = Test-Telemetry `
-        -Records $telemetry `
-        -GpuName $ExpectedGpu `
-        -ExternalProcesses @($duringPmon.Processes) `
-        -ChildProcessId $process.Id
-    $outputsStable = Wait-ForStableRunOutputs -RunDirectory $runDirectory
-    if ($outputsStable) {
-        $outputCheck = Test-RunOutputs `
-            -RunDirectory $runDirectory `
+    $telemetryCheck = $null
+    $outputCheck = $null
+    $runResult = $null
+    try {
+        $telemetryCheck = Test-Telemetry `
+            -Records $telemetry `
+            -GpuName $ExpectedGpu `
+            -ExternalProcesses @($duringPmon.Processes) `
+            -ChildProcessId $process.Id
+        $outputsStable = Wait-ForStableRunOutputs -RunDirectory $runDirectory
+        if ($outputsStable) {
+            $outputCheck = Test-RunOutputs `
+                -RunDirectory $runDirectory `
+                -RunId $runId `
+                -ExpectedScenario $Scenario `
+                -ExpectedBuildKind $BuildKind `
+                -ExpectedQuality $Quality `
+                -ExpectedAntialiasing $Antialiasing `
+                -ExpectedRenderScalePercent $RenderScalePercent `
+                -ExpectedGpuName $ExpectedGpu `
+                -ExpectedWidth $Width `
+                -ExpectedHeight $Height `
+                -ScreenshotExpected ([bool]$CaptureScreenshot)
+        }
+        else {
+            $outputCheck = New-OutputValidationResult `
+                -Valid $false `
+                -Reason "runtime outputs did not become complete and stable after process exit"
+        }
+
+        $normalExit = -not $timedOut -and
+            $remainingProcessIds.Count -eq 0 -and
+            $process.HasExited -and
+            $exitCode -eq 0
+        $isValid = $normalExit -and $outputCheck.Valid -and $telemetryCheck.Valid
+        $reasonParts = @()
+        if ($timedOut) { $reasonParts += "timeout after $TimeoutSeconds seconds" }
+        if ($remainingProcessIds.Count -gt 0) {
+            $reasonParts += "timed-out child process tree still active: $($remainingProcessIds -join ', ')"
+        }
+        elseif ($exitCode -ne 0) { $reasonParts += "child exit code $exitCode" }
+        if (-not $outputCheck.Valid) { $reasonParts += $outputCheck.Reason }
+        if (-not $telemetryCheck.Valid) { $reasonParts += $telemetryCheck.Reason }
+        if ($outputCheck.Valid -and $outputCheck.ProductBudgetStatus -eq "FAIL") {
+            $reasonParts += $outputCheck.Reason
+        }
+        $reason = if ($reasonParts.Count -eq 0) {
+            "all offline validation gates passed"
+        }
+        else {
+            $reasonParts -join "; "
+        }
+
+        $manifestPath = $outputCheck.ManifestPath
+        if ([string]::IsNullOrWhiteSpace($manifestPath)) {
+            $manifestPath = Join-Path $runDirectory "offline.invalid.manifest.json"
+        }
+        Set-ManifestResult `
+            -ManifestPath $manifestPath `
             -RunId $runId `
-            -ExpectedScenario $Scenario `
-            -ExpectedBuildKind $BuildKind `
-            -ExpectedQuality $Quality `
-            -ExpectedAntialiasing $Antialiasing `
-            -ExpectedRenderScalePercent $RenderScalePercent `
-            -ExpectedGpuName $ExpectedGpu `
-            -ExpectedWidth $Width `
-            -ExpectedHeight $Height `
-            -ScreenshotExpected ([bool]$CaptureScreenshot)
-    }
-    else {
-        $outputCheck = [pscustomobject]@{
-            Valid = $false
-            Reason = "runtime outputs did not become complete and stable after process exit"
-            ManifestPath = $null
+            -Status $(if ($isValid) { "valid" } else { "invalid" }) `
+            -Reason $reason `
+            -ExitCode $exitCode `
+            -OutputsVerified $outputCheck.Valid `
+            -TelemetryValid $telemetryCheck.Valid
+
+        $runResult = [pscustomobject]@{
+            runId = $runId
+            status = if ($isValid) { "valid" } else { "invalid" }
+            exitCode = $exitCode
+            reason = $reason
+            scenario = $Scenario
+            quality = $Quality
+            antialiasing = $Antialiasing
+            renderScalePercent = $RenderScalePercent
+            buildKind = $BuildKind
+            measurementEligible = -not [bool]$CaptureScreenshot
+            productBudgetStatus = $outputCheck.ProductBudgetStatus
+            productBudgetPassed = $outputCheck.ProductBudgetPassed
+            productBudgetFailure = $outputCheck.ProductBudgetFailure
+            report = if ($outputCheck.Valid) { $outputCheck.Report.phase } else { "" }
         }
     }
-
-    $normalExit = -not $timedOut -and
-        $remainingProcessIds.Count -eq 0 -and
-        $process.HasExited -and
-        $exitCode -eq 0
-    $isValid = $normalExit -and $outputCheck.Valid -and $telemetryCheck.Valid
-    $reasonParts = @()
-    if ($timedOut) { $reasonParts += "timeout after $TimeoutSeconds seconds" }
-    if ($remainingProcessIds.Count -gt 0) {
-        $reasonParts += "timed-out child process tree still active: $($remainingProcessIds -join ', ')"
+    catch {
+        $runResult = New-ValidatorExceptionRunResult `
+            -RunDirectory $runDirectory `
+            -RunId $runId `
+            -Exception $_.Exception `
+            -ExitCode $exitCode `
+            -Scenario $Scenario `
+            -Quality $Quality `
+            -Antialiasing $Antialiasing `
+            -RenderScalePercent $RenderScalePercent `
+            -BuildKind $BuildKind `
+            -MeasurementEligible (-not [bool]$CaptureScreenshot)
     }
-    elseif ($exitCode -ne 0) { $reasonParts += "child exit code $exitCode" }
-    if (-not $outputCheck.Valid) { $reasonParts += $outputCheck.Reason }
-    if (-not $telemetryCheck.Valid) { $reasonParts += $telemetryCheck.Reason }
-    $reason = if ($reasonParts.Count -eq 0) { "all offline validation gates passed" } else { $reasonParts -join "; " }
 
-    $manifestPath = $outputCheck.ManifestPath
-    if ([string]::IsNullOrWhiteSpace($manifestPath)) {
-        $manifestPath = Join-Path $runDirectory ("offline_invalid_{0}.manifest.json" -f $runId)
-    }
-    Set-ManifestResult `
-        -ManifestPath $manifestPath `
-        -RunId $runId `
-        -Status $(if ($isValid) { "valid" } else { "invalid" }) `
-        -Reason $reason `
-        -ExitCode $exitCode `
-        -OutputsVerified $outputCheck.Valid `
-        -TelemetryValid $telemetryCheck.Valid
-
-    $results += [pscustomobject]@{
-        runId = $runId
-        status = if ($isValid) { "valid" } else { "invalid" }
-        exitCode = $exitCode
-        reason = $reason
-        scenario = $Scenario
-        quality = $Quality
-        antialiasing = $Antialiasing
-        renderScalePercent = $RenderScalePercent
-        buildKind = $BuildKind
-        measurementEligible = -not [bool]$CaptureScreenshot
-        report = if ($outputCheck.Valid) { $outputCheck.Report.phase } else { "" }
-    }
+    $results += $runResult
 }
 
 if ($DryRun) {
