@@ -73,10 +73,69 @@ Common contract: High Fidelity, TAA, 100% render scale, 1280x720, windowed,
 Direct3D 11, Release/non-Development, `release_performance`, 10-second natural
 warm-up, 8-second sample, screenshots disabled.
 
+## Rendering revalidation closeout
+
+All three controlled Release runs completed with `evidenceValidity = VALID`,
+process exit code 0, and `performanceBudgetStatus = PASS`.
+
+### `ground_only`
+
+Evidence:
+`Benchmarks/R2_PERF1_Offline/releaseperf-release-r1-20260801T174922387Z-bf492e4a719a`
+
+- 207.8345 FPS
+- 4.8115 ms average
+- 5.5272 ms p95
+- 6.7942 ms p99
+- CPU 4.8116 ms
+- GPU 4.5514 ms
+- PASS
+
+### `full_forest`
+
+Evidence:
+`Benchmarks/R2_PERF1_Offline/releaseperf-release-r1-20260801T175354382Z-47067cee7634`
+
+- 164.5244 FPS
+- 6.0781 ms average
+- 6.6691 ms p95
+- 7.0506 ms p99
+- CPU 6.0774 ms
+- GPU 5.9430 ms
+- 317 draw calls
+- 0.557691M triangles
+- PASS
+
+### Final `empty_hdrp_camera` control
+
+Evidence:
+`Benchmarks/R2_PERF1_Offline/releaseperf-release-r1-20260801T175759670Z-84770db38634`
+
+- 236.4735 FPS
+- 4.2288 ms average
+- 6.0090 ms p95
+- 6.6433 ms p99
+- CPU 4.2275 ms
+- GPU 3.0244 ms
+- PASS
+
+### Decision
+
+- R2-PERF1 rendering gate: **PASS**.
+- Historical R2-PERF0 measurements remain preserved but are superseded for
+  current decisions.
+- No quality downgrade, render-scale reduction, vegetation-tier isolation, or
+  renderer rewrite is required by the controlled evidence.
+- The current controlled forest benchmark is not evidence that the complete
+  game already meets 60 FPS.
+- Preserve `GC-OBS-001` and the strict zero-allocation gate.
+- Next milestone: **R2-FOREST1 — Production Forest Cell**.
+
 ## Release commands
 
-These are the real commands approved for manual execution. They were validated
-with the identical arguments plus `-DryRun`; no real benchmark has been run.
+These exact commands produced the controlled evidence above. Preserve them as
+the revalidation invocation record and use them unchanged for any approved
+repeat.
 
 ```powershell
 .\Tools\Performance\Invoke-R2Perf1Offline.cmd -ExecutablePath "Builds/Benchmarks/R2_PERF1_Release/SOTF_R2_PERF1.exe" -Quality "High Fidelity" -Scenario ground_only -Antialiasing TAA -RenderScalePercent 100 -Upscaler CatmullRom -BuildKind release -MeasurementRole release_performance -MeasurementSetId r2_perf1c0_ground_only -Runs 1 -TimeoutSeconds 180 -WarmupSeconds 10 -SampleSeconds 8 -Width 1280 -Height 720
@@ -86,6 +145,6 @@ with the identical arguments plus `-DryRun`; no real benchmark has been run.
 .\Tools\Performance\Invoke-R2Perf1Offline.cmd -ExecutablePath "Builds/Benchmarks/R2_PERF1_Release/SOTF_R2_PERF1.exe" -Quality "High Fidelity" -Scenario empty_hdrp_camera -Antialiasing TAA -RenderScalePercent 100 -Upscaler CatmullRom -BuildKind release -MeasurementRole release_performance -MeasurementSetId r2_perf1c0_empty_control -Runs 1 -TimeoutSeconds 180 -WarmupSeconds 10 -SampleSeconds 8 -Width 1280 -Height 720
 ```
 
-Before manual execution, close Unity and VS Code, connect AC power, select the
-high-performance Windows power plan, and preserve the current Release artifact
-and provenance sidecar as the measurement authority.
+Before any approved repeat, close Unity and VS Code, connect AC power, select
+the high-performance Windows power plan, and preserve the current Release
+artifact and provenance sidecar as the measurement authority.
