@@ -1,0 +1,251 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7ec5b7d0afda5334488bb2e823b59a29, type: 3}
+  m_Name: CELL_ProductionForest_001
+  m_EditorClassIdentifier: SonsOfTheForest.Data.Forest::SonsOfTheForest.Data.Forest.ForestCellDefinition
+  forestCellId: cell.production.forest.001
+  schemaVersion: 1
+  generatorVersion: 1
+  boundsCenter: {x: 0, y: 15, z: 0}
+  boundsSize: {x: 80, y: 30, z: 80}
+  seed: 481516
+  densityPerSquareMeter: 0.006
+  placementChecksum: 55b89756b0b70a622280a2c6577b462d6de1db69bbcc7252dd5bb8c15c6da841
+  placements:
+  - treeInstanceId: tree.a1412e48526b5a63d9f6
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 37.6, y: 0, z: -16.136002}
+    yawDegrees: 322.36075
+    uniformScale: 0.9909321
+  - treeInstanceId: tree.dbae091b379617d6544a
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.b
+    localPosition: {x: -13.122022, y: 0, z: 0.670534}
+    yawDegrees: 242.15605
+    uniformScale: 0.8897096
+  - treeInstanceId: tree.dee8718d7b78c9c645cd
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: 10.610714, y: 0, z: -17.73299}
+    yawDegrees: 60.360733
+    uniformScale: 1.010695
+  - treeInstanceId: tree.46b321836fffcacaf868
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 8.899048, y: 0, z: -13.03459}
+    yawDegrees: 143.54706
+    uniformScale: 1.1078842
+  - treeInstanceId: tree.190da98d156dace6505b
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: -20.969814, y: 0, z: 7.300266}
+    yawDegrees: 257.59222
+    uniformScale: 1.0033711
+  - treeInstanceId: tree.42bc36c07ff6dba763c2
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: -7.924628, y: 0, z: -18.062416}
+    yawDegrees: 318.55353
+    uniformScale: 1.0993907
+  - treeInstanceId: tree.9b6b920cbf34e3fd7ca6
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.b
+    localPosition: {x: 23.512877, y: 0, z: -13.723736}
+    yawDegrees: 46.7379
+    uniformScale: 1.066274
+  - treeInstanceId: tree.8b3139e7a467fdfa5ad3
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: 36.993134, y: 0, z: -25.866583}
+    yawDegrees: 98.30687
+    uniformScale: 0.92713434
+  - treeInstanceId: tree.a2fa6a7695a07c479600
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 15.889551, y: 0, z: -3.8797598}
+    yawDegrees: 165.34082
+    uniformScale: 0.9373652
+  - treeInstanceId: tree.9a3043316000f9eee14d
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: 5.030552, y: 0, z: -0.58820295}
+    yawDegrees: 149.21788
+    uniformScale: 0.9572845
+  - treeInstanceId: tree.5a93641fe3ac2d6d801c
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: -21.53753, y: 0, z: -19.716955}
+    yawDegrees: 10.963133
+    uniformScale: 0.90567815
+  - treeInstanceId: tree.f0802e63ada8b54820a4
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: 19.47815, y: 0, z: -0.16699076}
+    yawDegrees: 243.50668
+    uniformScale: 0.992331
+  - treeInstanceId: tree.64871a02498a36888553
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: 28.880186, y: 0, z: -10.433169}
+    yawDegrees: 220.52951
+    uniformScale: 1.0461489
+  - treeInstanceId: tree.0f126404cd9bbf31ed4b
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.b
+    localPosition: {x: 11.39794, y: 0, z: -7.945387}
+    yawDegrees: 115.693436
+    uniformScale: 1.0250773
+  - treeInstanceId: tree.24a2b542510a9f1c4a34
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 26.105072, y: 0, z: -1.5577929}
+    yawDegrees: 291.25583
+    uniformScale: 0.94852656
+  - treeInstanceId: tree.cd656a934f515a05c1d8
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 0.24371433, y: 0, z: -17.783672}
+    yawDegrees: 12.029278
+    uniformScale: 1.0795518
+  - treeInstanceId: tree.f79eca4a3c85772a96f5
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.b
+    localPosition: {x: -26.678976, y: 0, z: -34.471786}
+    yawDegrees: 72.4234
+    uniformScale: 1.1415527
+  - treeInstanceId: tree.93e6d8f6eca961bd61e4
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.b
+    localPosition: {x: -2.475597, y: 0, z: -7.848604}
+    yawDegrees: 261.95258
+    uniformScale: 0.98681253
+  - treeInstanceId: tree.73849ce235be0fb9be9d
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: 2.0361845, y: 0, z: -6.814163}
+    yawDegrees: 142.89453
+    uniformScale: 1.0775399
+  - treeInstanceId: tree.ba23c0bf6f61c9a1747f
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 8.197881, y: 0, z: 10.929646}
+    yawDegrees: 317.7143
+    uniformScale: 0.9648881
+  - treeInstanceId: tree.3ee8e232366995ae49d5
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.b
+    localPosition: {x: 0.66039646, y: 0, z: 9.824851}
+    yawDegrees: 180.85767
+    uniformScale: 0.97443956
+  - treeInstanceId: tree.20b18bc6de19c5bcdcdd
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: -6.71283, y: 0, z: 12.7091465}
+    yawDegrees: 239.2488
+    uniformScale: 1.1390736
+  - treeInstanceId: tree.630d9c752e08ad4b9ff5
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.b
+    localPosition: {x: 4.298603, y: 0, z: 5.514683}
+    yawDegrees: 316.327
+    uniformScale: 0.90584475
+  - treeInstanceId: tree.dadf48e11b979ab5fae7
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 14.414704, y: 0, z: 6.148865}
+    yawDegrees: 185.94589
+    uniformScale: 0.949101
+  - treeInstanceId: tree.be71bdb04a76a5c851fd
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: -14.504622, y: 0, z: 33.655773}
+    yawDegrees: 206.73326
+    uniformScale: 0.96931916
+  - treeInstanceId: tree.6732d9feef5d1df64e47
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: 9.549776, y: 0, z: -27.537271}
+    yawDegrees: 287.92972
+    uniformScale: 1.0635917
+  - treeInstanceId: tree.8ef5cb05a116df046569
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 16.950897, y: 0, z: -36.96943}
+    yawDegrees: 37.690292
+    uniformScale: 1.0115113
+  - treeInstanceId: tree.fa3b848151db62a1397c
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 37.6, y: 0, z: -2.8850377}
+    yawDegrees: 197.87915
+    uniformScale: 0.9358037
+  - treeInstanceId: tree.55981faec4a759acfe92
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: 19.53017, y: 0, z: -9.667251}
+    yawDegrees: 24.099304
+    uniformScale: 0.93322617
+  - treeInstanceId: tree.68f4aee6e5b02c895085
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: -21.428259, y: 0, z: -7.235189}
+    yawDegrees: 165.92429
+    uniformScale: 0.94207764
+  - treeInstanceId: tree.e5dbb0fea40da02fa7ef
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: -8.777296, y: 0, z: -5.4116197}
+    yawDegrees: 248.67769
+    uniformScale: 0.9469981
+  - treeInstanceId: tree.96e0cdb9ec24a6da85b8
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.b
+    localPosition: {x: -28.655304, y: 0, z: -9.266092}
+    yawDegrees: 260.42255
+    uniformScale: 1.1416249
+  - treeInstanceId: tree.7814a403047d7018743d
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 29.327541, y: 0, z: 27.984262}
+    yawDegrees: 249.38194
+    uniformScale: 0.987945
+  - treeInstanceId: tree.815939ad63ab52526a13
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.b
+    localPosition: {x: 5.4742956, y: 0, z: 14.73358}
+    yawDegrees: 62.373375
+    uniformScale: 1.0674714
+  - treeInstanceId: tree.f7d1faaade135f8dae14
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: -35.831318, y: 0, z: 30.40139}
+    yawDegrees: 11.774103
+    uniformScale: 1.1468675
+  - treeInstanceId: tree.7042d24a3d0ee8b135a8
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: 31.050184, y: 0, z: -37.27646}
+    yawDegrees: 22.801266
+    uniformScale: 1.0539842
+  - treeInstanceId: tree.0977c0c6bcfa399bc9b5
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.a
+    localPosition: {x: -16.974058, y: 0, z: -18.264673}
+    yawDegrees: 292.8097
+    uniformScale: 1.0555887
+  - treeInstanceId: tree.2a61f7abab3825f9dfa0
+    speciesId: species.conifer.interim
+    variantId: variant.conifer.c
+    localPosition: {x: -6.8204575, y: 0, z: 17.21439}
+    yawDegrees: 133.26743
+    uniformScale: 0.92219394

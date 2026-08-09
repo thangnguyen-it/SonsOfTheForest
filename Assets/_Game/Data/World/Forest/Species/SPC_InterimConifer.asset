@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c58350b340033e847bec511a0c2d7c38, type: 3}
+  m_Name: SPC_InterimConifer
+  m_EditorClassIdentifier: SonsOfTheForest.Data.Forest::SonsOfTheForest.Data.Forest.ForestSpeciesDefinition
+  speciesId: species.conifer.interim
+  visualVariants:
+  - variantId: variant.conifer.a
+    visualPrefab: {fileID: 8626755268534309636, guid: c8bce735b46518c4fbb3b28e50cc749b, type: 3}
+    placementWeight: 1
+  - variantId: variant.conifer.b
+    visualPrefab: {fileID: 5013288512870463195, guid: e79a0dc56a5240d41b4f50b5d5639463, type: 3}
+    placementWeight: 1
+  - variantId: variant.conifer.c
+    visualPrefab: {fileID: 5894083284300150496, guid: 49b43a65dd0688c46abdc5b8e4ff82ab, type: 3}
+    placementWeight: 1
+  requireLodGroup: 1
+  shadowPolicy: 0
+  colliderPrefab: {fileID: 0}
+  stumpPrefab: {fileID: 0}
+  logPrefab: {fileID: 0}
+  resourceProfile: {fileID: 0}

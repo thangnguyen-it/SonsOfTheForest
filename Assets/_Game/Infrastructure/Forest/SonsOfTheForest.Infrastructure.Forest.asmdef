@@ -1,14 +1,11 @@
 {
-  "name": "SonsOfTheForest.Editor.ForestCell",
-  "rootNamespace": "SonsOfTheForest.Infrastructure.Editor.ForestCell",
+  "name": "SonsOfTheForest.Infrastructure.Forest",
+  "rootNamespace": "SonsOfTheForest.Infrastructure.Forest",
   "references": [
     "SonsOfTheForest.Core",
-    "SonsOfTheForest.Data.Forest",
-    "SonsOfTheForest.Infrastructure.Forest"
+    "SonsOfTheForest.Data.Forest"
   ],
-  "includePlatforms": [
-    "Editor"
-  ],
+  "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,
