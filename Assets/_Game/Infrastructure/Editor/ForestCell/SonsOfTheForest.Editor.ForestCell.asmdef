@@ -1,0 +1,19 @@
+{
+  "name": "SonsOfTheForest.Editor.ForestCell",
+  "rootNamespace": "SonsOfTheForest.Infrastructure.Editor.ForestCell",
+  "references": [
+    "SonsOfTheForest.Core",
+    "SonsOfTheForest.Data.Forest"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
