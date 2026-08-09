@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c58350b340033e847bec511a0c2d7c38, type: 3}
+  m_Name: SPC_Maple
+  m_EditorClassIdentifier: SonsOfTheForest.Data.Forest::SonsOfTheForest.Data.Forest.ForestSpeciesDefinition
+  speciesId: species.maple
+  visualVariants:
+  - variantId: variant.maple.large.1
+    visualPrefab: {fileID: 1074230663053178634, guid: 24db61f068204b04eb27dd869451bb58, type: 3}
+    placementWeight: 1
+  - variantId: variant.maple.large.2
+    visualPrefab: {fileID: 5481464132169780513, guid: 59c49cfcfea0d2641a1557d8e92f382d, type: 3}
+    placementWeight: 1
+  - variantId: variant.maple.large.3
+    visualPrefab: {fileID: 5876116889407526268, guid: 4e7ce7c295f3fc245ac40620873b2a79, type: 3}
+    placementWeight: 1
+  - variantId: variant.maple.medium.1
+    visualPrefab: {fileID: 1973007677490262742, guid: 69e0c7ec9c4b171448c87ae2036bb824, type: 3}
+    placementWeight: 1
+  requireLodGroup: 1
+  shadowPolicy: 0
+  colliderPrefab: {fileID: 0}
+  stumpPrefab: {fileID: 0}
+  logPrefab: {fileID: 0}
+  resourceProfile: {fileID: 0}

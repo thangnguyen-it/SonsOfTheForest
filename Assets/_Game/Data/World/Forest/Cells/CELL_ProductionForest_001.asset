@@ -13,239 +13,239 @@ MonoBehaviour:
   m_Name: CELL_ProductionForest_001
   m_EditorClassIdentifier: SonsOfTheForest.Data.Forest::SonsOfTheForest.Data.Forest.ForestCellDefinition
   forestCellId: cell.production.forest.001
-  schemaVersion: 1
+  schemaVersion: 2
   generatorVersion: 1
   boundsCenter: {x: 0, y: 15, z: 0}
   boundsSize: {x: 80, y: 30, z: 80}
   seed: 481516
   densityPerSquareMeter: 0.006
-  placementChecksum: 488cfb8fc80bed01371e5a75b28bd6621e45b3a97530e8a8370977d0cb7d7ba8
+  placementChecksum: db48d6771cbb2b7d5746fe2e74ac59686bf47d149f10ce94d79d4a4c1ec0e22d
   placements:
   - treeInstanceId: tree.a1412e48526b5a63d9f6
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.pine
+    variantId: variant.pine.big.3
     localPosition: {x: 37.6, y: 0, z: -20.540916}
     yawDegrees: 322.36075
     uniformScale: 0.9909321
   - treeInstanceId: tree.dbae091b379617d6544a
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.pine
+    variantId: variant.pine.big.1
     localPosition: {x: -13.122022, y: 0, z: 0.670534}
     yawDegrees: 242.15605
     uniformScale: 0.8897096
   - treeInstanceId: tree.dee8718d7b78c9c645cd
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.pine
+    variantId: variant.pine.large.2
     localPosition: {x: 10.610714, y: 0, z: -17.73299}
     yawDegrees: 60.360733
     uniformScale: 1.010695
   - treeInstanceId: tree.46b321836fffcacaf868
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.maple
+    variantId: variant.maple.large.2
     localPosition: {x: 17.02711, y: 0, z: 5.838057}
     yawDegrees: 76.43384
     uniformScale: 1.0004991
   - treeInstanceId: tree.190da98d156dace6505b
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.fir
+    variantId: variant.fir.compact
     localPosition: {x: -7.614613, y: 0, z: -32.27537}
     yawDegrees: 315.04312
     uniformScale: 1.1453462
   - treeInstanceId: tree.42bc36c07ff6dba763c2
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.pine
+    variantId: variant.pine.large.1
     localPosition: {x: 21.859966, y: 0, z: -0.90502024}
     yawDegrees: 342.72757
     uniformScale: 1.0184107
   - treeInstanceId: tree.9b6b920cbf34e3fd7ca6
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.pine
+    variantId: variant.pine.big.1
     localPosition: {x: 23.753448, y: 0, z: 23.504383}
     yawDegrees: 114.30126
     uniformScale: 1.0994213
   - treeInstanceId: tree.8b3139e7a467fdfa5ad3
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.maple
+    variantId: variant.maple.large.1
     localPosition: {x: 1.8927101, y: 0, z: -6.7291093}
     yawDegrees: 246.51555
     uniformScale: 0.9809576
   - treeInstanceId: tree.a2fa6a7695a07c479600
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.pine
+    variantId: variant.pine.big.3
     localPosition: {x: 25.168377, y: 0, z: 7.6958055}
     yawDegrees: 76.48688
     uniformScale: 0.96828973
   - treeInstanceId: tree.9a3043316000f9eee14d
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.maple
+    variantId: variant.maple.large.2
     localPosition: {x: -21.53753, y: 0, z: -19.716955}
     yawDegrees: 10.963133
     uniformScale: 0.90567815
   - treeInstanceId: tree.5a93641fe3ac2d6d801c
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.maple
+    variantId: variant.maple.medium.1
     localPosition: {x: 36.471767, y: 0, z: -6.313724}
     yawDegrees: 304.9
     uniformScale: 0.9441596
   - treeInstanceId: tree.f0802e63ada8b54820a4
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.pine
+    variantId: variant.pine.large.3
     localPosition: {x: -6.3644886, y: 0, z: -7.6863523}
     yawDegrees: 141.96358
     uniformScale: 1.0559235
   - treeInstanceId: tree.64871a02498a36888553
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.pine
+    variantId: variant.pine.big.3
     localPosition: {x: 11.874037, y: 0, z: -3.5297222}
     yawDegrees: 270.62085
     uniformScale: 0.91889805
   - treeInstanceId: tree.0f126404cd9bbf31ed4b
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.pine
+    variantId: variant.pine.large.3
     localPosition: {x: 5.9699254, y: 0, z: 9.680155}
     yawDegrees: 266.0691
     uniformScale: 0.8999381
   - treeInstanceId: tree.24a2b542510a9f1c4a34
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.fir
+    variantId: variant.fir.tall
     localPosition: {x: 17.25771, y: 0, z: 15.384376}
     yawDegrees: 25.85407
     uniformScale: 0.9156095
   - treeInstanceId: tree.cd656a934f515a05c1d8
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.pine
+    variantId: variant.pine.big.2
     localPosition: {x: 20.812908, y: 0, z: -14.056531}
     yawDegrees: 331.0151
     uniformScale: 1.0683117
   - treeInstanceId: tree.f79eca4a3c85772a96f5
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.pine
+    variantId: variant.pine.large.3
     localPosition: {x: 34.556812, y: 0, z: 12.376414}
     yawDegrees: 139.95091
     uniformScale: 1.1431781
   - treeInstanceId: tree.93e6d8f6eca961bd61e4
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.pine
+    variantId: variant.pine.large.3
     localPosition: {x: -28.714594, y: 0, z: -33.758587}
     yawDegrees: 248.85397
     uniformScale: 0.9958084
   - treeInstanceId: tree.73849ce235be0fb9be9d
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.pine
+    variantId: variant.pine.big.3
     localPosition: {x: 23.161549, y: 0, z: -23.08856}
     yawDegrees: 108.646095
     uniformScale: 0.9715683
   - treeInstanceId: tree.ba23c0bf6f61c9a1747f
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
-    localPosition: {x: -2.4883618, y: 0, z: 7.53824}
+    speciesId: species.pine
+    variantId: variant.pine.big.2
+    localPosition: {x: -12, y: 0, z: 10}
     yawDegrees: 174.90082
     uniformScale: 1.1020836
   - treeInstanceId: tree.3ee8e232366995ae49d5
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.pine
+    variantId: variant.pine.big.1
     localPosition: {x: 13.533705, y: 0, z: 22.54532}
     yawDegrees: 113.30063
     uniformScale: 1.0232515
   - treeInstanceId: tree.20b18bc6de19c5bcdcdd
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.maple
+    variantId: variant.maple.large.2
     localPosition: {x: 14.577756, y: 0, z: 37.42362}
     yawDegrees: 21.461319
     uniformScale: 1.0868142
   - treeInstanceId: tree.630d9c752e08ad4b9ff5
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.pine
+    variantId: variant.pine.big.3
     localPosition: {x: -21.428259, y: 0, z: -7.235189}
     yawDegrees: 165.92429
     uniformScale: 0.94207764
   - treeInstanceId: tree.dadf48e11b979ab5fae7
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.maple
+    variantId: variant.maple.large.3
     localPosition: {x: -1.9717009, y: 0, z: 26.09617}
     yawDegrees: 71.20752
     uniformScale: 1.0385402
   - treeInstanceId: tree.be71bdb04a76a5c851fd
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.fir
+    variantId: variant.fir.tall
     localPosition: {x: 33.36669, y: 0, z: 4.088678}
     yawDegrees: 71.68184
     uniformScale: 1.0807396
   - treeInstanceId: tree.6732d9feef5d1df64e47
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.pine
+    variantId: variant.pine.big.3
     localPosition: {x: 34.38495, y: 0, z: 26.340681}
     yawDegrees: 286.47864
     uniformScale: 0.8959204
   - treeInstanceId: tree.8ef5cb05a116df046569
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.maple
+    variantId: variant.maple.large.2
     localPosition: {x: 0.9062176, y: 0, z: 16.46236}
     yawDegrees: 8.467091
     uniformScale: 1.0901891
   - treeInstanceId: tree.fa3b848151db62a1397c
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.pine
+    variantId: variant.pine.big.1
     localPosition: {x: -35.14052, y: 0, z: -15.356446}
     yawDegrees: 301.26706
     uniformScale: 1.0920473
   - treeInstanceId: tree.55981faec4a759acfe92
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.pine
+    variantId: variant.pine.big.1
     localPosition: {x: 31.050184, y: 0, z: -37.27646}
     yawDegrees: 22.801266
     uniformScale: 1.0539842
   - treeInstanceId: tree.68f4aee6e5b02c895085
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.pine
+    variantId: variant.pine.big.3
     localPosition: {x: -34.915615, y: 0, z: 30.483047}
     yawDegrees: 98.74121
     uniformScale: 1.1434991
   - treeInstanceId: tree.e5dbb0fea40da02fa7ef
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.maple
+    variantId: variant.maple.large.1
     localPosition: {x: -9.295296, y: 0, z: 19.42649}
     yawDegrees: 133.26743
     uniformScale: 0.92219394
   - treeInstanceId: tree.96e0cdb9ec24a6da85b8
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.pine
+    variantId: variant.pine.big.1
     localPosition: {x: -22.20655, y: 0, z: 15.866153}
     yawDegrees: 108.40725
     uniformScale: 0.90543973
   - treeInstanceId: tree.7814a403047d7018743d
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.pine
+    variantId: variant.pine.large.2
     localPosition: {x: 2.341896, y: 0, z: -17.138954}
     yawDegrees: 141.98436
     uniformScale: 1.0085973
   - treeInstanceId: tree.815939ad63ab52526a13
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.fir
+    variantId: variant.fir.compact
     localPosition: {x: 3.2671275, y: 0, z: -25.130955}
     yawDegrees: 257.7937
     uniformScale: 1.0401405
   - treeInstanceId: tree.f7d1faaade135f8dae14
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.a
+    speciesId: species.fir
+    variantId: variant.fir.tall
     localPosition: {x: 2.8302436, y: 0, z: 33.455906}
     yawDegrees: 245.59207
     uniformScale: 0.9428319
   - treeInstanceId: tree.7042d24a3d0ee8b135a8
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.pine
+    variantId: variant.pine.big.1
     localPosition: {x: 23.373821, y: 0, z: -33.927834}
     yawDegrees: 181.21194
     uniformScale: 0.9490022
   - treeInstanceId: tree.0977c0c6bcfa399bc9b5
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.c
+    speciesId: species.pine
+    variantId: variant.pine.large.2
     localPosition: {x: -22.83951, y: 0, z: 34.650143}
     yawDegrees: 189.05728
     uniformScale: 1.0840147
   - treeInstanceId: tree.2a61f7abab3825f9dfa0
-    speciesId: species.conifer.interim
-    variantId: variant.conifer.b
+    speciesId: species.pine
+    variantId: variant.pine.large.2
     localPosition: {x: 33.487656, y: 0, z: -29.877789}
     yawDegrees: 346.49246
     uniformScale: 1.0043216

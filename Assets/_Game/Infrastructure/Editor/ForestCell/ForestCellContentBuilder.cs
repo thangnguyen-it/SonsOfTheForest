@@ -15,8 +15,12 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
 {
     public static class ForestCellContentBuilder
     {
-        public const string SpeciesPath =
-            "Assets/_Game/Data/World/Forest/Species/SPC_InterimConifer.asset";
+        public const string PineSpeciesPath =
+            "Assets/_Game/Data/World/Forest/Species/SPC_Pine.asset";
+        public const string FirSpeciesPath =
+            "Assets/_Game/Data/World/Forest/Species/SPC_Fir.asset";
+        public const string MapleSpeciesPath =
+            "Assets/_Game/Data/World/Forest/Species/SPC_Maple.asset";
         public const string CellPath =
             "Assets/_Game/Data/World/Forest/Cells/CELL_ProductionForest_001.asset";
         public const string PrefabPath =
@@ -25,40 +29,79 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             "Assets/_Game/Prefabs/World/ForestCells/PRF_InteractiveTreeLease.prefab";
         public const string ValidationScenePath =
             "Assets/_Game/Scenes/Validation/SCN_Validation_ForestCell.unity";
+        public const string FoundationScenePath =
+            "Assets/_Game/Scenes/SCN_Foundation.unity";
 
-        private const string ConiferRoot = "Assets/_Game/Prefabs/World/ForestLod/";
         private const string FloorMaterialPath =
             "Assets/_Game/Art/Materials/World/ForestCamp/MAT_ForestFloor.mat";
         private const string StableCellId = "cell.production.forest.001";
-        private const string StableSpeciesId = "species.conifer.interim";
-        private const int Seed = 481516;
-        private const float Density = 0.006f;
+        private const string PineSpeciesId = "species.pine";
+        private const string FirSpeciesId = "species.fir";
+        private const string MapleSpeciesId = "species.maple";
+        private const string CampfireConflictTreeId = "tree.ba23c0bf6f61c9a1747f";
+        private const int PineCount = 25;
+        private const int FirCount = 5;
 
-        private static readonly string[] VariantIds =
+        private static readonly string[] PineVariantIds =
         {
-            "variant.conifer.a", "variant.conifer.b", "variant.conifer.c"
+            "variant.pine.large.1", "variant.pine.large.2", "variant.pine.large.3",
+            "variant.pine.big.1", "variant.pine.big.2", "variant.pine.big.3"
         };
 
-        private static readonly string[] VariantPrefabPaths =
+        private static readonly string[] FirVariantIds =
         {
-            ConiferRoot + "PRF_ConiferLod_A.prefab",
-            ConiferRoot + "PRF_ConiferLod_B.prefab",
-            ConiferRoot + "PRF_ConiferLod_C.prefab"
+            "variant.fir.tall", "variant.fir.compact"
+        };
+
+        private static readonly string[] MapleVariantIds =
+        {
+            "variant.maple.large.1", "variant.maple.large.2",
+            "variant.maple.large.3", "variant.maple.medium.1"
+        };
+
+        private static readonly string[] PinePrefabPaths =
+        {
+            ForestTreeArtContentBuilder.PrefabRoot + "/Pine/PRF_Tree_PineLarge1.prefab",
+            ForestTreeArtContentBuilder.PrefabRoot + "/Pine/PRF_Tree_PineLarge2.prefab",
+            ForestTreeArtContentBuilder.PrefabRoot + "/Pine/PRF_Tree_PineLarge3.prefab",
+            ForestTreeArtContentBuilder.PrefabRoot + "/Pine/PRF_Tree_PineBig1.prefab",
+            ForestTreeArtContentBuilder.PrefabRoot + "/Pine/PRF_Tree_PineBig2.prefab",
+            ForestTreeArtContentBuilder.PrefabRoot + "/Pine/PRF_Tree_PineBig3.prefab"
+        };
+
+        private static readonly string[] FirPrefabPaths =
+        {
+            ForestTreeArtContentBuilder.PrefabRoot + "/Fir/PRF_Tree_FirTall.prefab",
+            ForestTreeArtContentBuilder.PrefabRoot + "/Fir/PRF_Tree_FirCompact.prefab"
+        };
+
+        private static readonly string[] MaplePrefabPaths =
+        {
+            ForestTreeArtContentBuilder.PrefabRoot + "/Maple/PRF_Tree_MapleLarge1.prefab",
+            ForestTreeArtContentBuilder.PrefabRoot + "/Maple/PRF_Tree_MapleLarge2.prefab",
+            ForestTreeArtContentBuilder.PrefabRoot + "/Maple/PRF_Tree_MapleLarge3.prefab",
+            ForestTreeArtContentBuilder.PrefabRoot + "/Maple/PRF_Tree_MapleMedium1.prefab"
         };
 
         [MenuItem("Sons Of The Forest/Forest Cell/Build Production Forest Cell")]
         public static void BuildAll()
         {
-            EnsureFolder(Path.GetDirectoryName(SpeciesPath)?.Replace('\\', '/'));
+            EnsureFolder(Path.GetDirectoryName(PineSpeciesPath)?.Replace('\\', '/'));
             EnsureFolder(Path.GetDirectoryName(CellPath)?.Replace('\\', '/'));
             EnsureFolder(Path.GetDirectoryName(PrefabPath)?.Replace('\\', '/'));
             EnsureFolder(Path.GetDirectoryName(ValidationScenePath)?.Replace('\\', '/'));
 
-            ForestSpeciesDefinition species = BuildSpecies();
+            ForestSpeciesDefinition[] species =
+            {
+                BuildSpecies(PineSpeciesPath, PineSpeciesId, PineVariantIds, PinePrefabPaths),
+                BuildSpecies(FirSpeciesPath, FirSpeciesId, FirVariantIds, FirPrefabPaths),
+                BuildSpecies(MapleSpeciesPath, MapleSpeciesId, MapleVariantIds, MaplePrefabPaths)
+            };
             ForestCellDefinition cell = BuildCell(species);
             GameObject interactiveTreePrefab = BuildInteractiveTreePrefab();
             GameObject prefab = BuildPrefab(cell, species, interactiveTreePrefab);
             BuildValidationScene(prefab);
+            IntegrateFoundation(prefab);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
@@ -66,25 +109,34 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                       $"checksum {cell.PlacementChecksum}.");
         }
 
-        private static ForestSpeciesDefinition BuildSpecies()
+        private static ForestSpeciesDefinition BuildSpecies(
+            string assetPath,
+            string speciesId,
+            IReadOnlyList<string> variantIds,
+            IReadOnlyList<string> prefabPaths)
         {
             ForestSpeciesDefinition species =
-                AssetDatabase.LoadAssetAtPath<ForestSpeciesDefinition>(SpeciesPath);
+                AssetDatabase.LoadAssetAtPath<ForestSpeciesDefinition>(assetPath);
             if (species == null)
             {
                 species = ScriptableObject.CreateInstance<ForestSpeciesDefinition>();
-                AssetDatabase.CreateAsset(species, SpeciesPath);
+                AssetDatabase.CreateAsset(species, assetPath);
             }
 
-            var variants = new ForestVisualVariant[VariantIds.Length];
+            if (variantIds.Count != prefabPaths.Count)
+            {
+                throw new InvalidOperationException("Species variant IDs and prefabs do not match.");
+            }
+
+            var variants = new ForestVisualVariant[variantIds.Count];
             for (int index = 0; index < variants.Length; index++)
             {
-                GameObject prefab = Load<GameObject>(VariantPrefabPaths[index]);
-                variants[index] = new ForestVisualVariant(VariantIds[index], prefab, 1f);
+                GameObject prefab = Load<GameObject>(prefabPaths[index]);
+                variants[index] = new ForestVisualVariant(variantIds[index], prefab, 1f);
             }
 
             species.EditorConfigure(
-                StableSpeciesId,
+                speciesId,
                 variants,
                 true,
                 ForestStaticShadowPolicy.PrefabLodPolicy);
@@ -97,7 +149,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             return species;
         }
 
-        private static ForestCellDefinition BuildCell(ForestSpeciesDefinition species)
+        private static ForestCellDefinition BuildCell(
+            IReadOnlyList<ForestSpeciesDefinition> speciesDefinitions)
         {
             ForestCellDefinition cell =
                 AssetDatabase.LoadAssetAtPath<ForestCellDefinition>(CellPath);
@@ -107,22 +160,21 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 AssetDatabase.CreateAsset(cell, CellPath);
             }
 
-            var variantIds = species.VisualVariants.Select(value => value.VariantId.Value).ToArray();
-            var weights = species.VisualVariants.Select(value => value.PlacementWeight).ToArray();
-            var bounds = new Bounds(new Vector3(0f, 15f, 0f), new Vector3(80f, 30f, 80f));
-            var request = new ForestPlacementBakeRequest(
-                new Core.World.ForestCellId(StableCellId),
-                1,
-                bounds,
-                Seed,
-                Density,
-                new[]
-                {
-                    new ForestSpeciesBakeInput(
-                        StableSpeciesId, variantIds, weights, 1f, 0.88f, 1.15f)
-                });
-            ForestTreePlacementRecord[] placements = ForestPlacementGenerator.Generate(in request);
-            cell.EditorApplyBake(StableCellId, 1, 1, bounds, Seed, Density, placements);
+            if (cell.ForestCellId.Value != StableCellId || cell.PlacementCount != 38)
+            {
+                throw new InvalidOperationException(
+                    "Production art migration requires the approved 38-tree cell identity.");
+            }
+
+            ForestTreePlacementRecord[] placements = MigratePlacements(cell, speciesDefinitions);
+            cell.EditorApplyBake(
+                StableCellId,
+                2,
+                cell.GeneratorVersion,
+                cell.Bounds,
+                cell.Seed,
+                cell.DensityPerSquareMeter,
+                placements);
             if (!cell.TryValidate(out string reason))
             {
                 throw new InvalidOperationException("Cell validation failed: " + reason);
@@ -132,9 +184,81 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             return cell;
         }
 
+        private static ForestTreePlacementRecord[] MigratePlacements(
+            ForestCellDefinition cell,
+            IReadOnlyList<ForestSpeciesDefinition> speciesDefinitions)
+        {
+            if (speciesDefinitions == null || speciesDefinitions.Count != 3 ||
+                speciesDefinitions.Any(value => value == null))
+            {
+                throw new InvalidOperationException(
+                    "Production art migration requires Pine, Fir and Maple species.");
+            }
+
+            ForestSpeciesDefinition pine = speciesDefinitions.Single(value =>
+                value.SpeciesId.Value == PineSpeciesId);
+            ForestSpeciesDefinition fir = speciesDefinitions.Single(value =>
+                value.SpeciesId.Value == FirSpeciesId);
+            ForestSpeciesDefinition maple = speciesDefinitions.Single(value =>
+                value.SpeciesId.Value == MapleSpeciesId);
+
+            string[] rankedIds = cell.Placements
+                .Select(value => value.TreeInstanceId.Value)
+                .OrderBy(StableHash)
+                .ThenBy(value => value, StringComparer.Ordinal)
+                .ToArray();
+            var pineIds = new HashSet<string>(
+                rankedIds.Take(PineCount), StringComparer.Ordinal);
+            var firIds = new HashSet<string>(
+                rankedIds.Skip(PineCount).Take(FirCount), StringComparer.Ordinal);
+
+            var migrated = new ForestTreePlacementRecord[cell.PlacementCount];
+            for (int index = 0; index < cell.PlacementCount; index++)
+            {
+                ForestTreePlacementRecord previous = cell.Placements[index];
+                string id = previous.TreeInstanceId.Value;
+                ForestSpeciesDefinition species = pineIds.Contains(id)
+                    ? pine
+                    : firIds.Contains(id)
+                        ? fir
+                        : maple;
+                IReadOnlyList<ForestVisualVariant> variants = species.VisualVariants;
+                int variantIndex = (int)(StableHash(id + "|variant") % (uint)variants.Count);
+                Vector3 position = id == CampfireConflictTreeId
+                    ? new Vector3(-12f, previous.LocalPosition.y, 10f)
+                    : previous.LocalPosition;
+                migrated[index] = new ForestTreePlacementRecord(
+                    id,
+                    species.SpeciesId.Value,
+                    variants[variantIndex].VariantId.Value,
+                    position,
+                    previous.YawDegrees,
+                    previous.UniformScale);
+            }
+
+            return migrated;
+        }
+
+        private static uint StableHash(string value)
+        {
+            const uint offset = 2166136261u;
+            const uint prime = 16777619u;
+            uint hash = offset;
+            for (int index = 0; index < value.Length; index++)
+            {
+                char character = value[index];
+                hash ^= (byte)character;
+                hash *= prime;
+                hash ^= (byte)(character >> 8);
+                hash *= prime;
+            }
+
+            return hash;
+        }
+
         private static GameObject BuildPrefab(
             ForestCellDefinition cell,
-            ForestSpeciesDefinition species,
+            ForestSpeciesDefinition[] speciesDefinitions,
             GameObject interactiveTreePrefab)
         {
             var root = new GameObject("PRF_ForestCell_Production_001");
@@ -147,7 +271,10 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
 
                 foreach (ForestTreePlacementRecord placement in cell.Placements)
                 {
-                    if (!species.TryGetVariant(placement.VariantId.Value, out ForestVisualVariant variant))
+                    ForestSpeciesDefinition species = speciesDefinitions.SingleOrDefault(value =>
+                        value.SpeciesId == placement.SpeciesId);
+                    if (species == null ||
+                        !species.TryGetVariant(placement.VariantId.Value, out ForestVisualVariant variant))
                     {
                         throw new InvalidOperationException(
                             "Missing variant: " + placement.VariantId.Value);
@@ -187,7 +314,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                     lod0Triangles);
                 runtime.EditorConfigure(
                     cell,
-                    new[] { species },
+                    speciesDefinitions,
                     visualRootObject.transform,
                     bindings.ToArray(),
                     counters,
@@ -327,6 +454,72 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 {
                     SceneManager.SetActiveScene(original);
                 }
+            }
+        }
+
+        private static void IntegrateFoundation(GameObject prefab)
+        {
+            Scene scene = SceneManager.GetActiveScene();
+            if (!scene.IsValid() || scene.path != FoundationScenePath || scene.isDirty)
+            {
+                throw new InvalidOperationException(
+                    "SCN_Foundation must be active and clean before production-cell integration.");
+            }
+
+            Transform sceneRoot = scene.GetRootGameObjects()
+                .Select(value => value.transform)
+                .SingleOrDefault(value => value.name == "SCN_Foundation");
+            Transform terrain = sceneRoot != null
+                ? sceneRoot.Find("_WORLD/Terrain")
+                : null;
+            Transform localPlayer = sceneRoot != null
+                ? sceneRoot.Find("_GAMEPLAY/Player/LocalPlayer")
+                : null;
+            Transform matureTrees = terrain != null
+                ? terrain.Find(
+                    "PRF_ForestCampPlayground/ForestModels/" +
+                    "ForestFidelityVegetation/MatureConiferClusters")
+                : null;
+            if (terrain == null || localPlayer == null || matureTrees == null)
+            {
+                throw new InvalidOperationException(
+                    "SCN_Foundation is missing Terrain, LocalPlayer or legacy mature-tree roots.");
+            }
+
+            ForestCellRuntime[] existingCells = scene.GetRootGameObjects()
+                .SelectMany(value => value.GetComponentsInChildren<ForestCellRuntime>(true))
+                .ToArray();
+            foreach (ForestCellRuntime existing in existingCells)
+            {
+                if (existing.transform.IsChildOf(terrain))
+                {
+                    UnityEngine.Object.DestroyImmediate(existing.gameObject);
+                }
+            }
+
+            GameObject instance = PrefabUtility.InstantiatePrefab(prefab, scene) as GameObject;
+            if (instance == null)
+            {
+                throw new InvalidOperationException(
+                    "Could not instantiate production forest cell in SCN_Foundation.");
+            }
+
+            instance.name = "PRF_ForestCell_Production_001";
+            instance.transform.SetParent(terrain, false);
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+            ForestCellInteractionCoordinator coordinator =
+                instance.GetComponent<ForestCellInteractionCoordinator>();
+            coordinator.SetObserver(localPlayer);
+            EditorUtility.SetDirty(coordinator);
+
+            matureTrees.gameObject.SetActive(false);
+            EditorUtility.SetDirty(matureTrees.gameObject);
+            EditorSceneManager.MarkSceneDirty(scene);
+            if (!EditorSceneManager.SaveScene(scene, FoundationScenePath, false))
+            {
+                throw new InvalidOperationException("Could not save SCN_Foundation.");
             }
         }
 
