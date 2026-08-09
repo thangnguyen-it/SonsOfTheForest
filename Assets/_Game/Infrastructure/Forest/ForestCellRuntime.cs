@@ -28,6 +28,10 @@ namespace SonsOfTheForest.Infrastructure.Forest
 
         private bool isLoaded;
 
+        public event Action Loaded;
+
+        public event Action Unloaded;
+
         public ForestCellDefinition Definition => definition;
 
         public IReadOnlyList<ForestSpeciesDefinition> SpeciesDefinitions => speciesDefinitions;
@@ -79,18 +83,24 @@ namespace SonsOfTheForest.Infrastructure.Forest
 
             staticVisualRoot.gameObject.SetActive(true);
             isLoaded = true;
+            Loaded?.Invoke();
             reason = string.Empty;
             return true;
         }
 
         public void Unload()
         {
+            bool wasLoaded = isLoaded;
             if (staticVisualRoot != null)
             {
                 staticVisualRoot.gameObject.SetActive(false);
             }
 
             isLoaded = false;
+            if (wasLoaded)
+            {
+                Unloaded?.Invoke();
+            }
         }
 
         public bool TryValidateConfiguration(out string reason)

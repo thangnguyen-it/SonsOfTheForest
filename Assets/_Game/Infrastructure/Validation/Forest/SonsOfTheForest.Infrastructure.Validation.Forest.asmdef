@@ -1,15 +1,12 @@
 {
-  "name": "SonsOfTheForest.Editor.ForestCell",
-  "rootNamespace": "SonsOfTheForest.Infrastructure.Editor.ForestCell",
+  "name": "SonsOfTheForest.Infrastructure.Validation.Forest",
+  "rootNamespace": "SonsOfTheForest.Infrastructure.Validation.Forest",
   "references": [
     "SonsOfTheForest.Core",
     "SonsOfTheForest.Data.Forest",
-    "SonsOfTheForest.Infrastructure.Forest",
-    "SonsOfTheForest.Infrastructure.Validation.Forest"
+    "SonsOfTheForest.Infrastructure.Forest"
   ],
-  "includePlatforms": [
-    "Editor"
-  ],
+  "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,

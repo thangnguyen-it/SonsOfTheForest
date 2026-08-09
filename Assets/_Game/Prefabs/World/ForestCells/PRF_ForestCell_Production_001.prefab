@@ -55,7 +55,7 @@ Transform:
   - {fileID: 8096486007702864589}
   - {fileID: 8488760812133740623}
   - {fileID: 6058497312618685385}
-  - {fileID: 9064077778086726755}
+  - {fileID: 8614085280016256143}
   - {fileID: 3484358016976983515}
   - {fileID: 291483262411750366}
   - {fileID: 3084575653799641057}
@@ -69,6 +69,37 @@ Transform:
   - {fileID: 3071007099601872148}
   m_Father: {fileID: 4116532656517580697}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &6355488086411379526
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5941497184129099620}
+  m_Layer: 0
+  m_Name: InteractiveTrees
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5941497184129099620
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6355488086411379526}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4116532656517580697}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7916868352851965185
 GameObject:
   m_ObjectHideFlags: 0
@@ -79,6 +110,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4116532656517580697}
   - component: {fileID: 1524886040982743455}
+  - component: {fileID: 1843628120124768558}
   m_Layer: 0
   m_Name: PRF_ForestCell_Production_001
   m_TagString: Untagged
@@ -100,6 +132,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3813866274705109688}
+  - {fileID: 5941497184129099620}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1524886040982743455
@@ -226,7 +259,7 @@ MonoBehaviour:
   - treeInstanceId: tree.8ef5cb05a116df046569
     speciesId: species.conifer.interim
     variantId: variant.conifer.a
-    visualRoot: {fileID: 9064077778086726755}
+    visualRoot: {fileID: 8614085280016256143}
   - treeInstanceId: tree.fa3b848151db62a1397c
     speciesId: species.conifer.interim
     variantId: variant.conifer.b
@@ -278,6 +311,29 @@ MonoBehaviour:
     colliderCount: 0
     lod0TriangleCount: 1129512
   loadOnEnable: 1
+--- !u!114 &1843628120124768558
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7916868352851965185}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14ffc0cec399f6b41b71e4becc543aac, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: SonsOfTheForest.Infrastructure.Forest::SonsOfTheForest.Infrastructure.Forest.ForestCellInteractionCoordinator
+  cellRuntime: {fileID: 1524886040982743455}
+  observer: {fileID: 0}
+  interactiveTreePrefab: {fileID: 8807809959945546018, guid: 74a9ec990edf4104cb40296f1a406a01, type: 3}
+  interactiveRoot: {fileID: 5941497184129099620}
+  promotionRadius: 18
+  demotionRadius: 24
+  evaluationInterval: 0.2
+  damageThreshold: 100
+  fallImpulse: 8
+  settleDuration: 0.6
+  maximumFallDuration: 8
 --- !u!1001 &241575515797957131
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3883,7 +3939,7 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: c8bce735b46518c4fbb3b28e50cc749b, type: 3}
---- !u!4 &9064077778086726755 stripped
+--- !u!4 &8614085280016256143 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 738997549286113517, guid: c8bce735b46518c4fbb3b28e50cc749b, type: 3}
   m_PrefabInstance: {fileID: 9064077778086726754}

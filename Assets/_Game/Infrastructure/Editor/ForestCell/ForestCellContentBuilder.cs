@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using SonsOfTheForest.Data.Forest;
 using SonsOfTheForest.Infrastructure.Forest;
+using SonsOfTheForest.Infrastructure.Validation.Forest;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -20,6 +21,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             "Assets/_Game/Data/World/Forest/Cells/CELL_ProductionForest_001.asset";
         public const string PrefabPath =
             "Assets/_Game/Prefabs/World/ForestCells/PRF_ForestCell_Production_001.prefab";
+        public const string InteractiveTreePrefabPath =
+            "Assets/_Game/Prefabs/World/ForestCells/PRF_InteractiveTreeLease.prefab";
         public const string ValidationScenePath =
             "Assets/_Game/Scenes/Validation/SCN_Validation_ForestCell.unity";
 
@@ -53,7 +56,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
 
             ForestSpeciesDefinition species = BuildSpecies();
             ForestCellDefinition cell = BuildCell(species);
-            GameObject prefab = BuildPrefab(cell, species);
+            GameObject interactiveTreePrefab = BuildInteractiveTreePrefab();
+            GameObject prefab = BuildPrefab(cell, species, interactiveTreePrefab);
             BuildValidationScene(prefab);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -130,7 +134,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
 
         private static GameObject BuildPrefab(
             ForestCellDefinition cell,
-            ForestSpeciesDefinition species)
+            ForestSpeciesDefinition species,
+            GameObject interactiveTreePrefab)
         {
             var root = new GameObject("PRF_ForestCell_Production_001");
             try
@@ -188,6 +193,26 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                     counters,
                     true);
 
+                var interactiveRootObject = new GameObject("InteractiveTrees");
+                interactiveRootObject.transform.SetParent(root.transform, false);
+                var coordinator = root.AddComponent<ForestCellInteractionCoordinator>();
+                coordinator.EditorConfigure(
+                    runtime,
+                    null,
+                    interactiveTreePrefab,
+                    interactiveRootObject.transform,
+                    18f,
+                    24f,
+                    100f,
+                    8f,
+                    0.6f,
+                    8f);
+                if (!coordinator.TryValidateConfiguration(out string coordinatorReason))
+                {
+                    throw new InvalidOperationException(
+                        "Coordinator validation failed: " + coordinatorReason);
+                }
+
                 if (!runtime.TryValidateConfiguration(out string reason))
                 {
                     throw new InvalidOperationException("Runtime validation failed: " + reason);
@@ -197,6 +222,36 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 return saved != null
                     ? saved
                     : throw new InvalidOperationException("Could not save forest cell prefab.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        private static GameObject BuildInteractiveTreePrefab()
+        {
+            var root = new GameObject("PRF_InteractiveTreeLease");
+            try
+            {
+                var anchor = new GameObject("VisualAnchor");
+                anchor.transform.SetParent(root.transform, false);
+                Rigidbody body = root.AddComponent<Rigidbody>();
+                body.mass = 200f;
+                body.useGravity = false;
+                body.isKinematic = true;
+                body.constraints = RigidbodyConstraints.FreezeAll;
+                body.interpolation = RigidbodyInterpolation.Interpolate;
+                CapsuleCollider collider = root.AddComponent<CapsuleCollider>();
+                collider.center = new Vector3(0f, 7f, 0f);
+                collider.height = 14f;
+                collider.radius = 0.45f;
+                var tree = root.AddComponent<ForestInteractiveTree>();
+                tree.EditorConfigure(anchor.transform, body, collider);
+                GameObject saved = PrefabUtility.SaveAsPrefabAsset(root, InteractiveTreePrefabPath);
+                return saved != null
+                    ? saved
+                    : throw new InvalidOperationException("Could not save interactive-tree prefab.");
             }
             finally
             {
@@ -217,6 +272,18 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 {
                     throw new InvalidOperationException("Could not instantiate validation cell.");
                 }
+
+                ForestCellInteractionCoordinator coordinator =
+                    instance.GetComponent<ForestCellInteractionCoordinator>();
+                ForestCellRuntime runtime = instance.GetComponent<ForestCellRuntime>();
+                Vector3 firstTree = runtime.Definition.Placements[0].LocalPosition;
+                GameObject playerProxy = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                playerProxy.name = "PlayerProxy_ContextMenuHitNearestTree";
+                playerProxy.transform.position = firstTree + new Vector3(4f, 1f, 0f);
+                playerProxy.transform.localScale = new Vector3(0.7f, 1f, 0.7f);
+                var driver = playerProxy.AddComponent<ForestTreeValidationDriver>();
+                driver.EditorConfigure(coordinator, 55f);
+                coordinator.SetObserver(playerProxy.transform);
 
                 GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 ground.name = "ValidationGround";
