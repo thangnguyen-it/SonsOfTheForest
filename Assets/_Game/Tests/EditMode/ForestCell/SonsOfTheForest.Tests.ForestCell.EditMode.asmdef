@@ -1,0 +1,24 @@
+{
+  "name": "SonsOfTheForest.Tests.ForestCell.EditMode",
+  "rootNamespace": "SonsOfTheForest.Tests.ForestCell.EditMode",
+  "references": [
+    "SonsOfTheForest.Core",
+    "SonsOfTheForest.Data.Forest",
+    "SonsOfTheForest.Infrastructure.Forest",
+    "SonsOfTheForest.Editor.ForestCell"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

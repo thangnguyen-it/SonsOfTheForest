@@ -1,0 +1,20 @@
+{
+  "name": "SonsOfTheForest.Tests.ForestCell.PlayMode",
+  "rootNamespace": "SonsOfTheForest.Tests.ForestCell.PlayMode",
+  "references": [
+    "SonsOfTheForest.Data.Forest",
+    "SonsOfTheForest.Infrastructure.Forest"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
