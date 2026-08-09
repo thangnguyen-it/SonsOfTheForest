@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using NUnit.Framework;
 using SonsOfTheForest.Data.Forest;
 using SonsOfTheForest.Infrastructure.Forest;
@@ -25,12 +26,30 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
             ForestStaticVisualBinding binding = world.Runtime.StaticBindings[0];
             world.Observer.transform.position = binding.VisualRoot.position + Vector3.right * 2f;
             world.Coordinator.EvaluateProximity();
+            LogAssert.NoUnexpectedReceived();
 
             Assert.That(world.Coordinator.TryGetLease(
                 binding.TreeInstanceId.Value, out ForestInteractiveTree tree), Is.True);
             Assert.That(tree.TreeInstanceId, Is.EqualTo(binding.TreeInstanceId));
             Assert.That(tree.SpeciesId, Is.EqualTo(binding.SpeciesId));
             Assert.That(tree.VariantId, Is.EqualTo(binding.VariantId));
+            Assert.That(tree.transform.localPosition, Is.EqualTo(binding.VisualRoot.localPosition));
+            Assert.That(
+                Quaternion.Angle(tree.transform.localRotation, binding.VisualRoot.localRotation),
+                Is.LessThan(0.01f));
+            Assert.That(tree.transform.localScale, Is.EqualTo(binding.VisualRoot.localScale));
+            Mesh[] staticMeshes = binding.VisualRoot
+                .GetComponentsInChildren<MeshFilter>(true)
+                .Select(value => value.sharedMesh)
+                .ToArray();
+            Mesh[] promotedMeshes = tree.transform.Find("VisualAnchor/InteractiveVisual")
+                .GetComponentsInChildren<MeshFilter>(true)
+                .Select(value => value.sharedMesh)
+                .ToArray();
+            Assert.That(promotedMeshes, Is.EqualTo(staticMeshes));
+            CapsuleCollider trunkCollider = tree.GetComponent<CapsuleCollider>();
+            Assert.That(trunkCollider.radius, Is.InRange(0.32f, 0.68f));
+            Assert.That(trunkCollider.height, Is.GreaterThan(8f));
             Assert.That(binding.VisualRoot.gameObject.activeSelf, Is.False);
 
             world.Observer.transform.position = binding.VisualRoot.position + Vector3.right * 100f;

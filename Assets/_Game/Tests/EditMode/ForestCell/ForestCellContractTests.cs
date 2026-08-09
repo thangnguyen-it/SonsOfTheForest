@@ -14,8 +14,12 @@ namespace SonsOfTheForest.Tests.ForestCell.EditMode
     {
         private const string CellPath =
             "Assets/_Game/Data/World/Forest/Cells/CELL_ProductionForest_001.asset";
-        private const string SpeciesPath =
-            "Assets/_Game/Data/World/Forest/Species/SPC_InterimConifer.asset";
+        private static readonly string[] SpeciesPaths =
+        {
+            "Assets/_Game/Data/World/Forest/Species/SPC_Pine.asset",
+            "Assets/_Game/Data/World/Forest/Species/SPC_Fir.asset",
+            "Assets/_Game/Data/World/Forest/Species/SPC_Maple.asset"
+        };
         private const string PrefabPath =
             "Assets/_Game/Prefabs/World/ForestCells/PRF_ForestCell_Production_001.prefab";
 
@@ -84,12 +88,20 @@ namespace SonsOfTheForest.Tests.ForestCell.EditMode
         public void ProductionCell_IsValidAndMatchesBakedVisuals()
         {
             ForestCellDefinition cell = Load<ForestCellDefinition>(CellPath);
-            ForestSpeciesDefinition species = Load<ForestSpeciesDefinition>(SpeciesPath);
+            ForestSpeciesDefinition[] species = SpeciesPaths
+                .Select(Load<ForestSpeciesDefinition>)
+                .ToArray();
             GameObject prefab = Load<GameObject>(PrefabPath);
             ForestCellRuntime runtime = prefab.GetComponent<ForestCellRuntime>();
 
             Assert.That(cell.TryValidate(out string cellReason), Is.True, cellReason);
-            Assert.That(species.TryValidate(out string speciesReason), Is.True, speciesReason);
+            foreach (ForestSpeciesDefinition definition in species)
+            {
+                Assert.That(
+                    definition.TryValidate(out string speciesReason),
+                    Is.True,
+                    speciesReason);
+            }
             Assert.That(runtime, Is.Not.Null);
             Assert.That(runtime.TryValidateConfiguration(out string runtimeReason), Is.True, runtimeReason);
             Assert.That(runtime.StaticBindings.Count, Is.EqualTo(cell.PlacementCount));
