@@ -5,7 +5,8 @@
     "SonsOfTheForest.Core",
     "SonsOfTheForest.Data.Forest",
     "SonsOfTheForest.Infrastructure.Forest",
-    "SonsOfTheForest.Infrastructure.Validation.Forest"
+    "SonsOfTheForest.Infrastructure.Validation.Forest",
+    "Unity.RenderPipelines.HighDefinition.Runtime"
   ],
   "includePlatforms": [
     "Editor"
