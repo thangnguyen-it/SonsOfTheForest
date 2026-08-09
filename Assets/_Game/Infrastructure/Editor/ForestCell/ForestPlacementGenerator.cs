@@ -98,9 +98,9 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             }
 
             float nominalSpacing = Mathf.Sqrt(area / Mathf.Max(1, count));
-            float minimumSpacing = Mathf.Clamp(nominalSpacing * 0.34f, 1.25f, 5f);
+            float minimumSpacing = Mathf.Clamp(nominalSpacing * 0.58f, 1.5f, 8f);
             float minimumSpacingSquared = minimumSpacing * minimumSpacing;
-            float clusterRadius = Mathf.Max(4f, nominalSpacing * 2.4f);
+            float clusterRadius = Mathf.Max(5f, nominalSpacing * 3.1f);
             var accepted = new List<Vector2>(count);
             var records = new ForestTreePlacementRecord[count];
 
@@ -111,7 +111,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 bool found = false;
                 for (int attempt = 0; attempt < AttemptsPerPlacement; attempt++)
                 {
-                    Vector2 candidate = random.NextFloat01() < 0.72f
+                    Vector2 candidate = random.NextFloat01() < 0.62f
                         ? RandomClusterPoint(
                             ref random,
                             request.Bounds,

@@ -231,15 +231,22 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 GameObject lightObject = new("ValidationSun");
                 Light light = lightObject.AddComponent<Light>();
                 light.type = LightType.Directional;
-                light.intensity = 1.2f;
+                light.intensity = 0.9f;
                 light.shadows = LightShadows.Soft;
                 lightObject.transform.rotation = Quaternion.Euler(48f, -32f, 0f);
+
+                GameObject fillLightObject = new("ValidationFill");
+                Light fillLight = fillLightObject.AddComponent<Light>();
+                fillLight.type = LightType.Directional;
+                fillLight.intensity = 0.55f;
+                fillLight.shadows = LightShadows.None;
+                fillLightObject.transform.rotation = Quaternion.Euler(38f, 148f, 0f);
 
                 GameObject cameraObject = new("ValidationCamera");
                 Camera camera = cameraObject.AddComponent<Camera>();
                 camera.tag = "MainCamera";
                 camera.farClipPlane = 300f;
-                cameraObject.transform.position = new Vector3(-42f, 10f, -42f);
+                cameraObject.transform.position = new Vector3(-52f, 14f, -52f);
                 cameraObject.transform.LookAt(new Vector3(0f, 8f, 0f));
                 RenderSettings.ambientMode = AmbientMode.Flat;
                 RenderSettings.ambientLight = new Color(0.38f, 0.42f, 0.46f);
