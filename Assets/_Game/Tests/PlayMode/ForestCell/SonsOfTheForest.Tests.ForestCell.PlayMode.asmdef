@@ -2,6 +2,7 @@
   "name": "SonsOfTheForest.Tests.ForestCell.PlayMode",
   "rootNamespace": "SonsOfTheForest.Tests.ForestCell.PlayMode",
   "references": [
+    "SonsOfTheForest.Core",
     "SonsOfTheForest.Data.Forest",
     "SonsOfTheForest.Infrastructure.Forest"
   ],
