@@ -475,15 +475,20 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             Transform localPlayer = sceneRoot != null
                 ? sceneRoot.Find("_GAMEPLAY/Player/LocalPlayer")
                 : null;
+            Transform forestGround = terrain != null
+                ? terrain.Find("PRF_ForestCampPlayground/ForestGround")
+                : null;
             Transform matureTrees = terrain != null
                 ? terrain.Find(
                     "PRF_ForestCampPlayground/ForestModels/" +
                     "ForestFidelityVegetation/MatureConiferClusters")
                 : null;
-            if (terrain == null || localPlayer == null || matureTrees == null)
+            if (terrain == null || localPlayer == null || forestGround == null ||
+                matureTrees == null)
             {
                 throw new InvalidOperationException(
-                    "SCN_Foundation is missing Terrain, LocalPlayer or legacy mature-tree roots.");
+                    "SCN_Foundation is missing Terrain, LocalPlayer, ForestGround or " +
+                    "legacy mature-tree roots.");
             }
 
             ForestCellRuntime[] existingCells = scene.GetRootGameObjects()
@@ -516,6 +521,9 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
 
             matureTrees.gameObject.SetActive(false);
             EditorUtility.SetDirty(matureTrees.gameObject);
+            Vector3 groundScale = forestGround.localScale;
+            forestGround.localScale = new Vector3(90f, groundScale.y, 90f);
+            EditorUtility.SetDirty(forestGround);
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene, FoundationScenePath, false))
             {

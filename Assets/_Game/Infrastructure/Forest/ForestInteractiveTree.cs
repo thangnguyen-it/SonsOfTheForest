@@ -231,11 +231,15 @@ namespace SonsOfTheForest.Infrastructure.Forest
         private void ApplyStandingPhysics()
         {
             EnsureComponentReferences();
-            body.isKinematic = true;
             body.useGravity = false;
+            if (!body.isKinematic)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+                body.isKinematic = true;
+            }
+
             body.constraints = RigidbodyConstraints.FreezeAll;
-            body.linearVelocity = Vector3.zero;
-            body.angularVelocity = Vector3.zero;
         }
 
         private void ApplyFallingPhysics()
