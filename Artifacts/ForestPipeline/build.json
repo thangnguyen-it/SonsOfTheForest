@@ -1,0 +1,274 @@
+{
+  "axe": {
+    "checksum": "257a766e94effb41e898ec948ecfb86b32034a8d6f87d17aaec1e3f30878f737",
+    "objects": [
+      "Axe_Handle",
+      "Axe_Head",
+      "Axe_Blade"
+    ],
+    "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/Tools/AXE_Survival.fbx"
+  },
+  "chips": {
+    "checksum": "55af396b574072eedaf9e6e9a6952b29a30873af9ccb3c5b9af671d54e7ad3c3",
+    "objects": [
+      "WoodChip",
+      "BarkChip"
+    ],
+    "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/Effects/CHIPS_Harvest.fbx"
+  },
+  "generatorVersion": "r2-forest1e.1",
+  "logs": [
+    {
+      "checksum": "6ac6d06a1956d88da9ab69f1f0ae82e10a5373deb61918a3f2947be6e14c8104",
+      "objects": [
+        "Log1_LOD0",
+        "Log1_LOD1",
+        "Log2_LOD0",
+        "Log2_LOD1"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/Logs/Pine/LOGS_Pine.fbx",
+      "species": "Pine"
+    },
+    {
+      "checksum": "099f16bb3a180dcb0e72f6435a55e40e66804f55f49c6be210da2dd119b5a2b6",
+      "objects": [
+        "Log1_LOD0",
+        "Log1_LOD1",
+        "Log2_LOD0",
+        "Log2_LOD1"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/Logs/Fir/LOGS_Fir.fbx",
+      "species": "Fir"
+    },
+    {
+      "checksum": "6ac6d06a1956d88da9ab69f1f0ae82e10a5373deb61918a3f2947be6e14c8104",
+      "objects": [
+        "Log1_LOD0",
+        "Log1_LOD1",
+        "Log2_LOD0",
+        "Log2_LOD1"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/Logs/Maple/LOGS_Maple.fbx",
+      "species": "Maple"
+    }
+  ],
+  "schemaVersion": 1,
+  "variants": [
+    {
+      "checksum": "7ca5ab58f64acbaa837b1ddf17a0cc0919eefea9cf695c71e970c6a93b42b743",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Pine/KIT_PineLarge1.fbx",
+      "variantId": "PineLarge1"
+    },
+    {
+      "checksum": "a341074f2fce296a0f512404ec21c6cecdb9ad65aed0e8397370eb68fe60c21f",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Pine/KIT_PineLarge2.fbx",
+      "variantId": "PineLarge2"
+    },
+    {
+      "checksum": "262c1ba12b59c5fc4dcef2a859208d95c4dd7774b8c04b262b3f8328dfdcdf54",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Pine/KIT_PineLarge3.fbx",
+      "variantId": "PineLarge3"
+    },
+    {
+      "checksum": "03b24f1310444ce3eae5186817cc496e487afd4e1877c88266f4ef0bc1f13e92",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Pine/KIT_PineBig1.fbx",
+      "variantId": "PineBig1"
+    },
+    {
+      "checksum": "3f08c88a7ed654d43854ef4900b94a34190e8f080f187dee05c116b81c758fd0",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Pine/KIT_PineBig2.fbx",
+      "variantId": "PineBig2"
+    },
+    {
+      "checksum": "efa107a78b41a31acfa4926081e16bcec1b2eeec1d9d9693295be0cb878966b0",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Pine/KIT_PineBig3.fbx",
+      "variantId": "PineBig3"
+    },
+    {
+      "checksum": "d684ab3475423b53158fdf4a1b952902420eecc5d09f3baae88ad44196d596b2",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Fir/KIT_FirTall.fbx",
+      "variantId": "FirTall"
+    },
+    {
+      "checksum": "b8033192a0f00997643b5fd8ed1d4455f1534c1cc4c81dbc8f32fc550823849f",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Fir/KIT_FirCompact.fbx",
+      "variantId": "FirCompact"
+    },
+    {
+      "checksum": "02dc8949ea953548df967220066e5e87989eb5b1885e58494093bdb345ac3db0",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Maple/KIT_MapleLarge1.fbx",
+      "variantId": "MapleLarge1"
+    },
+    {
+      "checksum": "1a3289b98f8f90da8f774a412ccd0bb0ed5bd7affe1fa7dcc61b0c0aa6409c17",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Maple/KIT_MapleLarge2.fbx",
+      "variantId": "MapleLarge2"
+    },
+    {
+      "checksum": "bfaaea35328e4152656e018d239041b93f1ce1837b712a793bef5e9a501929cd",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Maple/KIT_MapleLarge3.fbx",
+      "variantId": "MapleLarge3"
+    },
+    {
+      "checksum": "67153c62b8ec22efa23bbcac4a7cd9f55d26e8fa0174fa523a6800d107f4e0ae",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Maple/KIT_MapleMedium1.fbx",
+      "variantId": "MapleMedium1"
+    }
+  ]
+}

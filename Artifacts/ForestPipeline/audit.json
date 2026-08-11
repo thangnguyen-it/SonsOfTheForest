@@ -1,0 +1,1850 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "meshes": [
+        {
+          "dimensions": [
+            3.025717,
+            3.811699,
+            2.833624
+          ],
+          "materials": [
+            "Acer_Sapling_1_Billboard_Mat"
+          ],
+          "mesh": "acer_9_Billboard_LOD3",
+          "object": "Acer_Sapling_1_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            3.253459,
+            3.850201,
+            2.951692
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.010",
+          "object": "Acer_Sapling_1_LOD0",
+          "polygons": 551,
+          "vertices": 467
+        },
+        {
+          "dimensions": [
+            3.139816,
+            3.850201,
+            2.858942
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.010",
+          "object": "Acer_Sapling_1_LOD1",
+          "polygons": 305,
+          "vertices": 227
+        },
+        {
+          "dimensions": [
+            3.139816,
+            3.850201,
+            2.858942
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.010",
+          "object": "Acer_Sapling_1_LOD2",
+          "polygons": 200,
+          "vertices": 155
+        },
+        {
+          "dimensions": [
+            3.151764,
+            3.208395,
+            2.545835
+          ],
+          "materials": [
+            "Acer_Sapling_2_Billboard_Mat"
+          ],
+          "mesh": "acer_10_Billboard_LOD3",
+          "object": "Acer_Sapling_2_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            3.317647,
+            3.342077,
+            2.624572
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.011",
+          "object": "Acer_Sapling_2_LOD0",
+          "polygons": 465,
+          "vertices": 368
+        },
+        {
+          "dimensions": [
+            3.222293,
+            3.342077,
+            2.624572
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.011",
+          "object": "Acer_Sapling_2_LOD1",
+          "polygons": 300,
+          "vertices": 211
+        },
+        {
+          "dimensions": [
+            3.222293,
+            3.342077,
+            2.624572
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.011",
+          "object": "Acer_Sapling_2_LOD2",
+          "polygons": 157,
+          "vertices": 127
+        },
+        {
+          "dimensions": [
+            2.685206,
+            3.320755,
+            2.619394
+          ],
+          "materials": [
+            "Acer_Sapling_3_Billboard_Mat"
+          ],
+          "mesh": "acer_11_Billboard_LOD3",
+          "object": "Acer_Sapling_3_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            2.768254,
+            3.459119,
+            3.08164
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.001",
+          "object": "Acer_Sapling_3_LOD0",
+          "polygons": 498,
+          "vertices": 371
+        },
+        {
+          "dimensions": [
+            2.764478,
+            3.459119,
+            2.795335
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.001",
+          "object": "Acer_Sapling_3_LOD1",
+          "polygons": 344,
+          "vertices": 227
+        },
+        {
+          "dimensions": [
+            2.764478,
+            3.459119,
+            2.748087
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.001",
+          "object": "Acer_Sapling_3_LOD2",
+          "polygons": 191,
+          "vertices": 140
+        },
+        {
+          "dimensions": [
+            18.694246,
+            20.576275,
+            19.720707
+          ],
+          "materials": [
+            "Acer_large_1_Billboard_Mat"
+          ],
+          "mesh": "acer_Billboard_LOD3",
+          "object": "Acer_large_1_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            18.694248,
+            20.784117,
+            19.720707
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0",
+          "object": "Acer_large_1_LOD0",
+          "polygons": 22490,
+          "vertices": 19738
+        },
+        {
+          "dimensions": [
+            18.694248,
+            20.784117,
+            19.559578
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1",
+          "object": "Acer_large_1_LOD1",
+          "polygons": 9057,
+          "vertices": 7768
+        },
+        {
+          "dimensions": [
+            18.694248,
+            20.784117,
+            19.559578
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2",
+          "object": "Acer_large_1_LOD2",
+          "polygons": 4580,
+          "vertices": 4188
+        },
+        {
+          "dimensions": [
+            15.510717,
+            23.572771,
+            18.889648
+          ],
+          "materials": [
+            "Acer_large_2_Billboard_Mat"
+          ],
+          "mesh": "acer_2_Billboard_LOD3",
+          "object": "Acer_large_2_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            15.510717,
+            24.053848,
+            18.889648
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.003",
+          "object": "Acer_large_2_LOD0",
+          "polygons": 20356,
+          "vertices": 16760
+        },
+        {
+          "dimensions": [
+            15.510717,
+            24.053848,
+            18.889648
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.003",
+          "object": "Acer_large_2_LOD1",
+          "polygons": 9487,
+          "vertices": 7910
+        },
+        {
+          "dimensions": [
+            15.510717,
+            23.85746,
+            18.834927
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.003",
+          "object": "Acer_large_2_LOD2",
+          "polygons": 5321,
+          "vertices": 4804
+        },
+        {
+          "dimensions": [
+            12.987444,
+            18.253124,
+            17.186241
+          ],
+          "materials": [
+            "Acer_large_3_Billboard_Mat"
+          ],
+          "mesh": "acer_12_Billboard_LOD3",
+          "object": "Acer_large_3_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            12.764537,
+            18.4375,
+            17.359838
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.002",
+          "object": "Acer_large_3_LOD0",
+          "polygons": 12987,
+          "vertices": 11595
+        },
+        {
+          "dimensions": [
+            12.611806,
+            18.327101,
+            17.332794
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.002",
+          "object": "Acer_large_3_LOD1",
+          "polygons": 5541,
+          "vertices": 4729
+        },
+        {
+          "dimensions": [
+            12.611806,
+            18.327101,
+            17.174095
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.002",
+          "object": "Acer_large_3_LOD2",
+          "polygons": 2825,
+          "vertices": 2548
+        },
+        {
+          "dimensions": [
+            11.412971,
+            12.362707,
+            10.621563
+          ],
+          "materials": [
+            "Acer_medium_1_Billboard_Mat"
+          ],
+          "mesh": "acer_3_Billboard_LOD3",
+          "object": "Acer_medium_1_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            11.645889,
+            12.615006,
+            10.621563
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.004",
+          "object": "Acer_medium_1_LOD0",
+          "polygons": 14577,
+          "vertices": 11377
+        },
+        {
+          "dimensions": [
+            11.296565,
+            12.41156,
+            10.621563
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.004",
+          "object": "Acer_medium_1_LOD1",
+          "polygons": 5469,
+          "vertices": 4434
+        },
+        {
+          "dimensions": [
+            11.296565,
+            12.41156,
+            10.621563
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.004",
+          "object": "Acer_medium_1_LOD2",
+          "polygons": 2584,
+          "vertices": 2302
+        },
+        {
+          "dimensions": [
+            9.742339,
+            13.097888,
+            9.246435
+          ],
+          "materials": [
+            "Acer_medium_2_Billboard_Mat"
+          ],
+          "mesh": "acer_4_Billboard_LOD3",
+          "object": "Acer_medium_2_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            9.840746,
+            13.502977,
+            9.532408
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.005",
+          "object": "Acer_medium_2_LOD0",
+          "polygons": 7903,
+          "vertices": 6536
+        },
+        {
+          "dimensions": [
+            9.686144,
+            13.206014,
+            9.482832
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.005",
+          "object": "Acer_medium_2_LOD1",
+          "polygons": 3755,
+          "vertices": 3005
+        },
+        {
+          "dimensions": [
+            9.686144,
+            13.206014,
+            9.148781
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.005",
+          "object": "Acer_medium_2_LOD2",
+          "polygons": 1848,
+          "vertices": 1614
+        },
+        {
+          "dimensions": [
+            8.495039,
+            10.186896,
+            7.552228
+          ],
+          "materials": [
+            "Acer_medium_3_Billboard_Mat"
+          ],
+          "mesh": "acer_5_Billboard_LOD3",
+          "object": "Acer_medium_3_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            8.757773,
+            10.289794,
+            7.628513
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.006",
+          "object": "Acer_medium_3_LOD0",
+          "polygons": 4750,
+          "vertices": 4102
+        },
+        {
+          "dimensions": [
+            8.757773,
+            10.289794,
+            7.54792
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.006",
+          "object": "Acer_medium_3_LOD1",
+          "polygons": 2201,
+          "vertices": 1778
+        },
+        {
+          "dimensions": [
+            8.499644,
+            10.289794,
+            7.54792
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.006",
+          "object": "Acer_medium_3_LOD2",
+          "polygons": 1052,
+          "vertices": 912
+        },
+        {
+          "dimensions": [
+            4.702101,
+            6.870551,
+            5.783663
+          ],
+          "materials": [
+            "Acer_small_1_Billboard_Mat"
+          ],
+          "mesh": "acer_6_Billboard_LOD3",
+          "object": "Acer_small_1_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            4.847527,
+            6.93995,
+            5.962539
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.007",
+          "object": "Acer_small_1_LOD0",
+          "polygons": 2805,
+          "vertices": 2155
+        },
+        {
+          "dimensions": [
+            4.802571,
+            6.93995,
+            5.957028
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.007",
+          "object": "Acer_small_1_LOD1",
+          "polygons": 944,
+          "vertices": 758
+        },
+        {
+          "dimensions": [
+            4.802571,
+            6.93995,
+            5.829128
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.007",
+          "object": "Acer_small_1_LOD2",
+          "polygons": 407,
+          "vertices": 359
+        },
+        {
+          "dimensions": [
+            5.626424,
+            6.322634,
+            5.295498
+          ],
+          "materials": [
+            "Acer_small_2_Billboard_Mat"
+          ],
+          "mesh": "acer_7_Billboard_LOD3",
+          "object": "Acer_small_2_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            5.626424,
+            6.386498,
+            5.348988
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.008",
+          "object": "Acer_small_2_LOD0",
+          "polygons": 3442,
+          "vertices": 2628
+        },
+        {
+          "dimensions": [
+            5.626424,
+            6.386498,
+            5.348988
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.008",
+          "object": "Acer_small_2_LOD1",
+          "polygons": 1233,
+          "vertices": 976
+        },
+        {
+          "dimensions": [
+            5.592143,
+            6.386498,
+            5.348988
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.008",
+          "object": "Acer_small_2_LOD2",
+          "polygons": 531,
+          "vertices": 473
+        },
+        {
+          "dimensions": [
+            4.070005,
+            5.881094,
+            5.029934
+          ],
+          "materials": [
+            "Acer_small_3_Billboard_Mat"
+          ],
+          "mesh": "acer_8_Billboard_LOD3",
+          "object": "Acer_small_3_Billboard_LOD3",
+          "polygons": 36,
+          "vertices": 54
+        },
+        {
+          "dimensions": [
+            4.284216,
+            6.001116,
+            5.080741
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD0.009",
+          "object": "Acer_small_3_LOD0",
+          "polygons": 1732,
+          "vertices": 1430
+        },
+        {
+          "dimensions": [
+            4.120355,
+            6.001116,
+            5.064601
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD1.009",
+          "object": "Acer_small_3_LOD1",
+          "polygons": 658,
+          "vertices": 535
+        },
+        {
+          "dimensions": [
+            4.120355,
+            6.001116,
+            5.064601
+          ],
+          "materials": [
+            "Bark_Mat",
+            "Cluster_Mat"
+          ],
+          "mesh": "LOD2.009",
+          "object": "Acer_small_3_LOD2",
+          "polygons": 262,
+          "vertices": 250
+        },
+        {
+          "dimensions": [
+            106.0,
+            186.047699,
+            55.0
+          ],
+          "materials": [
+            "Checker"
+          ],
+          "mesh": "Plane",
+          "object": "Ground",
+          "polygons": 10,
+          "vertices": 16
+        }
+      ],
+      "path": "Assets/maple-trees-pack-lowpoly-game-ready-lods/source/Acer tree pack.fbx",
+      "requested": [
+        "Acer_large_1",
+        "Acer_large_2",
+        "Acer_large_3",
+        "Acer_medium_1"
+      ]
+    },
+    {
+      "meshes": [
+        {
+          "dimensions": [
+            273.967987,
+            104.453949,
+            57.541389
+          ],
+          "materials": [
+            "Checker_1m"
+          ],
+          "mesh": "Cube.001",
+          "object": "Back",
+          "polygons": 14,
+          "vertices": 16
+        },
+        {
+          "dimensions": [
+            8.372074,
+            8.122736,
+            16.718483
+          ],
+          "materials": [
+            "Pine_big_1_Billboard_Mat"
+          ],
+          "mesh": "Pine_1_001_Billboard_LOD3",
+          "object": "Pine_big_1_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            7.45708,
+            8.373954,
+            16.887358
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.012",
+          "object": "Pine_big_1_LOD0",
+          "polygons": 4502,
+          "vertices": 4687
+        },
+        {
+          "dimensions": [
+            7.278777,
+            8.373954,
+            16.887358
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.012",
+          "object": "Pine_big_1_LOD1",
+          "polygons": 2626,
+          "vertices": 2324
+        },
+        {
+          "dimensions": [
+            7.315467,
+            8.196847,
+            16.887358
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.012",
+          "object": "Pine_big_1_LOD2",
+          "polygons": 1389,
+          "vertices": 1204
+        },
+        {
+          "dimensions": [
+            9.131979,
+            7.966858,
+            16.029678
+          ],
+          "materials": [
+            "Pine_big_2_Billboard_Mat"
+          ],
+          "mesh": "Pine_1_002_Billboard_LOD3",
+          "object": "Pine_big_2_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            9.314881,
+            8.475382,
+            16.191593
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.013",
+          "object": "Pine_big_2_LOD0",
+          "polygons": 4793,
+          "vertices": 4843
+        },
+        {
+          "dimensions": [
+            9.314881,
+            8.475382,
+            16.191593
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.013",
+          "object": "Pine_big_2_LOD1",
+          "polygons": 2640,
+          "vertices": 2334
+        },
+        {
+          "dimensions": [
+            9.123832,
+            8.198406,
+            16.191593
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.013",
+          "object": "Pine_big_2_LOD2",
+          "polygons": 1391,
+          "vertices": 1214
+        },
+        {
+          "dimensions": [
+            8.836793,
+            8.029329,
+            19.420469
+          ],
+          "materials": [
+            "Pine_big_3_Billboard_Mat"
+          ],
+          "mesh": "Pine_1_003_Billboard_LOD3",
+          "object": "Pine_big_3_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            8.84589,
+            8.363884,
+            19.56786
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.014",
+          "object": "Pine_big_3_LOD0",
+          "polygons": 5485,
+          "vertices": 5642
+        },
+        {
+          "dimensions": [
+            8.827019,
+            8.363884,
+            19.56786
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.014",
+          "object": "Pine_big_3_LOD1",
+          "polygons": 3148,
+          "vertices": 2765
+        },
+        {
+          "dimensions": [
+            8.693893,
+            8.168751,
+            19.616636
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.014",
+          "object": "Pine_big_3_LOD2",
+          "polygons": 1693,
+          "vertices": 1440
+        },
+        {
+          "dimensions": [
+            16.848042,
+            15.402034,
+            31.495674
+          ],
+          "materials": [
+            "Pine_large_1_Billboard_Mat"
+          ],
+          "mesh": "Pine_0_Billboard_LOD3",
+          "object": "Pine_large_1_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            17.369114,
+            15.55761,
+            31.813812
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.015",
+          "object": "Pine_large_1_LOD0",
+          "polygons": 11844,
+          "vertices": 12373
+        },
+        {
+          "dimensions": [
+            17.369114,
+            15.519623,
+            31.813812
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.015",
+          "object": "Pine_large_1_LOD1",
+          "polygons": 6596,
+          "vertices": 5951
+        },
+        {
+          "dimensions": [
+            17.1171,
+            15.452389,
+            31.813812
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.015",
+          "object": "Pine_large_1_LOD2",
+          "polygons": 3176,
+          "vertices": 2849
+        },
+        {
+          "dimensions": [
+            16.083435,
+            15.797339,
+            31.272627
+          ],
+          "materials": [
+            "Pine_large_2_Billboard_Mat"
+          ],
+          "mesh": "Pine_0_001_Billboard_LOD3",
+          "object": "Pine_large_2_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            16.411669,
+            16.114784,
+            31.588511
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.016",
+          "object": "Pine_large_2_LOD0",
+          "polygons": 11710,
+          "vertices": 12658
+        },
+        {
+          "dimensions": [
+            16.411669,
+            16.114784,
+            31.588511
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.016",
+          "object": "Pine_large_2_LOD1",
+          "polygons": 6447,
+          "vertices": 5923
+        },
+        {
+          "dimensions": [
+            16.200974,
+            15.990611,
+            31.588511
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.016",
+          "object": "Pine_large_2_LOD2",
+          "polygons": 3042,
+          "vertices": 2740
+        },
+        {
+          "dimensions": [
+            13.397155,
+            15.444319,
+            29.77593
+          ],
+          "materials": [
+            "Pine_large_3_Billboard_Mat"
+          ],
+          "mesh": "Pine_0_002_Billboard_LOD3",
+          "object": "Pine_large_3_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            12.356974,
+            15.917212,
+            30.076698
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.017",
+          "object": "Pine_large_3_LOD0",
+          "polygons": 10142,
+          "vertices": 10731
+        },
+        {
+          "dimensions": [
+            12.356974,
+            15.917212,
+            30.057444
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.017",
+          "object": "Pine_large_3_LOD1",
+          "polygons": 5787,
+          "vertices": 5239
+        },
+        {
+          "dimensions": [
+            12.39307,
+            15.810787,
+            30.057444
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.017",
+          "object": "Pine_large_3_LOD2",
+          "polygons": 2818,
+          "vertices": 2535
+        },
+        {
+          "dimensions": [
+            6.379011,
+            5.236415,
+            13.785531
+          ],
+          "materials": [
+            "Pine_medium_1_Billboard_Mat"
+          ],
+          "mesh": "Pine_2_001_Billboard_LOD3",
+          "object": "Pine_medium_1_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            6.626621,
+            5.570653,
+            13.924779
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.018",
+          "object": "Pine_medium_1_LOD0",
+          "polygons": 4425,
+          "vertices": 4504
+        },
+        {
+          "dimensions": [
+            6.626621,
+            5.570653,
+            13.924779
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.018",
+          "object": "Pine_medium_1_LOD1",
+          "polygons": 2355,
+          "vertices": 2052
+        },
+        {
+          "dimensions": [
+            6.379611,
+            5.438797,
+            13.924779
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.018",
+          "object": "Pine_medium_1_LOD2",
+          "polygons": 1253,
+          "vertices": 1021
+        },
+        {
+          "dimensions": [
+            5.886785,
+            6.337205,
+            12.648911
+          ],
+          "materials": [
+            "Pine_medium_2_Billboard_Mat"
+          ],
+          "mesh": "Pine_2_002_Billboard_LOD3",
+          "object": "Pine_medium_2_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            6.228174,
+            6.497044,
+            12.832212
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.019",
+          "object": "Pine_medium_2_LOD0",
+          "polygons": 3967,
+          "vertices": 3960
+        },
+        {
+          "dimensions": [
+            6.228174,
+            6.497044,
+            12.832212
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.019",
+          "object": "Pine_medium_2_LOD1",
+          "polygons": 2232,
+          "vertices": 1877
+        },
+        {
+          "dimensions": [
+            6.264627,
+            6.447133,
+            12.907051
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.019",
+          "object": "Pine_medium_2_LOD2",
+          "polygons": 1170,
+          "vertices": 935
+        },
+        {
+          "dimensions": [
+            5.035098,
+            4.651978,
+            10.363446
+          ],
+          "materials": [
+            "Pine_medium_3_Billboard_Mat"
+          ],
+          "mesh": "Pine_2_003_Billboard_LOD3",
+          "object": "Pine_medium_3_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            5.300103,
+            5.002126,
+            10.468127
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.020",
+          "object": "Pine_medium_3_LOD0",
+          "polygons": 2923,
+          "vertices": 2957
+        },
+        {
+          "dimensions": [
+            5.300103,
+            5.002126,
+            10.468127
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.020",
+          "object": "Pine_medium_3_LOD1",
+          "polygons": 1703,
+          "vertices": 1457
+        },
+        {
+          "dimensions": [
+            5.223354,
+            4.776223,
+            10.468127
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.020",
+          "object": "Pine_medium_3_LOD2",
+          "polygons": 992,
+          "vertices": 804
+        },
+        {
+          "dimensions": [
+            1.234406,
+            1.047923,
+            1.477199
+          ],
+          "materials": [
+            "Pine_sapling_1_Billboard_Mat"
+          ],
+          "mesh": "Pine_4_001_Billboard_LOD3",
+          "object": "Pine_sapling_1_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            1.487236,
+            1.126798,
+            1.538749
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.021",
+          "object": "Pine_sapling_1_LOD0",
+          "polygons": 587,
+          "vertices": 687
+        },
+        {
+          "dimensions": [
+            1.487236,
+            1.126798,
+            1.538749
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.021",
+          "object": "Pine_sapling_1_LOD1",
+          "polygons": 436,
+          "vertices": 458
+        },
+        {
+          "dimensions": [
+            1.42086,
+            1.105585,
+            1.538749
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.021",
+          "object": "Pine_sapling_1_LOD2",
+          "polygons": 270,
+          "vertices": 206
+        },
+        {
+          "dimensions": [
+            1.125606,
+            1.051261,
+            1.545703
+          ],
+          "materials": [
+            "Pine_sapling_2_Billboard_Mat"
+          ],
+          "mesh": "Pine_4_001_2_Billboard_LOD3",
+          "object": "Pine_sapling_2_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            1.37269,
+            1.266579,
+            1.561316
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.022",
+          "object": "Pine_sapling_2_LOD0",
+          "polygons": 646,
+          "vertices": 778
+        },
+        {
+          "dimensions": [
+            1.37269,
+            1.266579,
+            1.552073
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.022",
+          "object": "Pine_sapling_2_LOD1",
+          "polygons": 478,
+          "vertices": 518
+        },
+        {
+          "dimensions": [
+            1.252976,
+            1.163227,
+            1.552073
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.022",
+          "object": "Pine_sapling_2_LOD2",
+          "polygons": 280,
+          "vertices": 218
+        },
+        {
+          "dimensions": [
+            1.010986,
+            1.235556,
+            1.476527
+          ],
+          "materials": [
+            "Pine_sapling_3_Billboard_Mat"
+          ],
+          "mesh": "Pine_4_001_3_Billboard_LOD3",
+          "object": "Pine_sapling_3_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            1.24813,
+            1.432352,
+            1.50666
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.023",
+          "object": "Pine_sapling_3_LOD0",
+          "polygons": 638,
+          "vertices": 770
+        },
+        {
+          "dimensions": [
+            1.192953,
+            1.432352,
+            1.50666
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.023",
+          "object": "Pine_sapling_3_LOD1",
+          "polygons": 478,
+          "vertices": 518
+        },
+        {
+          "dimensions": [
+            1.112308,
+            1.368545,
+            1.50666
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.023",
+          "object": "Pine_sapling_3_LOD2",
+          "polygons": 280,
+          "vertices": 218
+        },
+        {
+          "dimensions": [
+            3.087069,
+            3.150489,
+            4.309312
+          ],
+          "materials": [
+            "Pine_small_1_Billboard_Mat"
+          ],
+          "mesh": "Pine_3_001_Billboard_LOD3",
+          "object": "Pine_small_1_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            3.061513,
+            3.214784,
+            4.352841
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.024",
+          "object": "Pine_small_1_LOD0",
+          "polygons": 2136,
+          "vertices": 2409
+        },
+        {
+          "dimensions": [
+            3.061513,
+            3.211146,
+            4.352736
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.024",
+          "object": "Pine_small_1_LOD1",
+          "polygons": 1485,
+          "vertices": 1706
+        },
+        {
+          "dimensions": [
+            3.019184,
+            3.211146,
+            4.352664
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.024",
+          "object": "Pine_small_1_LOD2",
+          "polygons": 847,
+          "vertices": 1019
+        },
+        {
+          "dimensions": [
+            3.320288,
+            2.434706,
+            4.004106
+          ],
+          "materials": [
+            "Pine_small_2_Billboard_Mat"
+          ],
+          "mesh": "Pine_3_001_2_Billboard_LOD3",
+          "object": "Pine_small_2_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            3.816423,
+            2.735625,
+            4.044551
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.025",
+          "object": "Pine_small_2_LOD0",
+          "polygons": 1912,
+          "vertices": 2107
+        },
+        {
+          "dimensions": [
+            3.813034,
+            2.735625,
+            4.044501
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.025",
+          "object": "Pine_small_2_LOD1",
+          "polygons": 1284,
+          "vertices": 1457
+        },
+        {
+          "dimensions": [
+            3.484617,
+            2.512632,
+            4.04385
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.025",
+          "object": "Pine_small_2_LOD2",
+          "polygons": 768,
+          "vertices": 877
+        },
+        {
+          "dimensions": [
+            3.50054,
+            3.052405,
+            4.603654
+          ],
+          "materials": [
+            "Pine_small_3_Billboard_Mat"
+          ],
+          "mesh": "Pine_3_001_3_Billboard_LOD3",
+          "object": "Pine_small_3_Billboard_LOD3",
+          "polygons": 16,
+          "vertices": 24
+        },
+        {
+          "dimensions": [
+            3.608804,
+            3.146809,
+            4.650156
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD0.026",
+          "object": "Pine_small_3_LOD0",
+          "polygons": 2333,
+          "vertices": 2604
+        },
+        {
+          "dimensions": [
+            3.605994,
+            3.144257,
+            4.649997
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD1.026",
+          "object": "Pine_small_3_LOD1",
+          "polygons": 1544,
+          "vertices": 1799
+        },
+        {
+          "dimensions": [
+            3.605994,
+            3.144257,
+            4.649984
+          ],
+          "materials": [
+            "Bark_Mat.001",
+            "Clusters_Mat"
+          ],
+          "mesh": "LOD2.026",
+          "object": "Pine_small_3_LOD2",
+          "polygons": 884,
+          "vertices": 1073
+        },
+        {
+          "dimensions": [
+            128.88768,
+            0.0,
+            1.849411
+          ],
+          "materials": [
+            "ref_plane"
+          ],
+          "mesh": "Plane.001",
+          "object": "Ref_plane",
+          "polygons": 5,
+          "vertices": 20
+        }
+      ],
+      "path": "Assets/pine-trees-pack-lowpoly-game-ready-lods/source/Pine_pack.fbx",
+      "requested": [
+        "Pine_large_1",
+        "Pine_large_2",
+        "Pine_large_3",
+        "Pine_big_1",
+        "Pine_big_2",
+        "Pine_big_3"
+      ]
+    },
+    {
+      "meshes": [
+        {
+          "dimensions": [
+            2.71674,
+            4.15827,
+            2.72713
+          ],
+          "materials": [
+            "Bark_Mat.002",
+            "Brunches_Mat"
+          ],
+          "mesh": "Christmas tree_5",
+          "object": "Christmas tree_2_LOD0",
+          "polygons": 6813,
+          "vertices": 5699
+        },
+        {
+          "dimensions": [
+            2.71674,
+            4.15827,
+            2.72713
+          ],
+          "materials": [
+            "Bark_Mat.002",
+            "Brunches_Mat"
+          ],
+          "mesh": "Christmas tree_5_LOD1",
+          "object": "Christmas tree_2_LOD1",
+          "polygons": 3598,
+          "vertices": 3300
+        },
+        {
+          "dimensions": [
+            2.71674,
+            4.15827,
+            2.72713
+          ],
+          "materials": [
+            "Bark_Mat.002",
+            "Brunches_Mat"
+          ],
+          "mesh": "Christmas tree_5_LOD2",
+          "object": "Christmas tree_2_LOD2",
+          "polygons": 2278,
+          "vertices": 2240
+        },
+        {
+          "dimensions": [
+            2.71674,
+            4.11669,
+            2.72713
+          ],
+          "materials": [
+            "Christmas tree_2_Billboard_Mat"
+          ],
+          "mesh": "Christmas tree_5_LOD3",
+          "object": "Christmas tree_2_LOD3",
+          "polygons": 20,
+          "vertices": 30
+        },
+        {
+          "dimensions": [
+            1.498645,
+            1.53149,
+            1.621409
+          ],
+          "materials": [
+            "Bark_Mat.002",
+            "Brunches_Mat"
+          ],
+          "mesh": "Christmas tree_7",
+          "object": "Christmas tree_3_LOD0",
+          "polygons": 599,
+          "vertices": 618
+        },
+        {
+          "dimensions": [
+            1.452645,
+            1.55941,
+            1.621409
+          ],
+          "materials": [
+            "Bark_Mat.002",
+            "Brunches_Mat"
+          ],
+          "mesh": "Christmas tree_7_LOD1",
+          "object": "Christmas tree_3_LOD1",
+          "polygons": 437,
+          "vertices": 456
+        },
+        {
+          "dimensions": [
+            1.452645,
+            1.58732,
+            1.621409
+          ],
+          "materials": [
+            "Bark_Mat.002",
+            "Brunches_Mat"
+          ],
+          "mesh": "Christmas tree_7_LOD2",
+          "object": "Christmas tree_3_LOD2",
+          "polygons": 318,
+          "vertices": 337
+        },
+        {
+          "dimensions": [
+            1.438698,
+            1.57145,
+            1.605195
+          ],
+          "materials": [
+            "Christmas tree_3_Billboard_Mat"
+          ],
+          "mesh": "Christmas tree_7_LOD3",
+          "object": "Christmas tree_3_LOD3",
+          "polygons": 20,
+          "vertices": 30
+        },
+        {
+          "dimensions": [
+            5.28658,
+            9.293006,
+            5.03556
+          ],
+          "materials": [
+            "Bark_Mat.002",
+            "Brunches_Mat"
+          ],
+          "mesh": "Christmas tree",
+          "object": "Christmas tree_LOD0",
+          "polygons": 12969,
+          "vertices": 10721
+        },
+        {
+          "dimensions": [
+            5.25045,
+            9.308646,
+            5.03556
+          ],
+          "materials": [
+            "Bark_Mat.002",
+            "Brunches_Mat"
+          ],
+          "mesh": "Christmas tree_LOD1",
+          "object": "Christmas tree_LOD1",
+          "polygons": 6633,
+          "vertices": 5698
+        },
+        {
+          "dimensions": [
+            5.23397,
+            9.324286,
+            5.03556
+          ],
+          "materials": [
+            "Bark_Mat.002",
+            "Brunches_Mat"
+          ],
+          "mesh": "Christmas tree_LOD2",
+          "object": "Christmas tree_LOD2",
+          "polygons": 3268,
+          "vertices": 2952
+        },
+        {
+          "dimensions": [
+            5.23371,
+            9.231046,
+            5.03556
+          ],
+          "materials": [
+            "Christmas tree_Billboard_Mat"
+          ],
+          "mesh": "Christmas tree_LOD3",
+          "object": "Christmas tree_LOD3",
+          "polygons": 20,
+          "vertices": 30
+        }
+      ],
+      "path": "Assets/realistic-fir-trees-pack-lods-gameready/source/Christmass trees pack.fbx",
+      "requested": [
+        "Christmas tree",
+        "Christmas tree_2"
+      ]
+    }
+  ]
+}

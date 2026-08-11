@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "generatorVersion": "r2-forest1e.1",
+  "attribution": {
+    "publisher": "LOLIPOP",
+    "license": "Creative Commons Attribution 4.0 International",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "derivativeUse": "Permitted with attribution; original pack files are never overwritten."
+  },
+  "outputRoot": "Assets/_Game/Art/World/Forest/Harvest/Generated",
+  "variants": [
+    { "speciesId": "species.pine", "species": "Pine", "variantId": "PineLarge1", "runtimeVariantId": "variant.pine.large.1", "sourceFbx": "Assets/pine-trees-pack-lowpoly-game-ready-lods/source/Pine_pack.fbx", "sourceMesh": "Pine_large_1", "barkMaterial": "MAT_Pine_Bark", "cutHeight": 1.05, "trunkRadius": 0.36, "targetHeight": 18.0, "logYield": 4 },
+    { "speciesId": "species.pine", "species": "Pine", "variantId": "PineLarge2", "runtimeVariantId": "variant.pine.large.2", "sourceFbx": "Assets/pine-trees-pack-lowpoly-game-ready-lods/source/Pine_pack.fbx", "sourceMesh": "Pine_large_2", "barkMaterial": "MAT_Pine_Bark", "cutHeight": 1.08, "trunkRadius": 0.38, "targetHeight": 18.5, "logYield": 4 },
+    { "speciesId": "species.pine", "species": "Pine", "variantId": "PineLarge3", "runtimeVariantId": "variant.pine.large.3", "sourceFbx": "Assets/pine-trees-pack-lowpoly-game-ready-lods/source/Pine_pack.fbx", "sourceMesh": "Pine_large_3", "barkMaterial": "MAT_Pine_Bark", "cutHeight": 1.10, "trunkRadius": 0.40, "targetHeight": 19.0, "logYield": 5 },
+    { "speciesId": "species.pine", "species": "Pine", "variantId": "PineBig1", "runtimeVariantId": "variant.pine.big.1", "sourceFbx": "Assets/pine-trees-pack-lowpoly-game-ready-lods/source/Pine_pack.fbx", "sourceMesh": "Pine_big_1", "barkMaterial": "MAT_Pine_Bark", "cutHeight": 1.02, "trunkRadius": 0.43, "targetHeight": 15.5, "logYield": 4 },
+    { "speciesId": "species.pine", "species": "Pine", "variantId": "PineBig2", "runtimeVariantId": "variant.pine.big.2", "sourceFbx": "Assets/pine-trees-pack-lowpoly-game-ready-lods/source/Pine_pack.fbx", "sourceMesh": "Pine_big_2", "barkMaterial": "MAT_Pine_Bark", "cutHeight": 1.04, "trunkRadius": 0.45, "targetHeight": 16.0, "logYield": 4 },
+    { "speciesId": "species.pine", "species": "Pine", "variantId": "PineBig3", "runtimeVariantId": "variant.pine.big.3", "sourceFbx": "Assets/pine-trees-pack-lowpoly-game-ready-lods/source/Pine_pack.fbx", "sourceMesh": "Pine_big_3", "barkMaterial": "MAT_Pine_Bark", "cutHeight": 1.06, "trunkRadius": 0.47, "targetHeight": 16.5, "logYield": 5 },
+    { "speciesId": "species.fir", "species": "Fir", "variantId": "FirTall", "runtimeVariantId": "variant.fir.tall", "sourceFbx": "Assets/realistic-fir-trees-pack-lods-gameready/source/Christmass trees pack.fbx", "sourceMesh": "Christmas tree", "barkMaterial": "MAT_Fir_Bark", "cutHeight": 1.05, "trunkRadius": 0.34, "targetHeight": 17.5, "logYield": 4 },
+    { "speciesId": "species.fir", "species": "Fir", "variantId": "FirCompact", "runtimeVariantId": "variant.fir.compact", "sourceFbx": "Assets/realistic-fir-trees-pack-lods-gameready/source/Christmass trees pack.fbx", "sourceMesh": "Christmas tree_2", "barkMaterial": "MAT_Fir_Bark", "cutHeight": 0.95, "trunkRadius": 0.32, "targetHeight": 13.5, "logYield": 3 },
+    { "speciesId": "species.maple", "species": "Maple", "variantId": "MapleLarge1", "runtimeVariantId": "variant.maple.large.1", "sourceFbx": "Assets/maple-trees-pack-lowpoly-game-ready-lods/source/Acer tree pack.fbx", "sourceMesh": "Acer_large_1", "barkMaterial": "MAT_Maple_Bark", "cutHeight": 1.00, "trunkRadius": 0.40, "targetHeight": 15.0, "logYield": 4 },
+    { "speciesId": "species.maple", "species": "Maple", "variantId": "MapleLarge2", "runtimeVariantId": "variant.maple.large.2", "sourceFbx": "Assets/maple-trees-pack-lowpoly-game-ready-lods/source/Acer tree pack.fbx", "sourceMesh": "Acer_large_2", "barkMaterial": "MAT_Maple_Bark", "cutHeight": 1.02, "trunkRadius": 0.42, "targetHeight": 15.5, "logYield": 4 },
+    { "speciesId": "species.maple", "species": "Maple", "variantId": "MapleLarge3", "runtimeVariantId": "variant.maple.large.3", "sourceFbx": "Assets/maple-trees-pack-lowpoly-game-ready-lods/source/Acer tree pack.fbx", "sourceMesh": "Acer_large_3", "barkMaterial": "MAT_Maple_Bark", "cutHeight": 1.04, "trunkRadius": 0.44, "targetHeight": 16.0, "logYield": 5 },
+    { "speciesId": "species.maple", "species": "Maple", "variantId": "MapleMedium1", "runtimeVariantId": "variant.maple.medium.1", "sourceFbx": "Assets/maple-trees-pack-lowpoly-game-ready-lods/source/Acer tree pack.fbx", "sourceMesh": "Acer_medium_1", "barkMaterial": "MAT_Maple_Bark", "cutHeight": 0.90, "trunkRadius": 0.31, "targetHeight": 12.0, "logYield": 3 }
+  ]
+}

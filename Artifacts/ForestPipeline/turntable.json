@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "source": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Pine/KIT_PineLarge1.fbx",
+  "frames": [
+    "Artifacts/ForestPipeline/Turntable/frame_00.png",
+    "Artifacts/ForestPipeline/Turntable/frame_01.png",
+    "Artifacts/ForestPipeline/Turntable/frame_02.png",
+    "Artifacts/ForestPipeline/Turntable/frame_03.png",
+    "Artifacts/ForestPipeline/Turntable/frame_04.png",
+    "Artifacts/ForestPipeline/Turntable/frame_05.png",
+    "Artifacts/ForestPipeline/Turntable/frame_06.png",
+    "Artifacts/ForestPipeline/Turntable/frame_07.png"
+  ]
+}
