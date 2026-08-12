@@ -104,6 +104,39 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator PineFirAndMaple_AllResolveMatchingFellingKitsAndAcceptChops()
+        {
+#if UNITY_EDITOR
+            TestWorld world = CreateWorld();
+            yield return null;
+            string[] expectedSpecies = { "species.pine", "species.fir", "species.maple" };
+            for (int index = 0; index < expectedSpecies.Length; index++)
+            {
+                ForestStaticVisualBinding binding = world.Runtime.StaticBindings
+                    .First(value => value.SpeciesId.Value == expectedSpecies[index]);
+                world.Observer.transform.position = binding.VisualRoot.position + Vector3.back * 2f;
+                world.Coordinator.EvaluateProximity();
+                var damage = new TreeDamageEvent(
+                    10f, binding.VisualRoot.position + Vector3.up,
+                    Vector3.back, Vector3.forward, "tool.axe.test", index + 1);
+
+                Assert.That(world.Coordinator.TryDamage(
+                    binding.TreeInstanceId.Value, in damage, out string reason), Is.True, reason);
+                Assert.That(world.Coordinator.TryGetLease(
+                    binding.TreeInstanceId.Value, out ForestInteractiveTree tree), Is.True);
+                Assert.That(tree.SpeciesId.Value, Is.EqualTo(expectedSpecies[index]));
+                Assert.That(tree.State, Is.EqualTo(ForestTreeLifecycleState.Damaged));
+                Assert.That(tree.NotchStage, Is.GreaterThan(0));
+            }
+
+            DestroyWorld(world);
+            yield return null;
+#else
+            yield break;
+#endif
+        }
+
+        [UnityTest]
         public IEnumerator LethalDamage_TransitionsThroughFallingToFelledAndPersistsInSession()
         {
 #if UNITY_EDITOR
@@ -112,8 +145,11 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
             ForestStaticVisualBinding binding = world.Runtime.StaticBindings[0];
             world.Observer.transform.position = binding.VisualRoot.position + Vector3.left * 2f;
             world.Coordinator.EvaluateProximity();
+            Assert.That(world.Coordinator.TryGetLease(
+                binding.TreeInstanceId.Value, out ForestInteractiveTree promoted), Is.True);
             var damage = new TreeDamageEvent(
-                100f, binding.VisualRoot.position + Vector3.up * 1.2f, Vector3.right);
+                promoted.DamageThreshold, binding.VisualRoot.position + Vector3.up * 1.2f,
+                Vector3.left, Vector3.right, "tool.axe.test", 1);
 
             Assert.That(world.Coordinator.TryDamage(
                 binding.TreeInstanceId.Value, in damage, out string reason), Is.True, reason);
@@ -121,13 +157,17 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
                 binding.TreeInstanceId.Value, out ForestInteractiveTree tree), Is.True);
             Assert.That(tree.State, Is.EqualTo(ForestTreeLifecycleState.Falling));
 
-            float deadline = Time.time + 9f;
+            float deadline = Time.time + 13f;
             while (tree.State == ForestTreeLifecycleState.Falling && Time.time < deadline)
             {
                 yield return new WaitForFixedUpdate();
             }
 
             Assert.That(tree.State, Is.EqualTo(ForestTreeLifecycleState.Felled));
+            Assert.That(tree.OutputsSpawned, Is.True);
+            Assert.That(tree.Logs.Count, Is.InRange(3, 5));
+            string[] stableLogIds = tree.Logs.Select(value => value.StableLogId).ToArray();
+            Assert.That(stableLogIds.Distinct().Count(), Is.EqualTo(stableLogIds.Length));
             Assert.That(binding.VisualRoot.gameObject.activeSelf, Is.False);
             Assert.That(world.Coordinator.TryDemote(binding.TreeInstanceId.Value), Is.False);
             world.Runtime.Unload();
@@ -136,6 +176,8 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
                 binding.TreeInstanceId.Value, out tree), Is.True);
             Assert.That(tree.State, Is.EqualTo(ForestTreeLifecycleState.Felled));
             Assert.That(tree.TreeInstanceId, Is.EqualTo(binding.TreeInstanceId));
+            Assert.That(tree.Logs.Select(value => value.StableLogId), Is.EquivalentTo(stableLogIds));
+            Assert.That(tree.Logs.Count, Is.EqualTo(stableLogIds.Length));
             DestroyWorld(world);
             yield return null;
 #else

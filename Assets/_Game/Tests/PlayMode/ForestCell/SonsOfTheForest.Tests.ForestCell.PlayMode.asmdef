@@ -4,7 +4,9 @@
   "references": [
     "SonsOfTheForest.Core",
     "SonsOfTheForest.Data.Forest",
-    "SonsOfTheForest.Infrastructure.Forest"
+    "SonsOfTheForest.Infrastructure.Forest",
+    "SonsOfTheForest.Presentation.ForestCamp",
+    "Unity.InputSystem"
   ],
   "optionalUnityReferences": [
     "TestAssemblies"

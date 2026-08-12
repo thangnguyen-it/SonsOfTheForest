@@ -5,7 +5,8 @@
     "SonsOfTheForest.Core",
     "SonsOfTheForest.Data.Forest",
     "SonsOfTheForest.Infrastructure.Forest",
-    "SonsOfTheForest.Editor.ForestCell"
+    "SonsOfTheForest.Editor.ForestCell",
+    "SonsOfTheForest.Presentation.ForestCamp"
   ],
   "optionalUnityReferences": [
     "TestAssemblies"
