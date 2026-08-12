@@ -5,6 +5,7 @@ using System.Linq;
 using SonsOfTheForest.Data.Forest;
 using SonsOfTheForest.Infrastructure.Forest;
 using SonsOfTheForest.Infrastructure.Validation.Forest;
+using SonsOfTheForest.Presentation.ForestCamp;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -129,17 +130,25 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             }
 
             var variants = new ForestVisualVariant[variantIds.Count];
+            string speciesLabel = speciesId.Replace("species.", string.Empty);
+            ForestHarvestProfile harvestProfile = AssetDatabase.LoadAssetAtPath<ForestHarvestProfile>(
+                "Assets/_Game/Data/World/Forest/Harvest/HRV_" + speciesLabel + ".asset");
             for (int index = 0; index < variants.Length; index++)
             {
                 GameObject prefab = Load<GameObject>(prefabPaths[index]);
-                variants[index] = new ForestVisualVariant(variantIds[index], prefab, 1f);
+                ForestFellingKitDefinition kit =
+                    AssetDatabase.LoadAssetAtPath<ForestFellingKitDefinition>(
+                        "Assets/_Game/Data/World/Forest/Harvest/Kits/KIT_" +
+                        variantIds[index] + ".asset");
+                variants[index] = new ForestVisualVariant(variantIds[index], prefab, 1f, kit);
             }
 
             species.EditorConfigure(
                 speciesId,
                 variants,
                 true,
-                ForestStaticShadowPolicy.PrefabLodPolicy);
+                ForestStaticShadowPolicy.PrefabLodPolicy,
+                harvestProfile);
             if (!species.TryValidate(out string reason))
             {
                 throw new InvalidOperationException("Species validation failed: " + reason);
@@ -322,12 +331,15 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
 
                 var interactiveRootObject = new GameObject("InteractiveTrees");
                 interactiveRootObject.transform.SetParent(root.transform, false);
+                var harvestOutputRootObject = new GameObject("HarvestOutputs");
+                harvestOutputRootObject.transform.SetParent(root.transform, false);
                 var coordinator = root.AddComponent<ForestCellInteractionCoordinator>();
                 coordinator.EditorConfigure(
                     runtime,
                     null,
                     interactiveTreePrefab,
                     interactiveRootObject.transform,
+                    harvestOutputRootObject.transform,
                     18f,
                     24f,
                     100f,
@@ -339,6 +351,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                     throw new InvalidOperationException(
                         "Coordinator validation failed: " + coordinatorReason);
                 }
+
+                BuildHarvestPresentation(root, coordinator);
 
                 if (!runtime.TryValidateConfiguration(out string reason))
                 {
@@ -518,6 +532,14 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 instance.GetComponent<ForestCellInteractionCoordinator>();
             coordinator.SetObserver(localPlayer);
             EditorUtility.SetDirty(coordinator);
+            ForestHarvestPresentationPool presentation =
+                instance.GetComponent<ForestHarvestPresentationPool>();
+            Camera playerCamera = localPlayer.GetComponentInChildren<Camera>(true);
+            if (presentation != null && playerCamera != null)
+            {
+                presentation.SetObserver(playerCamera.transform);
+                EditorUtility.SetDirty(presentation);
+            }
 
             matureTrees.gameObject.SetActive(false);
             EditorUtility.SetDirty(matureTrees.gameObject);
@@ -553,6 +575,88 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             }
 
             return triangles;
+        }
+
+        private static void BuildHarvestPresentation(
+            GameObject root, ForestCellInteractionCoordinator coordinator)
+        {
+            const string chipSource =
+                "Assets/_Game/Art/World/Forest/Harvest/Generated/Effects/CHIPS_Harvest.fbx";
+            Mesh woodChip = LoadMesh(chipSource, "WoodChip");
+            Mesh barkChip = LoadMesh(chipSource, "BarkChip");
+            Material wood = Load<Material>(
+                "Assets/_Game/Art/World/Forest/Harvest/Materials/MAT_Pine_EndGrain.mat");
+            Material bark = Load<Material>(
+                "Assets/_Game/Art/World/Forest/Trees/Curated/Materials/Pine/MAT_Pine_Bark.mat");
+            var chips = new ParticleSystem[4];
+            var impacts = new ParticleSystem[3];
+            for (int index = 0; index < chips.Length; index++)
+            {
+                chips[index] = CreateParticlePool(
+                    root.transform, "WoodChipPool_" + index,
+                    index % 2 == 0 ? woodChip : barkChip,
+                    index % 2 == 0 ? wood : bark, false);
+            }
+
+            for (int index = 0; index < impacts.Length; index++)
+            {
+                impacts[index] = CreateParticlePool(
+                    root.transform, "ImpactDebrisPool_" + index,
+                    barkChip, bark, true);
+            }
+
+            AudioSource audio = root.AddComponent<AudioSource>();
+            audio.playOnAwake = false;
+            audio.spatialBlend = 1f;
+            audio.rolloffMode = AudioRolloffMode.Logarithmic;
+            audio.maxDistance = 30f;
+            ForestHarvestPresentationPool pool = root.AddComponent<ForestHarvestPresentationPool>();
+            pool.EditorConfigure(coordinator, null, chips, impacts, audio);
+        }
+
+        private static ParticleSystem CreateParticlePool(
+            Transform parent, string name, Mesh mesh, Material material, bool impact)
+        {
+            var value = new GameObject(name);
+            value.transform.SetParent(parent, false);
+            ParticleSystem particles = value.AddComponent<ParticleSystem>();
+            ParticleSystem.MainModule main = particles.main;
+            main.playOnAwake = false;
+            main.loop = false;
+            main.duration = impact ? 0.55f : 0.32f;
+            main.startLifetime = impact ? 1.2f : 0.65f;
+            main.startSpeed = impact ? 3.0f : 2.2f;
+            main.startSize = impact ? 1.5f : 1f;
+            main.maxParticles = impact ? 28 : 18;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.gravityModifier = impact ? 1.1f : 0.75f;
+            ParticleSystem.EmissionModule emission = particles.emission;
+            emission.rateOverTime = 0f;
+            emission.SetBursts(new[]
+            {
+                new ParticleSystem.Burst(0f, (short)(impact ? 22 : 12))
+            });
+            ParticleSystem.ShapeModule shape = particles.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = impact ? 62f : 36f;
+            shape.radius = impact ? 0.8f : 0.12f;
+            ParticleSystemRenderer renderer = value.GetComponent<ParticleSystemRenderer>();
+            renderer.renderMode = ParticleSystemRenderMode.Mesh;
+            renderer.mesh = mesh;
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            return particles;
+        }
+
+        private static Mesh LoadMesh(string path, string name)
+        {
+            Mesh value = AssetDatabase.LoadAllAssetsAtPath(path)
+                .OfType<Mesh>()
+                .SingleOrDefault(candidate => candidate.name == name);
+            return value != null
+                ? value
+                : throw new InvalidOperationException("Missing mesh " + name + " in " + path);
         }
 
         private static void SetStaticRecursively(GameObject value)

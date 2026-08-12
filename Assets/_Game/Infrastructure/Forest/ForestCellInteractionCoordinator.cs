@@ -21,6 +21,9 @@ namespace SonsOfTheForest.Infrastructure.Forest
         private Transform interactiveRoot;
 
         [SerializeField]
+        private Transform harvestOutputRoot;
+
+        [SerializeField]
         [Min(0.1f)]
         private float promotionRadius = 18f;
 
@@ -51,6 +54,8 @@ namespace SonsOfTheForest.Infrastructure.Forest
         private readonly Dictionary<string, ForestInteractiveTree> leases = new(StringComparer.Ordinal);
         private readonly ForestTreeDeltaStore deltaStore = new();
         private float nextEvaluationTime;
+
+        public event Action<ForestInteractiveTree> TreePromoted;
 
         public ForestTreeDeltaStore DeltaStore => deltaStore;
 
@@ -107,7 +112,8 @@ namespace SonsOfTheForest.Infrastructure.Forest
         public bool TryValidateConfiguration(out string reason)
         {
             if (cellRuntime == null || interactiveTreePrefab == null || interactiveRoot == null ||
-                !interactiveRoot.IsChildOf(transform))
+                harvestOutputRoot == null || !interactiveRoot.IsChildOf(transform) ||
+                !harvestOutputRoot.IsChildOf(transform))
             {
                 reason = "Coordinator requires a cell runtime, interactive prefab and owned root.";
                 return false;
@@ -207,10 +213,12 @@ namespace SonsOfTheForest.Infrastructure.Forest
             in ForestTreeStateDelta delta)
         {
             string id = binding.TreeInstanceId.Value;
+            bool shouldRestoreDelta = false;
             if (!leases.TryGetValue(id, out ForestInteractiveTree tree) || tree == null)
             {
                 if (!TryFindPlacement(id, out ForestTreePlacementRecord placement) ||
-                    !TryFindVariant(placement, out ForestVisualVariant variant))
+                    !TryFindVariant(placement, out ForestVisualVariant variant, out ForestSpeciesDefinition species) ||
+                    variant.FellingKit == null || species.HarvestProfile == null)
                 {
                     throw new InvalidOperationException("Cannot promote unresolved tree: " + id);
                 }
@@ -222,20 +230,24 @@ namespace SonsOfTheForest.Infrastructure.Forest
                     cellRuntime.Definition.ForestCellId,
                     in placement,
                     variant.VisualPrefab,
-                    damageThreshold,
-                    fallImpulse,
-                    settleDuration,
-                    maximumFallDuration);
+                    variant.FellingKit,
+                    species.HarvestProfile,
+                    harvestOutputRoot);
                 tree.StateChanged += HandleTreeStateChanged;
                 leases.Add(id, tree);
+                TreePromoted?.Invoke(tree);
+                shouldRestoreDelta = hasDelta;
             }
             else
             {
+                bool wasActive = tree.gameObject.activeSelf;
                 tree.gameObject.SetActive(true);
+                tree.SetOwnedOutputsActive(true);
+                shouldRestoreDelta = hasDelta && !wasActive;
             }
 
             binding.VisualRoot.gameObject.SetActive(false);
-            if (hasDelta)
+            if (shouldRestoreDelta)
             {
                 tree.ApplyDelta(in delta);
             }
@@ -278,6 +290,7 @@ namespace SonsOfTheForest.Infrastructure.Forest
                 }
 
                 tree.gameObject.SetActive(false);
+                tree.SetOwnedOutputsActive(false);
             }
         }
 
@@ -337,7 +350,8 @@ namespace SonsOfTheForest.Infrastructure.Forest
 
         private bool TryFindVariant(
             in ForestTreePlacementRecord placement,
-            out ForestVisualVariant variant)
+            out ForestVisualVariant variant,
+            out ForestSpeciesDefinition resolvedSpecies)
         {
             IReadOnlyList<ForestSpeciesDefinition> species = cellRuntime.SpeciesDefinitions;
             for (int index = 0; index < species.Count; index++)
@@ -346,11 +360,13 @@ namespace SonsOfTheForest.Infrastructure.Forest
                 if (candidate != null && candidate.SpeciesId == placement.SpeciesId &&
                     candidate.TryGetVariant(placement.VariantId.Value, out variant))
                 {
+                    resolvedSpecies = candidate;
                     return true;
                 }
             }
 
             variant = null;
+            resolvedSpecies = null;
             return false;
         }
 
@@ -360,6 +376,7 @@ namespace SonsOfTheForest.Infrastructure.Forest
             Transform playerObserver,
             GameObject leasePrefab,
             Transform leaseRoot,
+            Transform outputRoot,
             float promoteDistance,
             float demoteDistance,
             float health,
@@ -371,6 +388,7 @@ namespace SonsOfTheForest.Infrastructure.Forest
             observer = playerObserver;
             interactiveTreePrefab = leasePrefab;
             interactiveRoot = leaseRoot;
+            harvestOutputRoot = outputRoot;
             promotionRadius = promoteDistance;
             demotionRadius = demoteDistance;
             damageThreshold = health;

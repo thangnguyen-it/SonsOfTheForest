@@ -662,6 +662,8 @@ GameObject:
   - component: {fileID: 8833347129717239128}
   - component: {fileID: 2853558900548237558}
   - component: {fileID: 2891169438916832793}
+  - component: {fileID: 8200790725899058222}
+  - component: {fileID: 1415707078758411402}
   m_Layer: 0
   m_Name: PRF_PlayerFoundation
   m_TagString: Untagged
@@ -912,6 +914,43 @@ MonoBehaviour:
   collisionMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &8200790725899058222
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8645142098996287045}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1891957cd583e1d4a827ac806cda088c, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: SonsOfTheForest.Presentation.ForestCamp::SonsOfTheForest.Presentation.ForestCamp.PlayerAxeHarvestController
+  handsAnchor: {fileID: 341753598135513387}
+  viewCamera: {fileID: 3464571955136119058}
+  axePrefab: {fileID: 1377703138702980157, guid: 0ede147c740caa148a74b3dfbb9ba7e6, type: 3}
+  damagePerContact: 22
+  swingDuration: 0.78
+  hitWindowOpen: 0.34
+  hitWindowClose: 0.58
+  bladeRadius: 0.075
+  hitMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+--- !u!114 &1415707078758411402
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8645142098996287045}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c5e25e4bffbba448874369a7ef50dbe, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: SonsOfTheForest.Infrastructure.Forest::SonsOfTheForest.Infrastructure.Forest.ForestImpactDamageReceiver
+  maximumHealth: 100
+  currentHealth: 100
 --- !u!1 &8675469172501645552
 GameObject:
   m_ObjectHideFlags: 0

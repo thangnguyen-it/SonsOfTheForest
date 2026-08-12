@@ -6,6 +6,8 @@
     "SonsOfTheForest.Core",
     "SonsOfTheForest.Gameplay.Interaction",
     "SonsOfTheForest.Gameplay.Items",
+    "SonsOfTheForest.Infrastructure.Forest",
+    "SonsOfTheForest.Data.Forest",
     "Unity.InputSystem",
     "Unity.ugui"
   ],
