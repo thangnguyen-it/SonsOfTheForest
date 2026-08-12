@@ -25,18 +25,28 @@ namespace SonsOfTheForest.Data.Forest
         [Min(0.001f)]
         private float placementWeight = 1f;
 
+        [SerializeField]
+        private ForestFellingKitDefinition fellingKit;
+
         public StableStringId VariantId => new(variantId);
 
         public GameObject VisualPrefab => visualPrefab;
 
         public float PlacementWeight => placementWeight;
 
+        public ForestFellingKitDefinition FellingKit => fellingKit;
+
 #if UNITY_EDITOR
-        public ForestVisualVariant(string variantId, GameObject visualPrefab, float placementWeight)
+        public ForestVisualVariant(
+            string variantId,
+            GameObject visualPrefab,
+            float placementWeight,
+            ForestFellingKitDefinition configuredFellingKit = null)
         {
             this.variantId = variantId ?? string.Empty;
             this.visualPrefab = visualPrefab;
             this.placementWeight = placementWeight;
+            fellingKit = configuredFellingKit;
         }
 #endif
     }
@@ -70,6 +80,9 @@ namespace SonsOfTheForest.Data.Forest
         [SerializeField]
         private ScriptableObject resourceProfile;
 
+        [SerializeField]
+        private ForestHarvestProfile harvestProfile;
+
         public StableStringId SpeciesId => new(speciesId);
 
         public IReadOnlyList<ForestVisualVariant> VisualVariants => visualVariants;
@@ -85,6 +98,8 @@ namespace SonsOfTheForest.Data.Forest
         public GameObject LogPrefab => logPrefab;
 
         public ScriptableObject ResourceProfile => resourceProfile;
+
+        public ForestHarvestProfile HarvestProfile => harvestProfile;
 
         public bool TryGetVariant(string requestedVariantId, out ForestVisualVariant variant)
         {
@@ -156,12 +171,14 @@ namespace SonsOfTheForest.Data.Forest
             string stableSpeciesId,
             ForestVisualVariant[] variants,
             bool requiresLod,
-            ForestStaticShadowPolicy staticShadowPolicy)
+            ForestStaticShadowPolicy staticShadowPolicy,
+            ForestHarvestProfile configuredHarvestProfile = null)
         {
             speciesId = stableSpeciesId ?? string.Empty;
             visualVariants = variants ?? Array.Empty<ForestVisualVariant>();
             requireLodGroup = requiresLod;
             shadowPolicy = staticShadowPolicy;
+            harvestProfile = configuredHarvestProfile;
         }
 #endif
     }

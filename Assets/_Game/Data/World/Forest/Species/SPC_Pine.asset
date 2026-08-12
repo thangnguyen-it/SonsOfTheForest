@@ -17,24 +17,31 @@ MonoBehaviour:
   - variantId: variant.pine.large.1
     visualPrefab: {fileID: 4634604171898049593, guid: f5f3b41b5e0b2ac4b99736568bc5101d, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: e57fb7444854db6459333c5b9e3c96f1, type: 2}
   - variantId: variant.pine.large.2
     visualPrefab: {fileID: 5506418649552414800, guid: bdb6f7e15f84230448b3e0b8760ad726, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: 4845815d3a4609646916edb0a1162066, type: 2}
   - variantId: variant.pine.large.3
     visualPrefab: {fileID: 585191525451726220, guid: 7fd76321f239a3e47bcea1d99b403db7, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: 03f8e9b60f187de42a6d7a1de71e3582, type: 2}
   - variantId: variant.pine.big.1
     visualPrefab: {fileID: 593577896312549829, guid: ca3c40087c464cc4ea3f85e27ae12ef2, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: 334d851be163efb4eb711c47640aaba6, type: 2}
   - variantId: variant.pine.big.2
     visualPrefab: {fileID: 5987453420009667365, guid: 27b9841e3cdf51b458d395aed613c080, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: 7442792809c93b2449c10f2ec4f1bfa8, type: 2}
   - variantId: variant.pine.big.3
     visualPrefab: {fileID: 9011502298008238226, guid: f64145b27afebbc418595ec9716f4709, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: 2c83930356710804f9ffbd65dc6ddd44, type: 2}
   requireLodGroup: 1
   shadowPolicy: 0
   colliderPrefab: {fileID: 0}
   stumpPrefab: {fileID: 0}
   logPrefab: {fileID: 0}
   resourceProfile: {fileID: 0}
+  harvestProfile: {fileID: 11400000, guid: 3689ba878fedc05419f463d488875ca3, type: 2}

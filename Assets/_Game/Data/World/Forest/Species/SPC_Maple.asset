@@ -17,18 +17,23 @@ MonoBehaviour:
   - variantId: variant.maple.large.1
     visualPrefab: {fileID: 1074230663053178634, guid: 24db61f068204b04eb27dd869451bb58, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: 4388d5c1933a71d458b546959ec4b80f, type: 2}
   - variantId: variant.maple.large.2
     visualPrefab: {fileID: 5481464132169780513, guid: 59c49cfcfea0d2641a1557d8e92f382d, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: 0926d790c488f68469d5e20085f0f26f, type: 2}
   - variantId: variant.maple.large.3
     visualPrefab: {fileID: 5876116889407526268, guid: 4e7ce7c295f3fc245ac40620873b2a79, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: ab96beb9500756848bd4f476fed85e8f, type: 2}
   - variantId: variant.maple.medium.1
     visualPrefab: {fileID: 1973007677490262742, guid: 69e0c7ec9c4b171448c87ae2036bb824, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: 59091e475ec6edf48a778acaf830c107, type: 2}
   requireLodGroup: 1
   shadowPolicy: 0
   colliderPrefab: {fileID: 0}
   stumpPrefab: {fileID: 0}
   logPrefab: {fileID: 0}
   resourceProfile: {fileID: 0}
+  harvestProfile: {fileID: 11400000, guid: 9d292366d88d2d84ba9e96dfe3ca4733, type: 2}

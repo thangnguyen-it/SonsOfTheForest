@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37a3adf33819129458ba498a75b6449f, type: 3}
+  m_Name: KIT_variant.fir.compact
+  m_EditorClassIdentifier: SonsOfTheForest.Data.Forest::SonsOfTheForest.Data.Forest.ForestFellingKitDefinition
+  speciesId: species.fir
+  variantId: variant.fir.compact
+  fellingVisualPrefab: {fileID: 2069305134316014769, guid: 66835580a36266d4c85b4e2d7dac988a, type: 3}
+  wholeLogPrefabs:
+  - {fileID: 721835947322807869, guid: 24f76866ccd36a44f996e817d153a119, type: 3}
+  - {fileID: 5090356562278081948, guid: 5f11c15f499cf364194715c52c1de401, type: 3}
+  cutHeight: 0.95
+  trunkRadius: 0.32
+  logYield: 3
+  usableTrunkLength: 11.55

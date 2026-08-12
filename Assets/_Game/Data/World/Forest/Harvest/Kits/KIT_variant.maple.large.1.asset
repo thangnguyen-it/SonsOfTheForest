@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37a3adf33819129458ba498a75b6449f, type: 3}
+  m_Name: KIT_variant.maple.large.1
+  m_EditorClassIdentifier: SonsOfTheForest.Data.Forest::SonsOfTheForest.Data.Forest.ForestFellingKitDefinition
+  speciesId: species.maple
+  variantId: variant.maple.large.1
+  fellingVisualPrefab: {fileID: 4660145654707988568, guid: f3e4a21e36b952040b445e01f8a276fe, type: 3}
+  wholeLogPrefabs:
+  - {fileID: 2302852079052325017, guid: d6b945913121ecd478c0438a68c84b63, type: 3}
+  - {fileID: 5829408298644981546, guid: aa8c61e7f9291ce4b8ce2934d8f46827, type: 3}
+  cutHeight: 1
+  trunkRadius: 0.4
+  logYield: 4
+  usableTrunkLength: 13

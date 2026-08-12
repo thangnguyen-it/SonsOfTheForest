@@ -17,12 +17,15 @@ MonoBehaviour:
   - variantId: variant.fir.tall
     visualPrefab: {fileID: 9153235345233393597, guid: 4e4c2d14fd5e9ba4f829b11302cfb26e, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: 135b6877252ca724a979fe1e07f5f9f5, type: 2}
   - variantId: variant.fir.compact
     visualPrefab: {fileID: 5797223423269189485, guid: 69dcb3ba6aaffaa46981358939999f59, type: 3}
     placementWeight: 1
+    fellingKit: {fileID: 11400000, guid: 934e0c87a65b95f4eb00fa62ef14b966, type: 2}
   requireLodGroup: 1
   shadowPolicy: 0
   colliderPrefab: {fileID: 0}
   stumpPrefab: {fileID: 0}
   logPrefab: {fileID: 0}
   resourceProfile: {fileID: 0}
+  harvestProfile: {fileID: 11400000, guid: e6d35d0b6e33e02479e6777ec4a2341e, type: 2}

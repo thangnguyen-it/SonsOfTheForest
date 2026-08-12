@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff336e599ab47c448aae57045448710c, type: 3}
+  m_Name: HRV_fir
+  m_EditorClassIdentifier: SonsOfTheForest.Data.Forest::SonsOfTheForest.Data.Forest.ForestHarvestProfile
+  treeHealth: 88
+  notchStageCount: 3
+  hingeDuration: 0.62
+  hingeAngle: 19
+  fallTorque: 10
+  settleDuration: 1.1
+  maximumFallDuration: 11
+  logMass: 30
+  fallingTreeDamage: 80
