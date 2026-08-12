@@ -88,7 +88,8 @@ Unity HDRP screenshots and tests are the material/shader authority.
 
 ## Controls and validation
 
-- Primary action: left mouse / configured primary-action input equips and swings the axe.
+- Equip axe: keyboard `1` / configured `Previous` action. Unequip/lower: keyboard `2` /
+  configured `Next` action. Swing: left mouse / configured `Attack` action while equipped.
 - Alternate left/right chops are selected by swing parity; locomotion remains camera/player owned.
 - Damage is emitted only from physical blade overlap during the active window. Miss recovery
   closes without damage, and one swing cannot damage the same tree twice.
