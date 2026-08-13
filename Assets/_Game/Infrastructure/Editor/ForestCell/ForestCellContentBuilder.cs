@@ -6,6 +6,7 @@ using SonsOfTheForest.Data.Forest;
 using SonsOfTheForest.Infrastructure.Forest;
 using SonsOfTheForest.Infrastructure.Validation.Forest;
 using SonsOfTheForest.Presentation.ForestCamp;
+using SonsOfTheForest.Presentation.Player;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -32,6 +33,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             "Assets/_Game/Scenes/Validation/SCN_Validation_ForestCell.unity";
         public const string FoundationScenePath =
             "Assets/_Game/Scenes/SCN_Foundation.unity";
+        private const string PlayerPrefabPath =
+            "Assets/_Game/Prefabs/Player/PRF_PlayerFoundation.prefab";
 
         private const string FloorMaterialPath =
             "Assets/_Game/Art/Materials/World/ForestCamp/MAT_ForestFloor.mat";
@@ -468,6 +471,72 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 {
                     SceneManager.SetActiveScene(original);
                 }
+            }
+        }
+
+        [MenuItem("Sons Of The Forest/Forest Harvest/Build Harvest Quality Validation Scene")]
+        public static void BuildHarvestQualityValidationScene()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            ForestCellDefinition cell = AssetDatabase.LoadAssetAtPath<ForestCellDefinition>(CellPath);
+            if (prefab == null || playerPrefab == null || cell == null)
+            {
+                throw new InvalidOperationException("Harvest validation requires production cell and player prefabs.");
+            }
+
+            ForestTreePlacementRecord target = cell.Placements.First(value =>
+                value.VariantId.Value == "variant.pine.large.1");
+            Scene original = SceneManager.GetActiveScene();
+            Scene validation = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            validation.name = "SCN_Validation_ForestCell";
+            try
+            {
+                SceneManager.SetActiveScene(validation);
+                GameObject instance = PrefabUtility.InstantiatePrefab(prefab, validation) as GameObject;
+                GameObject player = PrefabUtility.InstantiatePrefab(playerPrefab, validation) as GameObject;
+                if (instance == null || player == null)
+                {
+                    throw new InvalidOperationException("Could not instantiate harvest validation composition.");
+                }
+
+                player.name = "Player_HarvestQuality_Controls_1_2_Mouse";
+                Vector3 targetWorld = instance.transform.TransformPoint(target.LocalPosition);
+                player.transform.position = targetWorld + new Vector3(0f, 0.05f, -2.15f);
+                player.transform.rotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
+                instance.GetComponent<ForestCellInteractionCoordinator>().SetObserver(player.transform);
+                var validationDriver = player.AddComponent<ForestHarvestQualityValidationDriver>();
+                validationDriver.EditorConfigure(player.GetComponent<PlayerAxeHarvestController>(), true,
+                    player.GetComponent<TransformPlayerLookDriver>());
+
+                GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                ground.name = "ValidationGround";
+                ground.transform.position = new Vector3(0f, -0.5f, 0f);
+                ground.transform.localScale = new Vector3(90f, 1f, 90f);
+                Material floor = AssetDatabase.LoadAssetAtPath<Material>(FloorMaterialPath);
+                if (floor != null) ground.GetComponent<MeshRenderer>().sharedMaterial = floor;
+
+                GameObject lightObject = new("ValidationSun");
+                Light light = lightObject.AddComponent<Light>();
+                light.type = LightType.Directional;
+                light.intensity = 0.9f;
+                light.shadows = LightShadows.Soft;
+                lightObject.transform.rotation = Quaternion.Euler(48f, -32f, 0f);
+
+                GameObject overview = new("ValidationOverviewCamera");
+                Camera camera = overview.AddComponent<Camera>();
+                camera.enabled = false;
+                camera.farClipPlane = 300f;
+                overview.transform.position = targetWorld + new Vector3(-10f, 5f, -10f);
+                overview.transform.LookAt(targetWorld + Vector3.up * 4f);
+                RenderSettings.ambientMode = AmbientMode.Flat;
+                RenderSettings.ambientLight = new Color(0.38f, 0.42f, 0.46f);
+                EditorSceneManager.SaveScene(validation, ValidationScenePath, false);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(validation, true);
+                if (original.IsValid() && original.isLoaded) SceneManager.SetActiveScene(original);
             }
         }
 

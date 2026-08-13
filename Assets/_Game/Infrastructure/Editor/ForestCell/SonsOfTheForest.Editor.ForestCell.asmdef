@@ -7,6 +7,7 @@
     "SonsOfTheForest.Infrastructure.Forest",
     "SonsOfTheForest.Infrastructure.Validation.Forest",
     "SonsOfTheForest.Presentation.ForestCamp",
+    "SonsOfTheForest.Presentation.Player",
     "Unity.RenderPipelines.HighDefinition.Runtime"
   ],
   "includePlatforms": [
