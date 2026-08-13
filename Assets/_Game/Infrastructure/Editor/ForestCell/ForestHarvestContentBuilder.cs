@@ -409,7 +409,13 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 }
                 rigInstance.name = "AuthoredAxeRig";
                 rigInstance.transform.SetParent(root.transform, false);
-                rigInstance.transform.localScale = Vector3.one * 0.01f;
+                // FBX mesh vertices arrive in centimetres while imported child
+                // transforms carry x100 compensation. A x0.40 root yields an authored
+                // first-person silhouette (~0.8 m axe) without collapsing it to the
+                // millimetre-scale geometry caused by the previous x0.01 value.
+                rigInstance.transform.localScale = Vector3.one * 0.40f;
+                rigInstance.transform.localPosition = new Vector3(0.10f, -0.03f, 0.55f);
+                rigInstance.transform.localRotation = Quaternion.Euler(0f, 0f, 32f);
                 foreach (Renderer renderer in rigInstance.GetComponentsInChildren<Renderer>(true))
                 {
                     renderer.shadowCastingMode = ShadowCastingMode.Off;
@@ -421,9 +427,12 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 Transform leftGrip = FindRequired(rigInstance.transform, "LeftGrip");
                 Transform rightGrip = FindRequired(rigInstance.transform, "RightGrip");
                 Transform bladeBase = NewChild(tool, "BladeBase");
-                bladeBase.localPosition = new Vector3(-0.11f, 0f, 0.50f);
+                // Marker Transforms stay on Tool for authoring/debug hierarchy; the
+                // gameplay segment is derived from the Tool basis at runtime so legacy
+                // animation clips cannot overwrite marker offsets.
+                bladeBase.localPosition = Vector3.zero;
                 Transform bladeTip = NewChild(tool, "BladeTip");
-                bladeTip.localPosition = new Vector3(0.03f, 0f, 0.59f);
+                bladeTip.localPosition = Vector3.zero;
 
                 Animation player = rigInstance.GetComponent<Animation>() ??
                                    rigInstance.AddComponent<Animation>();

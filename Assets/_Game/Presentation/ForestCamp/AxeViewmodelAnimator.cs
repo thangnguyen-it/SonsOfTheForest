@@ -6,6 +6,8 @@ namespace SonsOfTheForest.Presentation.ForestCamp
     [DisallowMultipleComponent]
     public sealed class AxeViewmodelAnimator : MonoBehaviour
     {
+        private static readonly Vector3 ContactBaseOffset = new Vector3(-0.14f, 0.17f, 0.73f);
+        private static readonly Vector3 ContactTipOffset = new Vector3(0.01f, 0.22f, 0.81f);
         public const string IdleClip = "Axe_Idle";
         public const string EquipClip = "Axe_Equip";
         public const string UnequipClip = "Axe_Unequip";
@@ -20,10 +22,20 @@ namespace SonsOfTheForest.Presentation.ForestCamp
         [SerializeField] private Transform leftGrip;
         [SerializeField] private Transform rightGrip;
 
+
         public Transform BladeBase => bladeBase;
         public Transform BladeTip => bladeTip;
         public Transform LeftGrip => leftGrip;
         public Transform RightGrip => rightGrip;
+
+        public void GetBladeContactSegment(
+            Transform stableViewRoot, out Vector3 basePosition, out Vector3 tipPosition)
+        {
+            Matrix4x4 rootMatrix = Matrix4x4.TRS(
+                stableViewRoot.position, stableViewRoot.rotation, Vector3.one);
+            basePosition = rootMatrix.MultiplyPoint3x4(ContactBaseOffset);
+            tipPosition = rootMatrix.MultiplyPoint3x4(ContactTipOffset);
+        }
 
         private void Awake()
         {

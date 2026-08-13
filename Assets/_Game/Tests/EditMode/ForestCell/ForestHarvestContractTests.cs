@@ -145,6 +145,22 @@ namespace SonsOfTheForest.Tests.ForestCell.EditMode
                 "Assets/_Game/Prefabs/Items/Tools/PRF_SurvivalAxe.prefab");
             AxeViewmodelAnimator viewmodel = axe.GetComponent<AxeViewmodelAnimator>();
             Assert.That(viewmodel, Is.Not.Null);
+            Transform authoredRig = axe.transform.Find("AuthoredAxeRig");
+            Assert.That(authoredRig, Is.Not.Null);
+            Assert.That(authoredRig.localPosition.y, Is.LessThan(0f),
+                "The authored two-hand pose must sit below the camera center.");
+            Assert.That(authoredRig.localPosition.z, Is.GreaterThan(0.4f),
+                "The authored pose must remain in front of the near clip plane.");
+            Assert.That(authoredRig.localScale.x, Is.EqualTo(0.40f).Within(0.0001f),
+                "The FBX child compensation requires a bounded viewmodel root scale.");
+            foreach (SkinnedMeshRenderer renderer in
+                     authoredRig.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                Assert.That(renderer.sharedMesh.bounds.size.magnitude, Is.GreaterThan(0.0005f),
+                    renderer.name + " must contain non-degenerate authored geometry.");
+                Assert.That(renderer.transform.lossyScale.x, Is.InRange(39f, 41f),
+                    renderer.name + " must preserve the calibrated FBX compensation.");
+            }
             Assert.That(viewmodel.TryValidate(out string reason), Is.True, reason);
             Animation animation = axe.GetComponentInChildren<Animation>(true);
             Assert.That(animation, Is.Not.Null);
@@ -161,6 +177,8 @@ namespace SonsOfTheForest.Tests.ForestCell.EditMode
             Assert.That(viewmodel.RightGrip, Is.Not.Null);
             Assert.That(viewmodel.BladeBase.IsChildOf(viewmodel.transform), Is.True);
             Assert.That(viewmodel.BladeTip.IsChildOf(viewmodel.transform), Is.True);
+            Assert.That(viewmodel.BladeBase.parent, Is.EqualTo(viewmodel.BladeTip.parent));
+            Assert.That(viewmodel.BladeBase.parent.name, Is.EqualTo("Tool"));
             Assert.That(AssetDatabase.GetDependencies(
                     "Assets/_Game/Prefabs/Items/Tools/PRF_SurvivalAxe.prefab", true),
                 Has.None.StartsWith("E:/SOTF_AssetIntake"));

@@ -55,7 +55,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.76, b: 0.35, a: 1}
@@ -78,7 +78,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text:
+  m_Text: 
 --- !u!1 &1149431358611553338
 GameObject:
   m_ObjectHideFlags: 0
@@ -169,7 +169,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 0.015, g: 0.025, b: 0.025, a: 0.82}
@@ -306,7 +306,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
   m_Color: {r: 0.92, g: 0.94, b: 0.9, a: 1}
@@ -329,7 +329,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text:
+  m_Text: 
 --- !u!1 &5937730861373758676
 GameObject:
   m_ObjectHideFlags: 0
@@ -404,7 +404,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.CanvasScaler
   m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
@@ -427,7 +427,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ac94540dd4922bb418f9bba40e167386, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Presentation.ForestCamp::SonsOfTheForest.Presentation.ForestCamp.InteractionPromptView
   promptRoot: {fileID: 1619771597194498468}
   promptText: {fileID: 1204760046207672527}
@@ -491,7 +491,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -514,7 +514,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text:
+  m_Text: 
 --- !u!1 &7361301503355984708
 GameObject:
   m_ObjectHideFlags: 0
@@ -748,7 +748,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62899f850307741f2a39c98a8b639597, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.PlayerInput
   m_Actions: {fileID: -944628639613478452, guid: 35845fe01580c41289b024647b1d1c53, type: 3}
   m_NotificationBehavior: 3
@@ -778,7 +778,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 207fbafafbc83564cba2847ec2408d7b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Presentation.Input::SonsOfTheForest.Presentation.Input.PlayerInputAdapter
   crouchPolicy: 0
 --- !u!114 &3335859601101491749
@@ -791,7 +791,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 60a5cbf832c05834989161bbefa21397, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Infrastructure.PlayerPhysics::SonsOfTheForest.Infrastructure.PlayerPhysics.RigidbodyPlayerMotionDriver
   bodyMass: 80
   groundProbeStart: 0.05
@@ -809,7 +809,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d7b3a2f240fff994db1cff0d94a0281f, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Presentation.Player::SonsOfTheForest.Presentation.Player.TransformPlayerLookDriver
   bodyYaw: {fileID: 6960393751210250651}
   viewPitch: {fileID: 3264842900213641706}
@@ -823,7 +823,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 51be739ca6a3fcd48aed430c10392e1b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Presentation.Player::SonsOfTheForest.Presentation.Player.PlayerAnchorProvider
   bodyRoot: {fileID: 6960393751210250651}
   view: {fileID: 5214216819279415698}
@@ -840,7 +840,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b1949643efc66fe4c9abc908438cde58, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Application.Player::SonsOfTheForest.Application.Player.PlayerFoundationController
   settings: {fileID: 11400000, guid: 43cc11325149d0549a5af21d3b149c42, type: 2}
   intentSourceComponent: {fileID: 3771438792387075149}
@@ -856,7 +856,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2bf2acf417489a641bf70b917f148389, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Presentation.Player::SonsOfTheForest.Presentation.Player.PlayerViewHeightController
   viewRoot: {fileID: 3264842900213641706}
   stateReaderComponent: {fileID: 5439882163789415328}
@@ -873,7 +873,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b88ae53db7349a048a82387fdfb8337a, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Presentation.Player::SonsOfTheForest.Presentation.Player.PlayerAnimationController
   animator: {fileID: 6157215560432140029}
   stateReaderComponent: {fileID: 5439882163789415328}
@@ -890,7 +890,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0bb1d2edb8c4f6b45973c2a8cf158066, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Application.ForestCamp::SonsOfTheForest.Application.ForestCamp.PlayerInventory
   maxPerItem: 50
 --- !u!114 &2891169438916832793
@@ -903,7 +903,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6b135f95b6f25454695f0be576e480c9, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Presentation.ForestCamp::SonsOfTheForest.Presentation.ForestCamp.PlayerInteractionController
   actor: {fileID: 8645142098996287045}
   interactionOrigin: {fileID: 8183300039081085243}
@@ -924,7 +924,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1891957cd583e1d4a827ac806cda088c, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Presentation.ForestCamp::SonsOfTheForest.Presentation.ForestCamp.PlayerAxeHarvestController
   handsAnchor: {fileID: 341753598135513387}
   viewCamera: {fileID: 3464571955136119058}
@@ -948,7 +948,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8c5e25e4bffbba448874369a7ef50dbe, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Infrastructure.Forest::SonsOfTheForest.Infrastructure.Forest.ForestImpactDamageReceiver
   maximumHealth: 100
   currentHealth: 100
@@ -993,7 +993,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 118470004572495672, guid: b3ad7753f2190a0408bade4427b33bbd, type: 3}
       propertyPath: m_Controller
-      value:
+      value: 
       objectReference: {fileID: 9100000, guid: ff5ade30e10b9f048a60708f02a8bebf, type: 2}
     - target: {fileID: 244145744791907175, guid: b3ad7753f2190a0408bade4427b33bbd, type: 3}
       propertyPath: m_LocalRotation.x
@@ -1075,7 +1075,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2800ae0e87a3a1e4497bda4a9aa9350d, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Presentation.Player::SonsOfTheForest.Presentation.Player.LocalPlayerVisualController
   fullBodyRenderer: {fileID: 1889955180081438644}
   localBodyRenderer: {fileID: 3976567793662592921}

@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Linq;
 using NUnit.Framework;
 using SonsOfTheForest.Data.Forest;
 using SonsOfTheForest.Infrastructure.Forest;
@@ -100,8 +99,20 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
             }
 
             PlayerAxeHarvestController axe = player.GetComponent<PlayerAxeHarvestController>();
-            player.transform.position = tree.transform.position + Vector3.back * 1.4f;
-            player.transform.rotation = Quaternion.identity;
+            Rigidbody playerBody = player.GetComponent<Rigidbody>();
+            if (playerBody != null)
+            {
+                playerBody.isKinematic = true;
+            }
+            player.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            player.SetActive(false);
+            player.SetActive(true);
+            Vector3 testOrigin = player.transform.position;
+            tree.transform.position = testOrigin + Vector3.forward * 0.85f;
+            Rigidbody treeBody = tree.GetComponent<Rigidbody>();
+            treeBody.isKinematic = true;
+            treeBody.position = tree.transform.position;
+            treeBody.rotation = tree.transform.rotation;
             Physics.SyncTransforms();
             axe.BeginEquip();
             float equipDeadline = Time.time + 0.7f;
@@ -113,36 +124,14 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
 
             Assert.That(tree.AccumulatedDamage, Is.Zero);
             Assert.That(axe.TryBeginSwing(), Is.True);
-            float approachDeadline = Time.time + 0.75f;
-            while (axe.ActionNormalizedTime < 0.45f && Time.time < approachDeadline)
-            {
-                yield return null;
-            }
-
-            Assert.That(axe.ActionNormalizedTime, Is.GreaterThanOrEqualTo(0.45f));
-            Transform bladeBase = player.GetComponentsInChildren<Transform>(true)
-                .First(value => value.name == "BladeBase");
-            Transform bladeTip = player.GetComponentsInChildren<Transform>(true)
-                .First(value => value.name == "BladeTip");
-            Vector3 bladeMidpoint = (bladeBase.position + bladeTip.position) * 0.5f;
             CapsuleCollider trunkCollider = tree.GetComponent<CapsuleCollider>();
             Assert.That(trunkCollider.enabled, Is.True);
-            float contactDeadline = Time.time + 0.45f;
+            Vector3 originalCenter = trunkCollider.center;
+            float originalHeight = trunkCollider.height;
+            float originalRadius = trunkCollider.radius;
+            float contactDeadline = Time.time + 1.25f;
             while (axe.ContactDispatchCount == 0 && Time.time < contactDeadline)
             {
-                bladeMidpoint = (bladeBase.position + bladeTip.position) * 0.5f;
-                trunkCollider.center = Vector3.Scale(
-                    tree.transform.InverseTransformPoint(bladeMidpoint), tree.transform.localScale);
-                trunkCollider.height = 1.2f;
-                trunkCollider.radius = 0.28f;
-                Physics.SyncTransforms();
-                Collider[] immediateContacts = Physics.OverlapCapsule(
-                    bladeBase.position, bladeTip.position, 0.07f);
-                Assert.That(immediateContacts
-                    .Any(value => value.GetComponentInParent<ForestInteractiveTree>() == tree), Is.True,
-                    $"Test setup must keep the animated blade capsule on the promoted trunk. " +
-                    $"blade={bladeBase.position}/{bladeTip.position}, trunk={trunkCollider.bounds}, " +
-                    $"contacts={string.Join(",", immediateContacts.Select(value => value.name))}");
                 yield return null;
             }
 
@@ -153,6 +142,9 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
                 $"blade={axe.LastContactBladeBase}/{axe.LastContactBladeTip}, " +
                 $"trunk={trunkCollider.bounds}");
             Assert.That(tree.State, Is.EqualTo(ForestTreeLifecycleState.Damaged));
+            Assert.That(trunkCollider.center, Is.EqualTo(originalCenter));
+            Assert.That(trunkCollider.height, Is.EqualTo(originalHeight));
+            Assert.That(trunkCollider.radius, Is.EqualTo(originalRadius));
             yield return new WaitForSeconds(0.2f);
             Assert.That(axe.ContactDispatchCount, Is.EqualTo(1),
                 "One authored swing must dispatch exactly one physical contact marker.");

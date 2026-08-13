@@ -43,7 +43,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 267621c49ef636648a1f59b5bd13799d, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: SonsOfTheForest.Presentation.ForestCamp::SonsOfTheForest.Presentation.ForestCamp.AxeViewmodelAnimator
   animationPlayer: {fileID: 4202417322225160408}
   bladeBase: {fileID: 8651762806869359578}
@@ -75,7 +75,7 @@ Transform:
   m_GameObject: {fileID: 4946404205349166654}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.11, y: 0, z: 0.5}
+  m_LocalPosition: {x: -0.14, y: 0.17, z: 0.73}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -106,7 +106,7 @@ Transform:
   m_GameObject: {fileID: 9073037754186883689}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.03, y: 0, z: 0.59}
+  m_LocalPosition: {x: 0.01, y: 0.22, z: 0.81}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -122,31 +122,31 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.01
+      value: 0.4
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.01
+      value: 0.4
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.01
+      value: 0.4
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -0.03
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 0.55
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0.9612617
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_LocalRotation.x
@@ -158,7 +158,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: 0.27563736
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -234,7 +234,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2223639932434330405, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_Animation
-      value:
+      value: 
       objectReference: {fileID: 7400000, guid: 21d55bd9d342311429a06f97d8241a7d, type: 2}
     - target: {fileID: 2223639932434330405, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_PlayAutomatically
@@ -246,31 +246,31 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2223639932434330405, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: 'm_Animations.Array.data[7]'
-      value:
+      value: 
       objectReference: {fileID: 7400000, guid: 21d55bd9d342311429a06f97d8241a7d, type: 2}
     - target: {fileID: 2223639932434330405, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: 'm_Animations.Array.data[8]'
-      value:
+      value: 
       objectReference: {fileID: 7400000, guid: 3aca6d0911b65114cb1d66a931e0c13d, type: 2}
     - target: {fileID: 2223639932434330405, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: 'm_Animations.Array.data[9]'
-      value:
+      value: 
       objectReference: {fileID: 7400000, guid: f19b3db73d3817e4ca14975080aed69b, type: 2}
     - target: {fileID: 2223639932434330405, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: 'm_Animations.Array.data[10]'
-      value:
+      value: 
       objectReference: {fileID: 7400000, guid: a2c3335e7e7e5d34f928f98630c02b71, type: 2}
     - target: {fileID: 2223639932434330405, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: 'm_Animations.Array.data[11]'
-      value:
+      value: 
       objectReference: {fileID: 7400000, guid: 4a5081691fc825a4aa036af42a851227, type: 2}
     - target: {fileID: 2223639932434330405, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: 'm_Animations.Array.data[12]'
-      value:
+      value: 
       objectReference: {fileID: 7400000, guid: 53659fe770dec9b4a98b2960da94e1dd, type: 2}
     - target: {fileID: 2223639932434330405, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: 'm_Animations.Array.data[13]'
-      value:
+      value: 
       objectReference: {fileID: 7400000, guid: b25231dda19ae434aa21795af35bcad9, type: 2}
     - target: {fileID: 2279414550942974004, guid: bbe3638476925e043b926575bd942f0f, type: 3}
       propertyPath: m_CastShadows

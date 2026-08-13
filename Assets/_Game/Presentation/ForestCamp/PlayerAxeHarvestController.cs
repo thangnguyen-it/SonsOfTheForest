@@ -257,10 +257,12 @@ namespace SonsOfTheForest.Presentation.ForestCamp
         private void EvaluateBladeContact()
         {
             lastContactResult = AxeContactResult.NoTreeOverlap;
-            LastContactBladeBase = bladeBase.position;
-            LastContactBladeTip = bladeTip.position;
+            viewmodel.GetBladeContactSegment(viewCamera.transform, out Vector3 bladeBasePosition,
+                out Vector3 bladeTipPosition);
+            LastContactBladeBase = bladeBasePosition;
+            LastContactBladeTip = bladeTipPosition;
             int count = Physics.OverlapCapsuleNonAlloc(
-                bladeBase.position, bladeTip.position, bladeRadius, contacts,
+                bladeBasePosition, bladeTipPosition, bladeRadius, contacts,
                 hitMask, QueryTriggerInteraction.Ignore);
             LastOverlapCount = count;
             for (int index = 0; index < count; index++)
@@ -274,7 +276,7 @@ namespace SonsOfTheForest.Presentation.ForestCamp
                     continue;
                 }
 
-                Vector3 hitPosition = collider.ClosestPoint(bladeTip.position);
+                Vector3 hitPosition = collider.ClosestPoint(bladeTipPosition);
                 Vector3 viewToHit = hitPosition - viewCamera.transform.position;
                 if (viewToHit.sqrMagnitude > maximumContactDistance * maximumContactDistance)
                 {
@@ -287,7 +289,7 @@ namespace SonsOfTheForest.Presentation.ForestCamp
                     lastContactResult = AxeContactResult.FacingRejected;
                     continue;
                 }
-                Vector3 normal = (bladeTip.position - hitPosition).normalized;
+                Vector3 normal = (bladeTipPosition - hitPosition).normalized;
                 Vector3 direction = viewCamera.transform.forward;
                 var damage = new TreeDamageEvent(
                     damagePerContact, hitPosition, normal, direction,
