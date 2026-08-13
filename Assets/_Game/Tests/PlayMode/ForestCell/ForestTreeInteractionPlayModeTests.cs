@@ -38,6 +38,9 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
                 Quaternion.Angle(tree.transform.localRotation, binding.VisualRoot.localRotation),
                 Is.LessThan(0.01f));
             Assert.That(tree.transform.localScale, Is.EqualTo(binding.VisualRoot.localScale));
+            Assert.That(Vector3.Distance(tree.transform.position, binding.VisualRoot.position),
+                Is.LessThan(0.001f),
+                "Promoted visual must occupy the exact static world transform.");
             Mesh[] staticMeshes = binding.VisualRoot
                 .GetComponentsInChildren<MeshFilter>(true)
                 .Select(value => value.sharedMesh)
@@ -79,6 +82,10 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
                 world.Observer.transform.position = near;
                 world.Coordinator.EvaluateProximity();
                 AssertAtomicSnapshot(world.Coordinator, in binding, true, iteration);
+                Assert.That(world.Coordinator.TryGetLease(
+                    binding.TreeInstanceId.Value, out ForestInteractiveTree promoted), Is.True);
+                Assert.That(Vector3.Distance(promoted.transform.position, binding.VisualRoot.position),
+                    Is.LessThan(0.001f), "Promotion moved the tree at crossing " + iteration + ".");
 
                 world.Observer.transform.position = far;
                 world.Coordinator.EvaluateProximity();

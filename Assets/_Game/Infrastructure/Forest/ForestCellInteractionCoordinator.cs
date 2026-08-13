@@ -240,6 +240,13 @@ namespace SonsOfTheForest.Infrastructure.Forest
                 tree = instance.GetComponent<ForestInteractiveTree>();
                 try
                 {
+                    // Configure applies baked placement in the coordinate space of
+                    // the interactive owner. The lease prefab is instantiated under
+                    // InteractiveRoot, so its local transform must be authoritative;
+                    // keeping Instantiate's worldPositionStays default left promoted
+                    // trees at world origin whenever the owner hierarchy moved.
+                    instance.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                    instance.transform.localScale = Vector3.one;
                     tree.Configure(
                         cellRuntime.Definition.ForestCellId,
                         in placement,

@@ -127,6 +127,11 @@ namespace SonsOfTheForest.Infrastructure.Forest
             fellingKit = configuredFellingKit;
             harvestProfile = configuredHarvestProfile;
             outputRoot = configuredOutputRoot;
+            // A pooled lease can carry its prefab/source local transform. Reset it
+            // before applying baked placement so promotion is independent of the
+            // Instantiate overload and owner hierarchy.
+            transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            transform.localScale = Vector3.one;
             transform.localPosition = placement.LocalPosition;
             transform.localRotation = Quaternion.Euler(0f, placement.YawDegrees, 0f);
             transform.localScale = Vector3.one * placement.UniformScale;
@@ -151,6 +156,8 @@ namespace SonsOfTheForest.Infrastructure.Forest
             impactRaised = false;
             playerDamageApplied = false;
             ApplyStandingPhysics();
+            body.position = transform.position;
+            body.rotation = transform.rotation;
         }
 
         public bool TryReceiveDamage(in TreeDamageEvent damageEvent, out string reason)
