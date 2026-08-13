@@ -6,23 +6,33 @@ using UnityEngine.InputSystem;
 
 namespace SonsOfTheForest.Presentation.ForestCamp
 {
+    public enum AxeActionState
+    {
+        Unequipped,
+        Equipping,
+        Idle,
+        SwingLeft,
+        SwingRight,
+        HitRecoil,
+        MissRecovery,
+        HeavyFinal,
+        Unequipping
+    }
+
+    public enum AxeContactResult
+    {
+        None,
+        NoTreeOverlap,
+        OutOfRange,
+        FacingRejected,
+        DamageRejected,
+        Accepted
+    }
+
     [DisallowMultipleComponent]
     [RequireComponent(typeof(PlayerInput))]
     public sealed class PlayerAxeHarvestController : MonoBehaviour
     {
-        public enum AxeMotionState
-        {
-            Unequipped,
-            Equipping,
-            Idle,
-            SwingLeft,
-            SwingRight,
-            HitRecoil,
-            MissRecovery,
-            HeavyFinal,
-            Unequipping
-        }
-
         private const string PlayerMapName = "Player";
         private const string AttackActionName = "Attack";
         private const string EquipActionName = "Previous";
@@ -32,10 +42,11 @@ namespace SonsOfTheForest.Presentation.ForestCamp
         [SerializeField] private Camera viewCamera;
         [SerializeField] private GameObject axePrefab;
         [SerializeField, Min(0.1f)] private float damagePerContact = 22f;
-        [SerializeField, Min(0.1f)] private float swingDuration = 0.78f;
-        [SerializeField, Range(0f, 1f)] private float hitWindowOpen = 0.34f;
-        [SerializeField, Range(0f, 1f)] private float hitWindowClose = 0.58f;
+        [SerializeField, Min(0.1f)] private float fallbackSwingDuration = 1.1f;
+        [SerializeField, Range(0.1f, 0.9f)] private float contactMarkerNormalized = 0.5f;
         [SerializeField, Min(0.01f)] private float bladeRadius = 0.07f;
+        [SerializeField, Min(0.25f)] private float maximumContactDistance = 3f;
+        [SerializeField, Range(-1f, 1f)] private float minimumFacingDot = 0.1f;
         [SerializeField] private LayerMask hitMask = ~0;
 
         private readonly Collider[] contacts = new Collider[12];
@@ -44,36 +55,50 @@ namespace SonsOfTheForest.Presentation.ForestCamp
         private InputAction equipAction;
         private InputAction unequipAction;
         private GameObject axeInstance;
+        private AxeViewmodelAnimator viewmodel;
         private Transform bladeBase;
         private Transform bladeTip;
-        private AxeMotionState motionState = AxeMotionState.Unequipped;
+        private AxeActionState motionState = AxeActionState.Unequipped;
         private float stateElapsed;
+        private float stateDuration;
+        private float previousNormalizedTime;
         private bool swingLeft;
+        private bool contactDispatched;
         private bool damageCommitted;
+        private int contactDispatchCount;
+        private AxeContactResult lastContactResult;
         private int swingSequence;
         private bool subscribed;
 
-        public AxeMotionState MotionState => motionState;
-        public bool IsEquipped => motionState != AxeMotionState.Unequipped &&
-                                  motionState != AxeMotionState.Unequipping;
+        public AxeActionState MotionState => motionState;
+        public int ContactDispatchCount => contactDispatchCount;
+        public AxeContactResult LastContactResult => lastContactResult;
+        public bool LastContactAccepted => damageCommitted;
+        public float ActionNormalizedTime => stateElapsed / Mathf.Max(0.01f, stateDuration);
+        public Vector3 LastContactBladeBase { get; private set; }
+        public Vector3 LastContactBladeTip { get; private set; }
+        public int LastOverlapCount { get; private set; }
+        public bool IsEquipped => motionState != AxeActionState.Unequipped &&
+                                  motionState != AxeActionState.Unequipping;
         public bool IsHitWindowOpen
         {
             get
             {
-                if (motionState != AxeMotionState.SwingLeft && motionState != AxeMotionState.SwingRight)
+                if (motionState != AxeActionState.SwingLeft && motionState != AxeActionState.SwingRight)
                 {
                     return false;
                 }
 
-                float normalized = stateElapsed / Mathf.Max(0.01f, swingDuration);
-                return normalized >= hitWindowOpen && normalized <= hitWindowClose;
+                float normalized = stateElapsed / Mathf.Max(0.01f, stateDuration);
+                return !contactDispatched && previousNormalizedTime < contactMarkerNormalized &&
+                       normalized >= contactMarkerNormalized;
             }
         }
 
         private void Awake()
         {
             if (handsAnchor == null || viewCamera == null || axePrefab == null ||
-                hitWindowOpen >= hitWindowClose)
+                contactMarkerNormalized <= 0f || contactMarkerNormalized >= 1f)
             {
                 throw new InvalidOperationException("Axe harvest controller references or timing are invalid.");
             }
@@ -91,12 +116,17 @@ namespace SonsOfTheForest.Presentation.ForestCamp
             axeInstance = Instantiate(axePrefab, handsAnchor);
             axeInstance.name = "EquippedSurvivalAxe";
             axeInstance.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-            bladeBase = axeInstance.transform.Find("BladeBase");
-            bladeTip = axeInstance.transform.Find("BladeTip");
-            if (bladeBase == null || bladeTip == null)
+            viewmodel = axeInstance.GetComponent<AxeViewmodelAnimator>();
+            string viewmodelReason = viewmodel == null
+                ? "AxeViewmodelAnimator component is missing."
+                : string.Empty;
+            if (viewmodel == null || !viewmodel.TryValidate(out viewmodelReason))
             {
-                throw new InvalidOperationException("Axe prefab requires BladeBase and BladeTip anchors.");
+                throw new InvalidOperationException("Axe prefab requires a synchronized viewmodel: " +
+                                                    viewmodelReason);
             }
+            bladeBase = viewmodel.BladeBase;
+            bladeTip = viewmodel.BladeTip;
 
             axeInstance.SetActive(false);
         }
@@ -129,12 +159,15 @@ namespace SonsOfTheForest.Presentation.ForestCamp
 
         private void Update()
         {
+            previousNormalizedTime = stateElapsed / Mathf.Max(0.01f, stateDuration);
             stateElapsed += Time.deltaTime;
-            TickMotion();
-            if (IsHitWindowOpen && !damageCommitted)
+            if (IsHitWindowOpen)
             {
+                contactDispatched = true;
+                contactDispatchCount++;
                 EvaluateBladeContact();
             }
+            TickMotion();
         }
 
         private void HandleAttack(InputAction.CallbackContext _) => TryBeginSwing();
@@ -143,80 +176,79 @@ namespace SonsOfTheForest.Presentation.ForestCamp
 
         public bool TryBeginSwing()
         {
-            if (motionState != AxeMotionState.Idle)
+            if (motionState != AxeActionState.Idle)
             {
                 return false;
             }
 
             swingLeft = !swingLeft;
-            motionState = swingLeft ? AxeMotionState.SwingLeft : AxeMotionState.SwingRight;
+            motionState = swingLeft ? AxeActionState.SwingLeft : AxeActionState.SwingRight;
             stateElapsed = 0f;
+            previousNormalizedTime = 0f;
+            contactDispatched = false;
             damageCommitted = false;
+            lastContactResult = AxeContactResult.None;
             swingSequence++;
+            stateDuration = Mathf.Max(fallbackSwingDuration, viewmodel.Play(
+                swingLeft ? AxeViewmodelAnimator.ChopLeftClip : AxeViewmodelAnimator.ChopRightClip));
             return true;
         }
 
         public void BeginEquip()
         {
-            if (motionState != AxeMotionState.Unequipped)
+            if (motionState != AxeActionState.Unequipped)
             {
                 return;
             }
 
             axeInstance.SetActive(true);
-            motionState = AxeMotionState.Equipping;
+            motionState = AxeActionState.Equipping;
             stateElapsed = 0f;
+            stateDuration = viewmodel.Play(AxeViewmodelAnimator.EquipClip, false);
         }
 
         public void BeginUnequip()
         {
-            if (motionState == AxeMotionState.Unequipped || motionState == AxeMotionState.Unequipping)
+            if (motionState == AxeActionState.Unequipped || motionState == AxeActionState.Unequipping)
             {
                 return;
             }
 
-            motionState = AxeMotionState.Unequipping;
+            motionState = AxeActionState.Unequipping;
             stateElapsed = 0f;
+            stateDuration = viewmodel.Play(AxeViewmodelAnimator.UnequipClip);
         }
 
         private void TickMotion()
         {
             switch (motionState)
             {
-                case AxeMotionState.Equipping:
-                    PoseEquip(Mathf.Clamp01(stateElapsed / 0.32f));
-                    if (stateElapsed >= 0.32f) Transition(AxeMotionState.Idle);
+                case AxeActionState.Equipping:
+                    if (stateElapsed >= stateDuration) Transition(AxeActionState.Idle);
                     break;
-                case AxeMotionState.Idle:
-                    PoseIdle();
+                case AxeActionState.Idle:
                     break;
-                case AxeMotionState.SwingLeft:
-                case AxeMotionState.SwingRight:
-                    PoseSwing(Mathf.Clamp01(stateElapsed / swingDuration),
-                        motionState == AxeMotionState.SwingLeft);
-                    if (stateElapsed >= swingDuration)
+                case AxeActionState.SwingLeft:
+                case AxeActionState.SwingRight:
+                    if (stateElapsed >= stateDuration)
                     {
-                        Transition(damageCommitted ? AxeMotionState.HitRecoil : AxeMotionState.MissRecovery);
+                        Transition(damageCommitted ? AxeActionState.HitRecoil : AxeActionState.MissRecovery);
                     }
                     break;
-                case AxeMotionState.HitRecoil:
-                    PoseRecoil(Mathf.Clamp01(stateElapsed / 0.24f), false);
-                    if (stateElapsed >= 0.24f) Transition(AxeMotionState.Idle);
+                case AxeActionState.HitRecoil:
+                    if (stateElapsed >= stateDuration) Transition(AxeActionState.Idle);
                     break;
-                case AxeMotionState.HeavyFinal:
-                    PoseRecoil(Mathf.Clamp01(stateElapsed / 0.42f), true);
-                    if (stateElapsed >= 0.42f) Transition(AxeMotionState.Idle);
+                case AxeActionState.HeavyFinal:
+                    if (stateElapsed >= stateDuration) Transition(AxeActionState.Idle);
                     break;
-                case AxeMotionState.MissRecovery:
-                    PoseMiss(Mathf.Clamp01(stateElapsed / 0.30f));
-                    if (stateElapsed >= 0.30f) Transition(AxeMotionState.Idle);
+                case AxeActionState.MissRecovery:
+                    if (stateElapsed >= stateDuration) Transition(AxeActionState.Idle);
                     break;
-                case AxeMotionState.Unequipping:
-                    PoseEquip(1f - Mathf.Clamp01(stateElapsed / 0.28f));
-                    if (stateElapsed >= 0.28f)
+                case AxeActionState.Unequipping:
+                    if (stateElapsed >= stateDuration)
                     {
                         axeInstance.SetActive(false);
-                        Transition(AxeMotionState.Unequipped);
+                        Transition(AxeActionState.Unequipped);
                     }
                     break;
             }
@@ -224,9 +256,13 @@ namespace SonsOfTheForest.Presentation.ForestCamp
 
         private void EvaluateBladeContact()
         {
+            lastContactResult = AxeContactResult.NoTreeOverlap;
+            LastContactBladeBase = bladeBase.position;
+            LastContactBladeTip = bladeTip.position;
             int count = Physics.OverlapCapsuleNonAlloc(
                 bladeBase.position, bladeTip.position, bladeRadius, contacts,
                 hitMask, QueryTriggerInteraction.Ignore);
+            LastOverlapCount = count;
             for (int index = 0; index < count; index++)
             {
                 Collider collider = contacts[index];
@@ -239,6 +275,18 @@ namespace SonsOfTheForest.Presentation.ForestCamp
                 }
 
                 Vector3 hitPosition = collider.ClosestPoint(bladeTip.position);
+                Vector3 viewToHit = hitPosition - viewCamera.transform.position;
+                if (viewToHit.sqrMagnitude > maximumContactDistance * maximumContactDistance)
+                {
+                    lastContactResult = AxeContactResult.OutOfRange;
+                    continue;
+                }
+
+                if (Vector3.Dot(viewCamera.transform.forward, viewToHit.normalized) < minimumFacingDot)
+                {
+                    lastContactResult = AxeContactResult.FacingRejected;
+                    continue;
+                }
                 Vector3 normal = (bladeTip.position - hitPosition).normalized;
                 Vector3 direction = viewCamera.transform.forward;
                 var damage = new TreeDamageEvent(
@@ -246,80 +294,55 @@ namespace SonsOfTheForest.Presentation.ForestCamp
                     "tool.axe.survival", swingSequence);
                 if (!tree.TryReceiveDamage(in damage, out _))
                 {
+                    lastContactResult = AxeContactResult.DamageRejected;
                     continue;
                 }
 
                 damageCommitted = true;
+                lastContactResult = AxeContactResult.Accepted;
                 if (tree.State == ForestTreeLifecycleState.Falling)
                 {
-                    Transition(AxeMotionState.HeavyFinal);
+                    Transition(AxeActionState.HeavyFinal);
                 }
 
                 return;
             }
         }
 
-        private void PoseIdle()
-        {
-            float breathe = Mathf.Sin(Time.time * 1.7f) * 0.008f;
-            SetPose(new Vector3(0.27f, -0.30f + breathe, 0.48f), new Vector3(20f, -18f, -8f));
-        }
-
-        private void PoseEquip(float value)
-        {
-            float eased = value * value * (3f - 2f * value);
-            SetPose(Vector3.Lerp(new Vector3(0.36f, -0.72f, 0.30f), new Vector3(0.27f, -0.30f, 0.48f), eased),
-                Vector3.Lerp(new Vector3(75f, -30f, -20f), new Vector3(20f, -18f, -8f), eased));
-        }
-
-        private void PoseSwing(float value, bool left)
-        {
-            float side = left ? -1f : 1f;
-            float arc = Mathf.Sin(value * Mathf.PI);
-            float strike = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((value - 0.22f) / 0.42f));
-            Vector3 position = new(0.24f + side * (0.22f - strike * 0.44f),
-                -0.22f + arc * 0.20f, 0.43f + strike * 0.42f);
-            Vector3 rotation = new(-48f + strike * 138f, side * (55f - strike * 110f), side * 22f);
-            SetPose(position, rotation);
-        }
-
-        private void PoseRecoil(float value, bool heavy)
-        {
-            float amplitude = heavy ? 0.18f : 0.10f;
-            SetPose(new Vector3(0.24f, -0.27f, 0.72f - value * amplitude),
-                new Vector3(82f - value * 55f, 0f, Mathf.Sin(value * Mathf.PI) * 12f));
-        }
-
-        private void PoseMiss(float value)
-        {
-            SetPose(Vector3.Lerp(new Vector3(0.05f, -0.42f, 0.78f), new Vector3(0.27f, -0.30f, 0.48f), value),
-                Vector3.Lerp(new Vector3(105f, 0f, 0f), new Vector3(20f, -18f, -8f), value));
-        }
-
-        private void SetPose(Vector3 position, Vector3 euler)
-        {
-            axeInstance.transform.localPosition = position;
-            axeInstance.transform.localRotation = Quaternion.Euler(euler);
-        }
-
-        private void Transition(AxeMotionState next)
+        private void Transition(AxeActionState next)
         {
             motionState = next;
             stateElapsed = 0f;
+            if (viewmodel == null)
+            {
+                return;
+            }
+
+            if (next == AxeActionState.Idle)
+            {
+                stateDuration = viewmodel.Play(AxeViewmodelAnimator.IdleClip);
+            }
+            else if (next == AxeActionState.HitRecoil || next == AxeActionState.MissRecovery)
+            {
+                stateDuration = viewmodel.Play(AxeViewmodelAnimator.RecoveryClip);
+            }
+            else if (next == AxeActionState.HeavyFinal)
+            {
+                stateDuration = viewmodel.Play(AxeViewmodelAnimator.ChopHeavyClip);
+            }
         }
 
 #if UNITY_EDITOR
         public void EditorConfigure(
             Transform hands, Camera camera, GameObject prefab, float damage,
-            float duration, float windowOpen, float windowClose, float radius)
+            float duration, float contactMarker, float radius)
         {
             handsAnchor = hands;
             viewCamera = camera;
             axePrefab = prefab;
             damagePerContact = damage;
-            swingDuration = duration;
-            hitWindowOpen = windowOpen;
-            hitWindowClose = windowClose;
+            fallbackSwingDuration = duration;
+            contactMarkerNormalized = contactMarker;
             bladeRadius = radius;
         }
 #endif

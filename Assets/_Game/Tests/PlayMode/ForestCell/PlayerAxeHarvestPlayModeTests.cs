@@ -16,7 +16,7 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
     public sealed class PlayerAxeHarvestPlayModeTests
     {
         [UnityTest]
-        public IEnumerator AxeSwing_UsesDelayedContactWindowAndMissRecovery()
+        public IEnumerator AxeSwing_UsesSingleDelayedContactMarkerAndMissRecovery()
         {
 #if UNITY_EDITOR
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -29,32 +29,34 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
 
             axe.BeginEquip();
             float equipDeadline = Time.time + 0.6f;
-            while (axe.MotionState != PlayerAxeHarvestController.AxeMotionState.Idle &&
+            while (axe.MotionState != AxeActionState.Idle &&
                    Time.time < equipDeadline)
             {
                 yield return null;
             }
 
-            Assert.That(axe.MotionState, Is.EqualTo(PlayerAxeHarvestController.AxeMotionState.Idle));
+            Assert.That(axe.MotionState, Is.EqualTo(AxeActionState.Idle));
             Assert.That(axe.TryBeginSwing(), Is.True);
             Assert.That(axe.IsHitWindowOpen, Is.False, "Click must not cause immediate contact.");
+            Assert.That(axe.ContactDispatchCount, Is.Zero);
 
-            float windowDeadline = Time.time + 0.45f;
-            while (!axe.IsHitWindowOpen && Time.time < windowDeadline)
+            float markerDeadline = Time.time + 0.9f;
+            while (axe.ContactDispatchCount == 0 && Time.time < markerDeadline)
             {
                 yield return null;
             }
 
-            Assert.That(axe.IsHitWindowOpen, Is.True);
-            float missDeadline = Time.time + 1.0f;
-            while (axe.MotionState != PlayerAxeHarvestController.AxeMotionState.MissRecovery &&
+            Assert.That(axe.ContactDispatchCount, Is.EqualTo(1));
+            Assert.That(axe.LastContactAccepted, Is.False);
+            float missDeadline = Time.time + 1.4f;
+            while (axe.MotionState != AxeActionState.MissRecovery &&
                    Time.time < missDeadline)
             {
                 yield return null;
             }
 
             Assert.That(axe.MotionState,
-                Is.EqualTo(PlayerAxeHarvestController.AxeMotionState.MissRecovery));
+                Is.EqualTo(AxeActionState.MissRecovery));
             Assert.That(axe.TryBeginSwing(), Is.False, "Recovery prevents swing stacking.");
             Object.Destroy(player);
             yield return null;
@@ -98,9 +100,12 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
             }
 
             PlayerAxeHarvestController axe = player.GetComponent<PlayerAxeHarvestController>();
+            player.transform.position = tree.transform.position + Vector3.back * 1.4f;
+            player.transform.rotation = Quaternion.identity;
+            Physics.SyncTransforms();
             axe.BeginEquip();
             float equipDeadline = Time.time + 0.7f;
-            while (axe.MotionState != PlayerAxeHarvestController.AxeMotionState.Idle &&
+            while (axe.MotionState != AxeActionState.Idle &&
                    Time.time < equipDeadline)
             {
                 yield return null;
@@ -108,13 +113,13 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
 
             Assert.That(tree.AccumulatedDamage, Is.Zero);
             Assert.That(axe.TryBeginSwing(), Is.True);
-            float windowDeadline = Time.time + 0.6f;
-            while (!axe.IsHitWindowOpen && Time.time < windowDeadline)
+            float approachDeadline = Time.time + 0.75f;
+            while (axe.ActionNormalizedTime < 0.45f && Time.time < approachDeadline)
             {
                 yield return null;
             }
 
-            Assert.That(axe.IsHitWindowOpen, Is.True);
+            Assert.That(axe.ActionNormalizedTime, Is.GreaterThanOrEqualTo(0.45f));
             Transform bladeBase = player.GetComponentsInChildren<Transform>(true)
                 .First(value => value.name == "BladeBase");
             Transform bladeTip = player.GetComponentsInChildren<Transform>(true)
@@ -122,28 +127,35 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
             Vector3 bladeMidpoint = (bladeBase.position + bladeTip.position) * 0.5f;
             CapsuleCollider trunkCollider = tree.GetComponent<CapsuleCollider>();
             Assert.That(trunkCollider.enabled, Is.True);
-            Vector3 trunkContact = trunkCollider.bounds.center;
-            Transform equippedAxe = player.GetComponentsInChildren<Transform>(true)
-                .First(value => value.name == "EquippedSurvivalAxe");
-            equippedAxe.parent.position += trunkContact - bladeMidpoint;
-            Physics.SyncTransforms();
-            Collider[] immediateContacts = Physics.OverlapCapsule(
-                bladeBase.position, bladeTip.position, 0.07f);
-            Assert.That(immediateContacts
-                .Any(value => value.GetComponentInParent<ForestInteractiveTree>() == tree), Is.True,
-                $"Test setup must place the animated blade capsule on the promoted trunk. " +
-                $"blade={bladeBase.position}/{bladeTip.position}, trunk={trunkCollider.bounds}, " +
-                $"contacts={string.Join(",", immediateContacts.Select(value => value.name))}");
-
-            float contactDeadline = Time.time + 1.1f;
-            while (tree.AccumulatedDamage <= 0f && Time.time < contactDeadline)
+            float contactDeadline = Time.time + 0.45f;
+            while (axe.ContactDispatchCount == 0 && Time.time < contactDeadline)
             {
+                bladeMidpoint = (bladeBase.position + bladeTip.position) * 0.5f;
+                trunkCollider.center = Vector3.Scale(
+                    tree.transform.InverseTransformPoint(bladeMidpoint), tree.transform.localScale);
+                trunkCollider.height = 1.2f;
+                trunkCollider.radius = 0.28f;
+                Physics.SyncTransforms();
+                Collider[] immediateContacts = Physics.OverlapCapsule(
+                    bladeBase.position, bladeTip.position, 0.07f);
+                Assert.That(immediateContacts
+                    .Any(value => value.GetComponentInParent<ForestInteractiveTree>() == tree), Is.True,
+                    $"Test setup must keep the animated blade capsule on the promoted trunk. " +
+                    $"blade={bladeBase.position}/{bladeTip.position}, trunk={trunkCollider.bounds}, " +
+                    $"contacts={string.Join(",", immediateContacts.Select(value => value.name))}");
                 yield return null;
             }
 
+            Assert.That(axe.ContactDispatchCount, Is.EqualTo(1));
             Assert.That(tree.AccumulatedDamage, Is.GreaterThan(0f),
-                "A real animated blade overlap should deliver the tree damage event.");
+                "A real animated blade overlap should deliver the tree damage event. " +
+                $"Result={axe.LastContactResult}, overlaps={axe.LastOverlapCount}, " +
+                $"blade={axe.LastContactBladeBase}/{axe.LastContactBladeTip}, " +
+                $"trunk={trunkCollider.bounds}");
             Assert.That(tree.State, Is.EqualTo(ForestTreeLifecycleState.Damaged));
+            yield return new WaitForSeconds(0.2f);
+            Assert.That(axe.ContactDispatchCount, Is.EqualTo(1),
+                "One authored swing must dispatch exactly one physical contact marker.");
             Object.Destroy(observer);
             Object.Destroy(cell);
             Object.Destroy(player);

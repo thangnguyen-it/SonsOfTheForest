@@ -19,12 +19,17 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
         public const string PrefabRoot = "Assets/_Game/Prefabs/World/Forest/Harvest";
         public const string DataRoot = "Assets/_Game/Data/World/Forest/Harvest";
         public const string AxePrefabPath = "Assets/_Game/Prefabs/Items/Tools/PRF_SurvivalAxe.prefab";
+        public const string AxeViewmodelSourcePath =
+            "Assets/_Game/Art/Player/Viewmodels/Generated/VM_Axe_ProjectOwned.fbx";
+        public const string AxeAnimationRoot =
+            "Assets/_Game/Art/Player/Viewmodels/Generated/Animations";
         public const string PlayerPrefabPath = "Assets/_Game/Prefabs/Player/PRF_PlayerFoundation.prefab";
 
         [MenuItem("Sons Of The Forest/Forest Harvest/Build Production Harvest Loop")]
         public static void BuildAll()
         {
             Manifest manifest = ReadManifest();
+            ConfigureAxeViewmodelImporter();
             EnsureFolder(HarvestRoot + "/Materials");
             EnsureFolder(PrefabRoot + "/FellingKits");
             EnsureFolder(PrefabRoot + "/Logs");
@@ -62,6 +67,40 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             ForestCellContentBuilder.BuildAll();
             ValidateClosure(manifest);
             Debug.Log("[ForestHarvest] Built 12 felling kits, 6 logs and the player axe loop.");
+        }
+
+        [MenuItem("Sons Of The Forest/Forest Harvest/Build Authored Axe Viewmodel Only")]
+        public static void BuildAxeViewmodelOnly()
+        {
+            ConfigureAxeViewmodelImporter();
+            EnsureFolder(Path.GetDirectoryName(AxePrefabPath)?.Replace('\\', '/'));
+            EnsureFolder(AxeAnimationRoot);
+            GameObject axe = BuildAxePrefab();
+            ConfigurePlayerPrefab(axe);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[ForestHarvest] Built authored axe viewmodel and player binding only.");
+        }
+
+        private static void ConfigureAxeViewmodelImporter()
+        {
+            ModelImporter importer = AssetImporter.GetAtPath(AxeViewmodelSourcePath) as ModelImporter;
+            if (importer == null)
+            {
+                throw new InvalidOperationException("Axe viewmodel ModelImporter is unavailable.");
+            }
+
+            bool changed = importer.animationType != ModelImporterAnimationType.Legacy ||
+                           !importer.importAnimation || importer.addCollider;
+            importer.animationType = ModelImporterAnimationType.Legacy;
+            importer.importAnimation = true;
+            importer.addCollider = false;
+            importer.importCameras = false;
+            importer.importLights = false;
+            if (changed)
+            {
+                importer.SaveAndReimport();
+            }
         }
 
         private static Manifest ReadManifest()
@@ -268,24 +307,64 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
 
         private static GameObject BuildAxePrefab()
         {
-            GameObject source = Load<GameObject>(HarvestRoot + "/Generated/Tools/AXE_Survival.fbx");
-            Material handle = CreateLitMaterial("MAT_Axe_Handle", new Color(0.19f, 0.095f, 0.035f),
-                0.24f, HarvestRoot + "/Materials");
-            Material metal = CreateLitMaterial("MAT_Axe_Metal", new Color(0.16f, 0.18f, 0.19f),
-                0.46f, HarvestRoot + "/Materials");
+            GameObject source = Load<GameObject>(AxeViewmodelSourcePath);
             var root = new GameObject("PRF_SurvivalAxe");
             try
             {
-                CloneMeshChild(source.transform, "Axe_Handle", root.transform,
-                    new[] { handle }, ShadowCastingMode.On);
-                CloneMeshChild(source.transform, "Axe_Head", root.transform,
-                    new[] { metal }, ShadowCastingMode.On);
-                CloneMeshChild(source.transform, "Axe_Blade", root.transform,
-                    new[] { metal }, ShadowCastingMode.On);
-                Transform bladeBase = NewChild(root.transform, "BladeBase");
-                bladeBase.localPosition = new Vector3(-0.045f, 0.03f, 0.235f);
-                Transform bladeTip = NewChild(root.transform, "BladeTip");
-                bladeTip.localPosition = new Vector3(0.045f, 0.17f, 0.235f);
+                GameObject rigInstance = PrefabUtility.InstantiatePrefab(source) as GameObject;
+                if (rigInstance == null)
+                {
+                    throw new InvalidOperationException("Could not instantiate authored axe viewmodel.");
+                }
+                rigInstance.name = "AuthoredAxeRig";
+                rigInstance.transform.SetParent(root.transform, false);
+                rigInstance.transform.localScale = Vector3.one * 0.01f;
+                foreach (Renderer renderer in rigInstance.GetComponentsInChildren<Renderer>(true))
+                {
+                    renderer.shadowCastingMode = ShadowCastingMode.Off;
+                    renderer.receiveShadows = true;
+                    renderer.motionVectorGenerationMode = MotionVectorGenerationMode.Camera;
+                }
+
+                Transform tool = FindRequired(rigInstance.transform, "Tool");
+                Transform leftGrip = FindRequired(rigInstance.transform, "LeftGrip");
+                Transform rightGrip = FindRequired(rigInstance.transform, "RightGrip");
+                Transform bladeBase = NewChild(tool, "BladeBase");
+                bladeBase.localPosition = new Vector3(-0.11f, 0f, 0.50f);
+                Transform bladeTip = NewChild(tool, "BladeTip");
+                bladeTip.localPosition = new Vector3(0.03f, 0f, 0.59f);
+
+                Animation player = rigInstance.GetComponent<Animation>() ??
+                                   rigInstance.AddComponent<Animation>();
+                AnimationClip[] importedClips = AssetDatabase.LoadAllAssetsAtPath(AxeViewmodelSourcePath)
+                    .OfType<AnimationClip>()
+                    .Where(clip => !clip.name.StartsWith("__preview__", StringComparison.Ordinal))
+                    .ToArray();
+                string[] requiredNames =
+                {
+                    AxeViewmodelAnimator.IdleClip, AxeViewmodelAnimator.EquipClip,
+                    AxeViewmodelAnimator.UnequipClip, AxeViewmodelAnimator.ChopLeftClip,
+                    AxeViewmodelAnimator.ChopRightClip, AxeViewmodelAnimator.ChopHeavyClip,
+                    AxeViewmodelAnimator.RecoveryClip
+                };
+                foreach (string requiredName in requiredNames)
+                {
+                    AnimationClip clip = importedClips.SingleOrDefault(value =>
+                        value.name.EndsWith(requiredName, StringComparison.Ordinal));
+                    if (clip == null)
+                    {
+                        throw new InvalidOperationException("Authored viewmodel clip missing: " + requiredName);
+                    }
+                    AnimationClip ownedClip = CopyOwnedAnimationClip(clip, requiredName);
+                    player.AddClip(ownedClip, requiredName);
+                    if (requiredName == AxeViewmodelAnimator.IdleClip)
+                    {
+                        player.clip = ownedClip;
+                    }
+                }
+                player.playAutomatically = false;
+                var viewmodel = root.AddComponent<AxeViewmodelAnimator>();
+                viewmodel.EditorConfigure(player, bladeBase, bladeTip, leftGrip, rightGrip);
                 GameObject saved = PrefabUtility.SaveAsPrefabAsset(root, AxePrefabPath);
                 return saved != null ? saved : throw new InvalidOperationException("Could not save axe prefab.");
             }
@@ -293,6 +372,30 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             {
                 UnityEngine.Object.DestroyImmediate(root);
             }
+        }
+
+        private static AnimationClip CopyOwnedAnimationClip(AnimationClip source, string exactName)
+        {
+            string path = AxeAnimationRoot + "/" + exactName + ".anim";
+            AnimationClip owned = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+            if (owned == null)
+            {
+                owned = new AnimationClip();
+                AssetDatabase.CreateAsset(owned, path);
+            }
+
+            EditorUtility.CopySerialized(source, owned);
+            owned.name = exactName;
+            var serialized = new SerializedObject(owned);
+            SerializedProperty legacy = serialized.FindProperty("m_Legacy");
+            if (legacy != null)
+            {
+                legacy.boolValue = true;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            EditorUtility.SetDirty(owned);
+            return owned;
         }
 
         private static void ConfigurePlayerPrefab(GameObject axePrefab)
@@ -312,7 +415,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 PlayerAxeHarvestController controller =
                     player.GetComponent<PlayerAxeHarvestController>() ??
                     player.AddComponent<PlayerAxeHarvestController>();
-                controller.EditorConfigure(hands, camera, axePrefab, 22f, 0.78f, 0.34f, 0.58f, 0.075f);
+                controller.EditorConfigure(hands, camera, axePrefab, 22f, 1.1f, 0.5f, 0.075f);
                 ForestImpactDamageReceiver damageReceiver =
                     player.GetComponent<ForestImpactDamageReceiver>() ??
                     player.AddComponent<ForestImpactDamageReceiver>();

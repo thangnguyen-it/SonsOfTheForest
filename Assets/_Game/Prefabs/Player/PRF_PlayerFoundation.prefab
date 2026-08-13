@@ -930,10 +930,11 @@ MonoBehaviour:
   viewCamera: {fileID: 3464571955136119058}
   axePrefab: {fileID: 1377703138702980157, guid: 0ede147c740caa148a74b3dfbb9ba7e6, type: 3}
   damagePerContact: 22
-  swingDuration: 0.78
-  hitWindowOpen: 0.34
-  hitWindowClose: 0.58
+  fallbackSwingDuration: 1.1
+  contactMarkerNormalized: 0.5
   bladeRadius: 0.075
+  maximumContactDistance: 3
+  minimumFacingDot: 0.1
   hitMask:
     serializedVersion: 2
     m_Bits: 4294967295

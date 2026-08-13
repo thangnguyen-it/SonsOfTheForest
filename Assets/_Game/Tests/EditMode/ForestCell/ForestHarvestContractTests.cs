@@ -109,6 +109,34 @@ namespace SonsOfTheForest.Tests.ForestCell.EditMode
         }
 
         [Test]
+        public void ProjectOwnedAxeViewmodel_HasSynchronizedRigClipsGripAndContactContract()
+        {
+            GameObject axe = Load<GameObject>(
+                "Assets/_Game/Prefabs/Items/Tools/PRF_SurvivalAxe.prefab");
+            AxeViewmodelAnimator viewmodel = axe.GetComponent<AxeViewmodelAnimator>();
+            Assert.That(viewmodel, Is.Not.Null);
+            Assert.That(viewmodel.TryValidate(out string reason), Is.True, reason);
+            Animation animation = axe.GetComponentInChildren<Animation>(true);
+            Assert.That(animation, Is.Not.Null);
+            string[] clips =
+            {
+                AxeViewmodelAnimator.IdleClip, AxeViewmodelAnimator.EquipClip,
+                AxeViewmodelAnimator.UnequipClip, AxeViewmodelAnimator.ChopLeftClip,
+                AxeViewmodelAnimator.ChopRightClip, AxeViewmodelAnimator.ChopHeavyClip,
+                AxeViewmodelAnimator.RecoveryClip
+            };
+            Assert.That(clips.All(value => animation.GetClip(value) != null), Is.True,
+                "Axe and both arms must be animated by one authored clip set.");
+            Assert.That(viewmodel.LeftGrip, Is.Not.Null);
+            Assert.That(viewmodel.RightGrip, Is.Not.Null);
+            Assert.That(viewmodel.BladeBase.IsChildOf(viewmodel.transform), Is.True);
+            Assert.That(viewmodel.BladeTip.IsChildOf(viewmodel.transform), Is.True);
+            Assert.That(AssetDatabase.GetDependencies(
+                    "Assets/_Game/Prefabs/Items/Tools/PRF_SurvivalAxe.prefab", true),
+                Has.None.StartsWith("E:/SOTF_AssetIntake"));
+        }
+
+        [Test]
         public void StableLogIdentity_DoesNotDependOnPrefabOrListOrdering()
         {
             var go = new GameObject("LogIdentityTest");
