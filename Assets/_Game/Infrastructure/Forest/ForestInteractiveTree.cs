@@ -43,6 +43,7 @@ namespace SonsOfTheForest.Infrastructure.Forest
         private bool outputsSpawned;
         private bool impactRaised;
         private bool playerDamageApplied;
+        private Renderer[] representationRenderers = Array.Empty<Renderer>();
 
         public event Action<ForestInteractiveTree> StateChanged;
         public event Action<ForestInteractiveTree, Vector3, float> Impacted;
@@ -60,6 +61,35 @@ namespace SonsOfTheForest.Infrastructure.Forest
         public bool PlayerDamageApplied => playerDamageApplied;
         public IReadOnlyList<ForestHarvestLog> Logs => logs;
         public bool CanDemote => state == ForestTreeLifecycleState.Standing && accumulatedDamage <= 0f;
+
+        public bool IsRepresentationReady
+        {
+            get
+            {
+                if (!gameObject.activeInHierarchy)
+                {
+                    return false;
+                }
+
+                return HasVisibleRenderer(representationRenderers) && treeInstanceId.IsValid &&
+                       speciesId.IsValid && variantId.IsValid;
+            }
+        }
+
+#if UNITY_EDITOR
+        public static Func<GameObject, bool> RepresentationReadinessOverride;
+#endif
+
+        public bool ValidateRepresentationReady()
+        {
+#if UNITY_EDITOR
+            if (RepresentationReadinessOverride != null)
+            {
+                return RepresentationReadinessOverride(gameObject);
+            }
+#endif
+            return IsRepresentationReady;
+        }
 
         public void Configure(
             ForestCellId owningCellId,
@@ -106,6 +136,7 @@ namespace SonsOfTheForest.Infrastructure.Forest
                 standingVisual.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
                 standingVisual.transform.localScale = Vector3.one;
                 StripChildPhysics(standingVisual);
+                representationRenderers = standingVisual.GetComponentsInChildren<Renderer>(true);
                 ConfigureTrunkColliderFromVisual(standingVisual, 0f);
             }
 
@@ -411,6 +442,7 @@ namespace SonsOfTheForest.Infrastructure.Forest
             }
 
             standingVisual.SetActive(false);
+            representationRenderers = visualAnchor.GetComponentsInChildren<Renderer>(true);
         }
 
         private int ResolveNotchStage()
@@ -517,6 +549,20 @@ namespace SonsOfTheForest.Infrastructure.Forest
                 collider.enabled = false;
                 Destroy(collider);
             }
+        }
+
+        private static bool HasVisibleRenderer(Renderer[] renderers)
+        {
+            for (int index = 0; index < renderers.Length; index++)
+            {
+                Renderer renderer = renderers[index];
+                if (renderer != null && renderer.enabled && renderer.gameObject.activeInHierarchy)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void EnsureComponentReferences()

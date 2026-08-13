@@ -206,6 +206,12 @@ namespace SonsOfTheForest.Infrastructure.Forest
                     reason = "Static visual is missing the required LODGroup.";
                     return false;
                 }
+
+                if (binding.VisualRoot.GetComponentInChildren<Renderer>(true) == null)
+                {
+                    reason = "Static visual has no renderer: " + binding.TreeInstanceId.Value;
+                    return false;
+                }
             }
 
             reason = string.Empty;

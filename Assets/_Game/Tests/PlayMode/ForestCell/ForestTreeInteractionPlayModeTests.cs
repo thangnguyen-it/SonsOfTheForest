@@ -65,6 +65,66 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator RepresentationHandoff_RemainsAtomicAcrossThirtyBoundaryCrossings()
+        {
+#if UNITY_EDITOR
+            TestWorld world = CreateWorld();
+            yield return null;
+            ForestStaticVisualBinding binding = world.Runtime.StaticBindings[0];
+            Vector3 near = binding.VisualRoot.position + Vector3.right * 2f;
+            Vector3 far = binding.VisualRoot.position + Vector3.right * 100f;
+
+            for (int iteration = 0; iteration < 30; iteration++)
+            {
+                world.Observer.transform.position = near;
+                world.Coordinator.EvaluateProximity();
+                AssertAtomicSnapshot(world.Coordinator, in binding, true, iteration);
+
+                world.Observer.transform.position = far;
+                world.Coordinator.EvaluateProximity();
+                AssertAtomicSnapshot(world.Coordinator, in binding, false, iteration);
+            }
+
+            Assert.That(world.Coordinator.DeltaStore.Count, Is.Zero);
+            DestroyWorld(world);
+            yield return null;
+#else
+            yield break;
+#endif
+        }
+
+        [UnityTest]
+        public IEnumerator PromotionFailure_KeepsStaticRepresentationVisibleAndCreatesNoLease()
+        {
+#if UNITY_EDITOR
+            TestWorld world = CreateWorld();
+            yield return null;
+            ForestStaticVisualBinding binding = world.Runtime.StaticBindings[0];
+            try
+            {
+                ForestInteractiveTree.RepresentationReadinessOverride = _ => false;
+                world.Observer.transform.position = binding.VisualRoot.position + Vector3.right * 2f;
+                Assert.Throws<System.InvalidOperationException>(() => world.Coordinator.EvaluateProximity());
+            }
+            finally
+            {
+                ForestInteractiveTree.RepresentationReadinessOverride = null;
+            }
+            Assert.That(binding.VisualRoot.gameObject.activeInHierarchy, Is.True);
+            Assert.That(world.Coordinator.TryGetLease(binding.TreeInstanceId.Value, out _), Is.False);
+            Assert.That(world.Coordinator.TryGetRepresentationSnapshot(
+                binding.TreeInstanceId.Value, out ForestRepresentationHandoffSnapshot snapshot),
+                Is.True);
+            Assert.That(snapshot.StaticVisible, Is.True);
+            Assert.That(snapshot.HasInteractiveLease, Is.False);
+            DestroyWorld(world);
+            yield return null;
+#else
+            yield break;
+#endif
+        }
+
+        [UnityTest]
         public IEnumerator DamagedTree_CannotDemoteOrResurrectAcrossCellReload()
         {
 #if UNITY_EDITOR
@@ -219,6 +279,26 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
             {
                 Object.Destroy(world.Ground);
             }
+        }
+
+        private static void AssertAtomicSnapshot(
+            ForestCellInteractionCoordinator coordinator,
+            in ForestStaticVisualBinding binding,
+            bool expectInteractive,
+            int iteration)
+        {
+            Assert.That(coordinator.TryGetRepresentationSnapshot(
+                binding.TreeInstanceId.Value, out ForestRepresentationHandoffSnapshot snapshot),
+                Is.True);
+            Assert.That(snapshot.ExactlyOneRepresentationVisible, Is.True,
+                "Atomic visibility failed at crossing " + iteration + ".");
+            Assert.That(snapshot.TreeInstanceId, Is.EqualTo(binding.TreeInstanceId.Value));
+            Assert.That(snapshot.SpeciesId, Is.EqualTo(binding.SpeciesId.Value));
+            Assert.That(snapshot.VariantId, Is.EqualTo(binding.VariantId.Value));
+            Assert.That(snapshot.LifecycleState, Is.EqualTo(ForestTreeLifecycleState.Standing));
+            Assert.That(snapshot.HasInteractiveLease && snapshot.InteractiveReady,
+                Is.EqualTo(expectInteractive));
+            Assert.That(snapshot.StaticVisible, Is.EqualTo(!expectInteractive));
         }
 
         private readonly struct TestWorld

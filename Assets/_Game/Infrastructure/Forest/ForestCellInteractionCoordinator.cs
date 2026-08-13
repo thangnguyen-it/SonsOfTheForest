@@ -201,6 +201,15 @@ namespace SonsOfTheForest.Infrastructure.Forest
             if (TryFindBinding(treeInstanceId, out ForestStaticVisualBinding binding))
             {
                 binding.VisualRoot.gameObject.SetActive(true);
+                if (!IsStaticRepresentationReady(in binding))
+                {
+                    binding.VisualRoot.gameObject.SetActive(false);
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
             }
 
             tree.gameObject.SetActive(false);
@@ -214,6 +223,7 @@ namespace SonsOfTheForest.Infrastructure.Forest
         {
             string id = binding.TreeInstanceId.Value;
             bool shouldRestoreDelta = false;
+            bool createdLease = false;
             if (!leases.TryGetValue(id, out ForestInteractiveTree tree) || tree == null)
             {
                 if (!TryFindPlacement(id, out ForestTreePlacementRecord placement) ||
@@ -223,20 +233,27 @@ namespace SonsOfTheForest.Infrastructure.Forest
                     throw new InvalidOperationException("Cannot promote unresolved tree: " + id);
                 }
 
+                createdLease = true;
+                shouldRestoreDelta = hasDelta;
                 GameObject instance = Instantiate(interactiveTreePrefab, interactiveRoot);
                 instance.name = "Interactive_" + id;
                 tree = instance.GetComponent<ForestInteractiveTree>();
-                tree.Configure(
-                    cellRuntime.Definition.ForestCellId,
-                    in placement,
-                    variant.VisualPrefab,
-                    variant.FellingKit,
-                    species.HarvestProfile,
-                    harvestOutputRoot);
-                tree.StateChanged += HandleTreeStateChanged;
-                leases.Add(id, tree);
-                TreePromoted?.Invoke(tree);
-                shouldRestoreDelta = hasDelta;
+                try
+                {
+                    tree.Configure(
+                        cellRuntime.Definition.ForestCellId,
+                        in placement,
+                        variant.VisualPrefab,
+                        variant.FellingKit,
+                        species.HarvestProfile,
+                        harvestOutputRoot);
+                    tree.StateChanged += HandleTreeStateChanged;
+                }
+                catch
+                {
+                    Destroy(instance);
+                    throw;
+                }
             }
             else
             {
@@ -246,14 +263,75 @@ namespace SonsOfTheForest.Infrastructure.Forest
                 shouldRestoreDelta = hasDelta && !wasActive;
             }
 
-            binding.VisualRoot.gameObject.SetActive(false);
-            if (shouldRestoreDelta)
+            try
             {
-                tree.ApplyDelta(in delta);
+                if (shouldRestoreDelta)
+                {
+                    tree.ApplyDelta(in delta);
+                }
+
+                if (!tree.ValidateRepresentationReady() || tree.TreeInstanceId != binding.TreeInstanceId ||
+                    tree.SpeciesId != binding.SpeciesId || tree.VariantId != binding.VariantId)
+                {
+                    throw new InvalidOperationException(
+                        "Interactive representation failed readiness validation: " + id);
+                }
+
+                if (createdLease)
+                {
+                    leases.Add(id, tree);
+                }
+
+                binding.VisualRoot.gameObject.SetActive(false);
+                if (createdLease)
+                {
+                    TreePromoted?.Invoke(tree);
+                }
+            }
+            catch
+            {
+                binding.VisualRoot.gameObject.SetActive(true);
+                tree.SetOwnedOutputsActive(false);
+                tree.gameObject.SetActive(false);
+                if (createdLease)
+                {
+                    tree.StateChanged -= HandleTreeStateChanged;
+                    Destroy(tree.gameObject);
+                }
+
+                throw;
             }
 
             return tree;
         }
+
+        public bool TryGetRepresentationSnapshot(
+            string treeInstanceId,
+            out ForestRepresentationHandoffSnapshot snapshot)
+        {
+            if (!TryFindBinding(treeInstanceId, out ForestStaticVisualBinding binding))
+            {
+                snapshot = default;
+                return false;
+            }
+
+            bool hasLease = leases.TryGetValue(treeInstanceId, out ForestInteractiveTree tree) &&
+                            tree != null && tree.gameObject.activeSelf;
+            snapshot = new ForestRepresentationHandoffSnapshot(
+                cellRuntime.Definition.ForestCellId.Value,
+                binding.TreeInstanceId.Value,
+                binding.SpeciesId.Value,
+                binding.VariantId.Value,
+                binding.VisualRoot.gameObject.activeInHierarchy,
+                hasLease,
+                hasLease && tree.ValidateRepresentationReady(),
+                hasLease ? tree.State : ForestTreeLifecycleState.Standing);
+            return true;
+        }
+
+        private static bool IsStaticRepresentationReady(in ForestStaticVisualBinding binding) =>
+            binding.VisualRoot != null && binding.VisualRoot.gameObject.activeSelf &&
+            binding.VisualRoot.gameObject.activeInHierarchy;
 
         private void HandleTreeStateChanged(ForestInteractiveTree tree)
         {
