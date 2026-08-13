@@ -26,6 +26,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
         public const string PlayerPrefabPath = "Assets/_Game/Prefabs/Player/PRF_PlayerFoundation.prefab";
         private const string TreeEndTextureRoot =
             "Assets/_Game/Art/World/Forest/Harvest/Textures/TreeEnd003";
+        private const string PhysicsMaterialPath =
+            "Assets/_Game/Art/World/Forest/Harvest/Materials/PHY_HarvestLog.physicMaterial";
 
         [MenuItem("Sons Of The Forest/Forest Harvest/Build Production Harvest Loop")]
         public static void BuildAll()
@@ -281,6 +283,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                                                  "/LOGS_" + species + ".fbx");
             int variantCount = species == "Pine" ? 3 : 2;
             var results = new GameObject[variantCount];
+            PhysicsMaterial logMaterial = BuildLogPhysicsMaterial();
             for (int variant = 0; variant < variantCount; variant++)
             {
                 var root = new GameObject("PRF_Log_" + species + "_" + (variant + 1));
@@ -308,7 +311,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                         new LOD(0.018f, lod1Renderers)
                     });
                     Rigidbody body = root.AddComponent<Rigidbody>();
-                    float radius = species == "Fir" ? 0.30f : 0.34f + variant * 0.025f;
+                    float radius = species == "Fir" ? 0.30f :
+                        species == "Pine" ? 0.34f - variant * 0.045f : 0.34f + variant * 0.025f;
                     float length = species == "Pine" ? 2.65f : 2.55f + variant * 0.35f;
                     body.mass = 30f * Mathf.Pow(radius / 0.36f, 2f) * (length / 2.65f);
                     body.interpolation = RigidbodyInterpolation.Interpolate;
@@ -317,6 +321,7 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                     collider.direction = 2;
                     collider.radius = radius;
                     collider.height = length;
+                    collider.material = logMaterial;
                     root.AddComponent<ForestHarvestLog>();
                     string path = PrefabRoot + "/Logs/PRF_Log_" + species + "_" + (variant + 1) + ".prefab";
                     results[variant] = PrefabUtility.SaveAsPrefabAsset(root, path);
@@ -328,6 +333,23 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             }
 
             return results;
+        }
+
+        private static PhysicsMaterial BuildLogPhysicsMaterial()
+        {
+            PhysicsMaterial material = AssetDatabase.LoadAssetAtPath<PhysicsMaterial>(PhysicsMaterialPath);
+            if (material == null)
+            {
+                material = new PhysicsMaterial("PHY_HarvestLog");
+                AssetDatabase.CreateAsset(material, PhysicsMaterialPath);
+            }
+            material.dynamicFriction = 0.58f;
+            material.staticFriction = 0.72f;
+            material.bounciness = 0.02f;
+            material.frictionCombine = PhysicsMaterialCombine.Average;
+            material.bounceCombine = PhysicsMaterialCombine.Minimum;
+            EditorUtility.SetDirty(material);
+            return material;
         }
 
         private static Renderer CloneLogChild(

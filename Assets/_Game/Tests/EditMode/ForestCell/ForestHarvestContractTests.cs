@@ -107,6 +107,13 @@ namespace SonsOfTheForest.Tests.ForestCell.EditMode
                         path + " caps must exclusively use the Pine cut-surface material.");
                 }
                 Assert.That(prefab.GetComponents<Collider>(), Has.Length.EqualTo(1));
+                if (path.Contains("_Pine_", StringComparison.Ordinal))
+                {
+                    Assert.That(logCollider.sharedMaterial, Is.Not.Null);
+                    Assert.That(logCollider.sharedMaterial.dynamicFriction, Is.EqualTo(0.58f).Within(0.001f));
+                    Assert.That(logCollider.sharedMaterial.staticFriction, Is.EqualTo(0.72f).Within(0.001f));
+                    Assert.That(logCollider.sharedMaterial.bounciness, Is.EqualTo(0.02f).Within(0.001f));
+                }
                 Assert.That(prefab.GetComponent<LODGroup>()?.lodCount, Is.EqualTo(2));
                 Assert.That(prefab.GetComponentsInChildren<Renderer>(true)
                     .SelectMany(value => value.sharedMaterials)

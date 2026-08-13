@@ -226,6 +226,14 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
             Assert.That(tree.State, Is.EqualTo(ForestTreeLifecycleState.Felled));
             Assert.That(tree.OutputsSpawned, Is.True);
             Assert.That(tree.Logs.Count, Is.InRange(3, 5));
+            Assert.That(tree.Logs.All(value =>
+                value.GetComponent<Rigidbody>().constraints == RigidbodyConstraints.None), Is.True,
+                "Logs remain fully rotational; damping must not fake immobility.");
+            Assert.That(tree.Logs.Select(value => value.transform.position)
+                .SelectMany((position, index) => tree.Logs.Skip(index + 1)
+                    .Select(other => Vector3.Distance(position, other.transform.position)))
+                .All(distance => distance > 0.5f), Is.True,
+                "Log replacement must not spawn stacked colliders.");
             string[] stableLogIds = tree.Logs.Select(value => value.StableLogId).ToArray();
             Assert.That(stableLogIds.Distinct().Count(), Is.EqualTo(stableLogIds.Length));
             Assert.That(binding.VisualRoot.gameObject.activeSelf, Is.False);
@@ -238,6 +246,15 @@ namespace SonsOfTheForest.Tests.ForestCell.PlayMode
             Assert.That(tree.TreeInstanceId, Is.EqualTo(binding.TreeInstanceId));
             Assert.That(tree.Logs.Select(value => value.StableLogId), Is.EquivalentTo(stableLogIds));
             Assert.That(tree.Logs.Count, Is.EqualTo(stableLogIds.Length));
+            float settleDeadline = Time.time + 5f;
+            while (tree.Logs.Any(value => !value.GetComponent<Rigidbody>().IsSleeping()) &&
+                   Time.time < settleDeadline)
+            {
+                yield return new WaitForFixedUpdate();
+            }
+            Assert.That(tree.Logs.All(value =>
+                value.GetComponent<Rigidbody>().linearVelocity.sqrMagnitude < 0.04f), Is.True,
+                "Logs on near-flat ground must settle without perpetual drift.");
             DestroyWorld(world);
             yield return null;
 #else

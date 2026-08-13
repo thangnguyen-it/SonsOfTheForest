@@ -344,7 +344,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6007412951305101451}
   serializedVersion: 5
-  m_Mass: 30.839117
+  m_Mass: 20.144676
   m_LinearDamping: 0
   m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
@@ -370,7 +370,7 @@ CapsuleCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6007412951305101451}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 21f93351bb0d2de4f9fb050b19fe8932, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -382,7 +382,7 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.365
+  m_Radius: 0.29500002
   m_Height: 2.65
   m_Direction: 2
   m_Center: {x: 0, y: 0, z: 0}

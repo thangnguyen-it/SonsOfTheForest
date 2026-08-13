@@ -24,9 +24,11 @@ namespace SonsOfTheForest.Infrastructure.Forest
             body.mass = Mathf.Max(0.1f, mass);
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            body.linearDamping = 0.35f;
-            body.angularDamping = 0.5f;
-            body.sleepThreshold = 0.08f;
+            body.linearDamping = 0.55f;
+            body.angularDamping = 1.15f;
+            body.maxLinearVelocity = 12f;
+            body.maxAngularVelocity = 14f;
+            body.sleepThreshold = 0.12f;
         }
     }
 }

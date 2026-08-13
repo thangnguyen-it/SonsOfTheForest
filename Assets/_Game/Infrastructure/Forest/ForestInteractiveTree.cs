@@ -43,6 +43,8 @@ namespace SonsOfTheForest.Infrastructure.Forest
         private bool outputsSpawned;
         private bool impactRaised;
         private bool playerDamageApplied;
+        private Vector3 finalTrunkVelocity;
+        private Vector3 finalTrunkAngularVelocity;
         private Renderer[] representationRenderers = Array.Empty<Renderer>();
 
         public event Action<ForestInteractiveTree> StateChanged;
@@ -355,6 +357,7 @@ namespace SonsOfTheForest.Infrastructure.Forest
             settledElapsed = 0f;
             hingeElapsed = 0f;
             baseWorldPosition = transform.position;
+            fellingVisual.SetReadyToFall(lastHitDirection);
             Vector3 cutPoint = baseWorldPosition + transform.up * fellingKit.CutHeight;
             stumpOutput = fellingVisual.DetachStump(outputRoot);
             transform.position = cutPoint;
@@ -373,6 +376,8 @@ namespace SonsOfTheForest.Infrastructure.Forest
 
         private void CompleteHarvest()
         {
+            finalTrunkVelocity = body.linearVelocity;
+            finalTrunkAngularVelocity = body.angularVelocity;
             body.linearVelocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
             body.isKinematic = true;
@@ -399,10 +404,11 @@ namespace SonsOfTheForest.Infrastructure.Forest
             }
 
             float spacing = fellingKit.UsableTrunkLength / fellingKit.LogYield;
+            float logLength = Mathf.Min(2.65f, spacing * 0.84f);
             for (int index = 0; index < fellingKit.LogYield; index++)
             {
                 GameObject prefab = fellingKit.WholeLogPrefabs[index % fellingKit.WholeLogPrefabs.Count];
-                Vector3 proposed = transform.position + axis * (spacing * (index + 0.5f));
+                Vector3 proposed = transform.position + axis * (spacing * (index + 0.58f));
                 if (Physics.Raycast(proposed + Vector3.up * 3f, Vector3.down, out RaycastHit hit, 8f, ~0,
                         QueryTriggerInteraction.Ignore))
                 {
@@ -413,9 +419,16 @@ namespace SonsOfTheForest.Infrastructure.Forest
                     Quaternion.LookRotation(axis, Vector3.up), outputRoot);
                 instance.name = treeInstanceId.Value + "_Log_" + index.ToString("D2");
                 ForestHarvestLog log = instance.GetComponent<ForestHarvestLog>();
-                log.Configure(cellId, treeInstanceId, index, harvestProfile.LogMass);
+                CapsuleCollider spawnedCollider = log.GetComponent<CapsuleCollider>();
+                float spawnedRadius = spawnedCollider != null ? spawnedCollider.radius : fellingKit.TrunkRadius;
+                float spawnedLength = spawnedCollider != null ? spawnedCollider.height : logLength;
+                float relativeVolume = Mathf.Pow(spawnedRadius / 0.36f, 2f) *
+                                       (spawnedLength / 2.65f);
+                float mass = harvestProfile.LogMass * Mathf.Clamp(relativeVolume, 0.55f, 1.85f);
+                log.Configure(cellId, treeInstanceId, index, mass);
                 Rigidbody logBody = log.GetComponent<Rigidbody>();
-                logBody.linearVelocity = body.linearVelocity * 0.15f;
+                logBody.linearVelocity = Vector3.ClampMagnitude(finalTrunkVelocity * 0.12f, 1.5f);
+                logBody.angularVelocity = Vector3.ClampMagnitude(finalTrunkAngularVelocity * 0.08f, 1.2f);
                 logs.Add(log);
             }
         }
