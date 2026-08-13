@@ -81,6 +81,34 @@ def clip_upper(source, cut_height, name):
     return result
 
 
+def clip_between(source, bottom, top, name, rebase=True):
+    result = source.copy()
+    result.data = source.data.copy()
+    bpy.context.collection.objects.link(result)
+    result.name = name
+    mesh = result.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    geometry = list(bm.verts) + list(bm.edges) + list(bm.faces)
+    bmesh.ops.bisect_plane(
+        bm, geom=geometry, dist=0.00001,
+        plane_co=Vector((0.0, 0.0, bottom)), plane_no=Vector((0.0, 0.0, 1.0)),
+        clear_inner=True, clear_outer=False)
+    geometry = list(bm.verts) + list(bm.edges) + list(bm.faces)
+    bmesh.ops.bisect_plane(
+        bm, geom=geometry, dist=0.00001,
+        plane_co=Vector((0.0, 0.0, top)), plane_no=Vector((0.0, 0.0, 1.0)),
+        clear_inner=False, clear_outer=True)
+    if rebase:
+        center = (bottom + top) * 0.5
+        for vertex in bm.verts:
+            vertex.co.z -= center
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.update()
+    return result
+
+
 def add_cylinder(name, radius, depth, segments, z, material_names, top_radius=None):
     top_radius = radius if top_radius is None else top_radius
     vertices = []
@@ -156,6 +184,31 @@ def add_cap(name, radius, z, normal_up, segments=32):
     return obj
 
 
+def add_log_caps(name, bottom_radius, top_radius, length, segments=32):
+    """Create both end-grain faces as one cut-only mesh for a horizontal log."""
+    vertices = []
+    faces = []
+    for z, radius, normal_up in ((-length * 0.5, bottom_radius, False),
+                                 (length * 0.5, top_radius, True)):
+        center = len(vertices)
+        vertices.append((0.0, 0.0, z))
+        ring = len(vertices)
+        for index in range(segments):
+            angle = index * math.tau / segments
+            vertices.append((math.cos(angle) * radius,
+                             math.sin(angle) * radius, z))
+        for index in range(segments):
+            nxt = (index + 1) % segments
+            face = (center, ring + index, ring + nxt)
+            faces.append(face if normal_up else tuple(reversed(face)))
+    mesh = bpy.data.meshes.new(name + "_Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.materials.append(bpy.data.materials.get("Cut") or bpy.data.materials.new("Cut"))
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
 def mesh_checksum(objects):
     digest = hashlib.sha256()
     for obj in sorted(objects, key=lambda value: value.name):
@@ -196,12 +249,20 @@ def build_variant(root, output_root, variant):
     for lod, source_obj in enumerate(source_objects):
         upper = clip_upper(source_obj, cut_height, "Upper_LOD%d" % lod)
         outputs.append(upper)
-    outputs.append(add_cylinder("Stump_LOD0", radius * 1.18, cut_height - 0.08, 32, 0.0, ["Bark", "Cut"], radius))
-    outputs.append(add_cylinder("Stump_LOD1", radius * 1.16, cut_height - 0.08, 16, 0.0, ["Bark", "Cut"], radius))
+    if variant["variantId"] == "PineLarge1":
+        outputs.append(clip_between(source_objects[0], 0.0, cut_height - 0.02,
+                                    "Stump_LOD0", rebase=False))
+        outputs.append(clip_between(source_objects[1], 0.0, cut_height - 0.02,
+                                    "Stump_LOD1", rebase=False))
+    else:
+        outputs.append(add_cylinder("Stump_LOD0", radius * 1.18, cut_height - 0.08, 32, 0.0, ["Bark", "Cut"], radius))
+        outputs.append(add_cylinder("Stump_LOD1", radius * 1.16, cut_height - 0.08, 16, 0.0, ["Bark", "Cut"], radius))
     outputs.append(add_notch_sleeve("Seam_Intact", radius * 1.015, cut_height - 0.10, cut_height + 0.10, 0.0))
     outputs.append(add_notch_sleeve("Notch_Stage1", radius * 1.02, cut_height - 0.10, cut_height + 0.10, 42.0))
     outputs.append(add_notch_sleeve("Notch_Stage2", radius * 1.02, cut_height - 0.10, cut_height + 0.10, 76.0))
     outputs.append(add_notch_sleeve("Notch_Stage3", radius * 1.02, cut_height - 0.10, cut_height + 0.10, 112.0))
+    outputs.append(add_notch_sleeve("ReadyToFall", radius * 1.02,
+                                    cut_height - 0.11, cut_height + 0.11, 145.0))
     outputs.append(add_cap("Upper_CutCap", radius, 0.0, False))
     outputs.append(add_cap("Stump_CutCap", radius, cut_height - 0.08, True))
 
@@ -216,11 +277,36 @@ def build_variant(root, output_root, variant):
 def build_logs(root, output_root, species):
     reset_scene()
     outputs = []
-    for variant in range(2):
-        radius = (0.31 + variant * 0.045) * (0.92 if species == "Fir" else 1.0)
-        length = 2.55 + variant * 0.35
-        outputs.append(add_cylinder("Log%d_LOD0" % (variant + 1), radius, length, 24, -length * 0.5, ["Bark", "Cut"], radius * 0.96))
-        outputs.append(add_cylinder("Log%d_LOD1" % (variant + 1), radius, length, 12, -length * 0.5, ["Bark", "Cut"], radius * 0.96))
+    if species == "Pine":
+        pine_source = safe_path(root, "Assets/pine-trees-pack-lowpoly-game-ready-lods/source/Pine_pack.fbx")
+        bpy.ops.import_scene.fbx(filepath=pine_source)
+        pine_lods = []
+        for lod in range(2):
+            obj = find_mesh("Pine_large_1", lod)
+            normalize_tree(obj, "Pine", 18.0)
+            pine_lods.append(obj)
+        segment_starts = (1.08, 3.86, 6.64)
+        segment_length = 2.65
+        for variant, start in enumerate(segment_starts):
+            outputs.append(clip_between(pine_lods[0], start, start + segment_length,
+                                        "Log%d_LOD0" % (variant + 1)))
+            lower_radius = max(0.17, 0.36 * (1.0 - start / 22.0))
+            upper_radius = max(0.16, 0.36 * (1.0 - (start + segment_length) / 22.0))
+            outputs.append(add_log_caps("Log%d_Caps_LOD0" % (variant + 1),
+                                        lower_radius, upper_radius, segment_length, 32))
+            outputs.append(clip_between(pine_lods[1], start, start + segment_length,
+                                        "Log%d_LOD1" % (variant + 1)))
+            outputs.append(add_log_caps("Log%d_Caps_LOD1" % (variant + 1),
+                                        lower_radius, upper_radius, segment_length, 16))
+        for obj in pine_lods:
+            bpy.data.objects.remove(obj, do_unlink=True)
+    else:
+        variant_count = 2
+        for variant in range(variant_count):
+            radius = (0.31 + variant * 0.045) * (0.92 if species == "Fir" else 1.0)
+            length = 2.55 + variant * 0.35
+            outputs.append(add_cylinder("Log%d_LOD0" % (variant + 1), radius, length, 24, -length * 0.5, ["Bark", "Cut"], radius * 0.96))
+            outputs.append(add_cylinder("Log%d_LOD1" % (variant + 1), radius, length, 12, -length * 0.5, ["Bark", "Cut"], radius * 0.96))
     relative = os.path.join(output_root, "Logs", species, "LOGS_" + species + ".fbx")
     export_selected(safe_path(root, relative), outputs)
     return {"species": species, "path": relative.replace("\\", "/"),
@@ -282,6 +368,7 @@ def main():
     parser.add_argument("--project-root", required=True)
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--pine-quality-only", action="store_true")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
     root = os.path.realpath(args.project_root)
     with open(args.manifest, "r", encoding="utf-8") as stream:
@@ -289,12 +376,16 @@ def main():
     output_root = manifest["outputRoot"]
     report = {"schemaVersion": 1, "generatorVersion": manifest["generatorVersion"],
               "variants": [], "logs": [], "axe": None, "chips": None}
-    for variant in manifest["variants"]:
+    variants = ([value for value in manifest["variants"] if value["variantId"] == "PineLarge1"]
+                if args.pine_quality_only else manifest["variants"])
+    for variant in variants:
         report["variants"].append(build_variant(root, output_root, variant))
-    for species in ("Pine", "Fir", "Maple"):
+    species_values = ("Pine",) if args.pine_quality_only else ("Pine", "Fir", "Maple")
+    for species in species_values:
         report["logs"].append(build_logs(root, output_root, species))
-    report["axe"] = build_axe(root, output_root)
-    report["chips"] = build_chips(root, output_root)
+    if not args.pine_quality_only:
+        report["axe"] = build_axe(root, output_root)
+        report["chips"] = build_chips(root, output_root)
     output = safe_path(root, os.path.relpath(args.output, root))
     os.makedirs(os.path.dirname(output), exist_ok=True)
     with open(output, "w", encoding="utf-8", newline="\n") as stream:

@@ -24,6 +24,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
         public const string AxeAnimationRoot =
             "Assets/_Game/Art/Player/Viewmodels/Generated/Animations";
         public const string PlayerPrefabPath = "Assets/_Game/Prefabs/Player/PRF_PlayerFoundation.prefab";
+        private const string TreeEndTextureRoot =
+            "Assets/_Game/Art/World/Forest/Harvest/Textures/TreeEnd003";
 
         [MenuItem("Sons Of The Forest/Forest Harvest/Build Production Harvest Loop")]
         public static void BuildAll()
@@ -82,6 +84,37 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             Debug.Log("[ForestHarvest] Built authored axe viewmodel and player binding only.");
         }
 
+        [MenuItem("Sons Of The Forest/Forest Harvest/Build Pine Large 1 Quality Kit Only")]
+        public static void BuildPineQualityKitOnly()
+        {
+            ConfigureTreeEndImporters();
+            EnsureFolder(HarvestRoot + "/Materials");
+            EnsureFolder(PrefabRoot + "/FellingKits");
+            EnsureFolder(PrefabRoot + "/Logs");
+            EnsureFolder(DataRoot + "/Kits");
+            VariantRecord variant = ReadManifest().variants.Single(value =>
+                value.variantId == "PineLarge1");
+            SpeciesMaterials materials = BuildSpeciesMaterials("Pine");
+            GameObject[] logs = BuildLogPrefabs("Pine", materials);
+            GameObject visual = BuildFellingVisual(variant, materials);
+            BuildFellingKit(variant, visual, logs);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[ForestHarvest] Built species-matched PineLarge1 notch/stump/log kit only.");
+        }
+
+        private static void ConfigureTreeEndImporters()
+        {
+            string normalPath = TreeEndTextureRoot + "/TreeEnd003_NormalDX.jpg";
+            TextureImporter normal = AssetImporter.GetAtPath(normalPath) as TextureImporter;
+            if (normal != null && normal.textureType != TextureImporterType.NormalMap)
+            {
+                normal.textureType = TextureImporterType.NormalMap;
+                normal.sRGBTexture = false;
+                normal.SaveAndReimport();
+            }
+        }
+
         private static void ConfigureAxeViewmodelImporter()
         {
             ModelImporter importer = AssetImporter.GetAtPath(AxeViewmodelSourcePath) as ModelImporter;
@@ -133,6 +166,17 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                 species == "Fir" ? new Color(0.54f, 0.36f, 0.18f) :
                 species == "Maple" ? new Color(0.62f, 0.43f, 0.24f) :
                 new Color(0.68f, 0.48f, 0.25f), 0.22f, HarvestRoot + "/Materials");
+            if (species == "Pine")
+            {
+                Texture2D color = Load<Texture2D>(TreeEndTextureRoot + "/TreeEnd003_Color.jpg");
+                Texture2D normal = Load<Texture2D>(TreeEndTextureRoot + "/TreeEnd003_NormalDX.jpg");
+                cut.SetTexture("_BaseColorMap", color);
+                cut.SetTexture("_NormalMap", normal);
+                cut.SetFloat("_NormalScale", 0.72f);
+                cut.SetTextureScale("_BaseColorMap", new Vector2(0.7f, 0.7f));
+                HDMaterial.ValidateMaterial(cut);
+                EditorUtility.SetDirty(cut);
+            }
             return new SpeciesMaterials(bark, foliage, cut);
         }
 
@@ -183,10 +227,13 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                     new LOD(0.012f, new[] { upperRenderers[2] })
                 });
 
+                Material[] stumpMaterials = variant.variantId == "PineLarge1"
+                    ? ResolveSourceMaterials(FindRequired(source.transform, "Stump_LOD0"), materials)
+                    : new[] { materials.Bark, materials.Cut };
                 Renderer stump0 = CloneMeshChild(source.transform, "Stump_LOD0", stump,
-                    new[] { materials.Bark, materials.Cut }, ShadowCastingMode.On);
+                    stumpMaterials, ShadowCastingMode.On);
                 Renderer stump1 = CloneMeshChild(source.transform, "Stump_LOD1", stump,
-                    new[] { materials.Bark, materials.Cut }, ShadowCastingMode.Off);
+                    stumpMaterials, ShadowCastingMode.Off);
                 AddLodGroup(stump.gameObject, new[]
                 {
                     new LOD(0.08f, new[] { stump0 }),
@@ -211,9 +258,13 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
                     stages[index] = direction.gameObject;
                     stages[index].SetActive(false);
                 }
+                GameObject readyToFall = CloneMeshChild(source.transform, "ReadyToFall",
+                    root.transform, new[] { materials.Bark, materials.Cut },
+                    ShadowCastingMode.On).gameObject;
+                readyToFall.SetActive(false);
 
                 ForestFellingVisual visual = root.AddComponent<ForestFellingVisual>();
-                visual.EditorConfigure(upper, stump, seam, stages, upperCap, stumpCap);
+                visual.EditorConfigure(upper, stump, seam, stages, readyToFall, upperCap, stumpCap);
                 string prefabPath = PrefabRoot + "/FellingKits/PRF_Felling_" + variant.variantId + ".prefab";
                 GameObject saved = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
                 return saved != null ? saved : throw new InvalidOperationException("Could not save " + prefabPath);
@@ -228,29 +279,44 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
         {
             GameObject source = Load<GameObject>(HarvestRoot + "/Generated/Logs/" + species +
                                                  "/LOGS_" + species + ".fbx");
-            var results = new GameObject[2];
-            for (int variant = 0; variant < 2; variant++)
+            int variantCount = species == "Pine" ? 3 : 2;
+            var results = new GameObject[variantCount];
+            for (int variant = 0; variant < variantCount; variant++)
             {
                 var root = new GameObject("PRF_Log_" + species + "_" + (variant + 1));
                 try
                 {
-                    Renderer lod0 = CloneLogChild(source.transform, "Log" + (variant + 1) + "_LOD0",
-                        root.transform, materials);
-                    Renderer lod1 = CloneLogChild(source.transform, "Log" + (variant + 1) + "_LOD1",
-                        root.transform, materials);
+                    string prefix = "Log" + (variant + 1);
+                    Renderer lod0 = CloneLogChild(source.transform, prefix + "_LOD0",
+                        root.transform, materials, species == "Pine");
+                    Renderer lod1 = CloneLogChild(source.transform, prefix + "_LOD1",
+                        root.transform, materials, species == "Pine");
+                    Renderer[] lod0Renderers = { lod0 };
+                    Renderer[] lod1Renderers = { lod1 };
+                    if (species == "Pine")
+                    {
+                        Renderer caps0 = CloneMeshChild(source.transform, prefix + "_Caps_LOD0",
+                            root.transform, new[] { materials.Cut }, ShadowCastingMode.On);
+                        Renderer caps1 = CloneMeshChild(source.transform, prefix + "_Caps_LOD1",
+                            root.transform, new[] { materials.Cut }, ShadowCastingMode.Off);
+                        lod0Renderers = new[] { lod0, caps0 };
+                        lod1Renderers = new[] { lod1, caps1 };
+                    }
                     AddLodGroup(root, new[]
                     {
-                        new LOD(0.10f, new[] { lod0 }),
-                        new LOD(0.018f, new[] { lod1 })
+                        new LOD(0.10f, lod0Renderers),
+                        new LOD(0.018f, lod1Renderers)
                     });
                     Rigidbody body = root.AddComponent<Rigidbody>();
-                    body.mass = 30f;
+                    float radius = species == "Fir" ? 0.30f : 0.34f + variant * 0.025f;
+                    float length = species == "Pine" ? 2.65f : 2.55f + variant * 0.35f;
+                    body.mass = 30f * Mathf.Pow(radius / 0.36f, 2f) * (length / 2.65f);
                     body.interpolation = RigidbodyInterpolation.Interpolate;
                     body.collisionDetectionMode = CollisionDetectionMode.Discrete;
                     var collider = root.AddComponent<CapsuleCollider>();
                     collider.direction = 2;
-                    collider.radius = species == "Fir" ? 0.30f : 0.34f + variant * 0.035f;
-                    collider.height = 2.55f + variant * 0.35f;
+                    collider.radius = radius;
+                    collider.height = length;
                     root.AddComponent<ForestHarvestLog>();
                     string path = PrefabRoot + "/Logs/PRF_Log_" + species + "_" + (variant + 1) + ".prefab";
                     results[variant] = PrefabUtility.SaveAsPrefabAsset(root, path);
@@ -265,7 +331,8 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
         }
 
         private static Renderer CloneLogChild(
-            Transform source, string name, Transform parent, SpeciesMaterials materials)
+            Transform source, string name, Transform parent, SpeciesMaterials materials,
+            bool preserveSourceMaterials)
         {
             Transform sourceChild = FindRequired(source, name);
             var child = new GameObject(name);
@@ -274,7 +341,9 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             Mesh mesh = sourceChild.GetComponent<MeshFilter>().sharedMesh;
             child.AddComponent<MeshFilter>().sharedMesh = CopyGeneratedMesh(mesh);
             MeshRenderer renderer = child.AddComponent<MeshRenderer>();
-            renderer.sharedMaterials = new[] { materials.Bark, materials.Cut };
+            renderer.sharedMaterials = preserveSourceMaterials
+                ? ResolveSourceMaterials(sourceChild, materials)
+                : new[] { materials.Bark, materials.Cut };
             renderer.shadowCastingMode = name.EndsWith("LOD0", StringComparison.Ordinal)
                 ? ShadowCastingMode.On : ShadowCastingMode.Off;
             renderer.receiveShadows = true;
@@ -452,6 +521,21 @@ namespace SonsOfTheForest.Infrastructure.Editor.ForestCell
             renderer.receiveShadows = true;
             renderer.motionVectorGenerationMode = MotionVectorGenerationMode.Camera;
             return renderer;
+        }
+
+        private static Material[] ResolveSourceMaterials(Transform source, SpeciesMaterials materials)
+        {
+            MeshFilter filter = source.GetComponent<MeshFilter>();
+            if (filter == null || filter.sharedMesh == null)
+            {
+                throw new InvalidOperationException("Generated source has no mesh: " + source.name);
+            }
+            Material[] result = new Material[filter.sharedMesh.subMeshCount];
+            for (int index = 0; index < result.Length; index++)
+            {
+                result[index] = index == 0 ? materials.Bark : materials.Foliage;
+            }
+            return result;
         }
 
         private static void AddLodGroup(GameObject root, LOD[] lods)

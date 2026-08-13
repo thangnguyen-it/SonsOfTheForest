@@ -1,0 +1,48 @@
+{
+  "axe": null,
+  "chips": null,
+  "generatorVersion": "r2-forest1e.1",
+  "logs": [
+    {
+      "checksum": "9b4b54cd3b36a2db8cd751d20004509ceeaa5dce38189ae51bc0023a2c1e3620",
+      "objects": [
+        "Log1_LOD0",
+        "Log1_Caps_LOD0",
+        "Log1_LOD1",
+        "Log1_Caps_LOD1",
+        "Log2_LOD0",
+        "Log2_Caps_LOD0",
+        "Log2_LOD1",
+        "Log2_Caps_LOD1",
+        "Log3_LOD0",
+        "Log3_Caps_LOD0",
+        "Log3_LOD1",
+        "Log3_Caps_LOD1"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/Logs/Pine/LOGS_Pine.fbx",
+      "species": "Pine"
+    }
+  ],
+  "schemaVersion": 1,
+  "variants": [
+    {
+      "checksum": "2a10d4f32bae2c44abe39089ebbc1ac3966e776285829cbbe3c0ae70cc185b37",
+      "objects": [
+        "Upper_LOD0",
+        "Upper_LOD1",
+        "Upper_LOD2",
+        "Stump_LOD0",
+        "Stump_LOD1",
+        "Seam_Intact",
+        "Notch_Stage1",
+        "Notch_Stage2",
+        "Notch_Stage3",
+        "ReadyToFall",
+        "Upper_CutCap",
+        "Stump_CutCap"
+      ],
+      "path": "Assets/_Game/Art/World/Forest/Harvest/Generated/FellingKits/Pine/KIT_PineLarge1.fbx",
+      "variantId": "PineLarge1"
+    }
+  ]
+}

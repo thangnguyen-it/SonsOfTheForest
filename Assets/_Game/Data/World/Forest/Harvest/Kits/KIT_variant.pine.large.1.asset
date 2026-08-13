@@ -18,6 +18,7 @@ MonoBehaviour:
   wholeLogPrefabs:
   - {fileID: 5970768864687811576, guid: 3e57f8e494bd4bb4299bbbb2232ad28f, type: 3}
   - {fileID: 6007412951305101451, guid: e4ed1ca6fc65656498ce100eb46762f4, type: 3}
+  - {fileID: 4944488683778007345, guid: f4aaf60c8e9b8644f85562ab45133985, type: 3}
   cutHeight: 1.05
   trunkRadius: 0.36
   logYield: 4

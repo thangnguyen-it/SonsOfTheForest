@@ -34,7 +34,8 @@ namespace SonsOfTheForest.Tests.ForestCell.EditMode
             {
                 Assert.That(kit.TryValidate(out string reason), Is.True, reason);
                 Assert.That(kit.LogYield, Is.InRange(3, 5));
-                Assert.That(kit.WholeLogPrefabs.Count, Is.EqualTo(2));
+                Assert.That(kit.WholeLogPrefabs.Count,
+                    Is.EqualTo(kit.VariantId == "variant.pine.large.1" ? 3 : 2));
             }
         }
 
@@ -51,6 +52,11 @@ namespace SonsOfTheForest.Tests.ForestCell.EditMode
                 Assert.That(visual, Is.Not.Null, path);
                 Assert.That(visual.TryValidate(out string reason), Is.True, reason);
                 Assert.That(visual.NotchStageCount, Is.EqualTo(3));
+                if (path.Contains("PineLarge1", StringComparison.Ordinal))
+                {
+                    Assert.That(visual.ReadyToFall, Is.Not.Null,
+                        "The selected quality Pine requires an authored ReadyToFall state.");
+                }
                 Assert.That(visual.UpperRoot.GetComponent<LODGroup>(), Is.Not.Null);
                 Assert.That(visual.StumpRoot.GetComponent<LODGroup>(), Is.Not.Null);
                 Assert.That(prefab.transform.Find("Seam_Intact")?.gameObject.activeSelf, Is.True,
@@ -70,12 +76,12 @@ namespace SonsOfTheForest.Tests.ForestCell.EditMode
         }
 
         [Test]
-        public void WholeLogs_HaveSixSpeciesMatchedPhysicsLodPrefabs()
+        public void WholeLogs_HaveSpeciesMatchedPhysicsLodPrefabsIncludingThreePineSegments()
         {
             string[] paths = AssetDatabase.FindAssets("t:Prefab", new[] { LogRoot })
                 .Select(AssetDatabase.GUIDToAssetPath).OrderBy(value => value).ToArray();
-            Assert.That(paths, Has.Length.EqualTo(6));
-            Assert.That(paths.Count(value => value.Contains("_Pine_")), Is.EqualTo(2));
+            Assert.That(paths, Has.Length.EqualTo(7));
+            Assert.That(paths.Count(value => value.Contains("_Pine_")), Is.EqualTo(3));
             Assert.That(paths.Count(value => value.Contains("_Fir_")), Is.EqualTo(2));
             Assert.That(paths.Count(value => value.Contains("_Maple_")), Is.EqualTo(2));
             foreach (string path in paths)
@@ -83,6 +89,23 @@ namespace SonsOfTheForest.Tests.ForestCell.EditMode
                 GameObject prefab = Load<GameObject>(path);
                 Assert.That(prefab.GetComponent<ForestHarvestLog>(), Is.Not.Null);
                 Assert.That(prefab.GetComponent<Rigidbody>(), Is.Not.Null);
+                Rigidbody body = prefab.GetComponent<Rigidbody>();
+                CapsuleCollider logCollider = prefab.GetComponent<CapsuleCollider>();
+                if (path.Contains("_Pine_", StringComparison.Ordinal))
+                {
+                    float expectedRelativeVolume = Mathf.Pow(logCollider.radius / 0.36f, 2f) *
+                                                   (logCollider.height / 2.65f);
+                    Assert.That(body.mass, Is.EqualTo(30f * expectedRelativeVolume).Within(0.02f),
+                        path + " mass must derive from the species-matched segment volume.");
+                    Renderer[] capRenderers = prefab.GetComponentsInChildren<Renderer>(true)
+                        .Where(renderer => renderer.name.Contains("Caps", StringComparison.Ordinal))
+                        .ToArray();
+                    Assert.That(capRenderers, Has.Length.EqualTo(2),
+                        path + " must provide species-matched cut faces at both LODs.");
+                    Assert.That(capRenderers.All(renderer => renderer.sharedMaterials.Length == 1 &&
+                        renderer.sharedMaterial.name == "MAT_Pine_EndGrain"), Is.True,
+                        path + " caps must exclusively use the Pine cut-surface material.");
+                }
                 Assert.That(prefab.GetComponents<Collider>(), Has.Length.EqualTo(1));
                 Assert.That(prefab.GetComponent<LODGroup>()?.lodCount, Is.EqualTo(2));
                 Assert.That(prefab.GetComponentsInChildren<Renderer>(true)

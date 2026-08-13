@@ -10,12 +10,14 @@ namespace SonsOfTheForest.Infrastructure.Forest
         [SerializeField] private Transform stumpRoot;
         [SerializeField] private GameObject intactSeam;
         [SerializeField] private GameObject[] notchStages = Array.Empty<GameObject>();
+        [SerializeField] private GameObject readyToFall;
         [SerializeField] private GameObject upperCutCap;
         [SerializeField] private GameObject stumpCutCap;
 
         public Transform UpperRoot => upperRoot;
         public Transform StumpRoot => stumpRoot;
         public int NotchStageCount => notchStages.Length;
+        public GameObject ReadyToFall => readyToFall;
 
         public bool TryValidate(out string reason)
         {
@@ -44,6 +46,31 @@ namespace SonsOfTheForest.Infrastructure.Forest
                     notchStages[index].transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
                 }
             }
+            if (readyToFall != null)
+            {
+                readyToFall.SetActive(false);
+            }
+        }
+
+        public void SetReadyToFall(Vector3 localDirection)
+        {
+            intactSeam.SetActive(false);
+            for (int index = 0; index < notchStages.Length; index++)
+            {
+                notchStages[index].SetActive(false);
+            }
+            float yaw = Mathf.Atan2(localDirection.x, localDirection.z) * Mathf.Rad2Deg;
+            if (readyToFall != null)
+            {
+                readyToFall.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+                readyToFall.SetActive(true);
+            }
+            else if (notchStages.Length > 0)
+            {
+                GameObject fallback = notchStages[notchStages.Length - 1];
+                fallback.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+                fallback.SetActive(true);
+            }
         }
 
         public Transform DetachStump(Transform outputRoot)
@@ -52,6 +79,10 @@ namespace SonsOfTheForest.Infrastructure.Forest
             for (int index = 0; index < notchStages.Length; index++)
             {
                 notchStages[index].SetActive(false);
+            }
+            if (readyToFall != null)
+            {
+                readyToFall.SetActive(false);
             }
 
             upperCutCap.SetActive(true);
@@ -66,12 +97,13 @@ namespace SonsOfTheForest.Infrastructure.Forest
 #if UNITY_EDITOR
         public void EditorConfigure(
             Transform upper, Transform stump, GameObject seam, GameObject[] stages,
-            GameObject upperCap, GameObject stumpCap)
+            GameObject configuredReadyToFall, GameObject upperCap, GameObject stumpCap)
         {
             upperRoot = upper;
             stumpRoot = stump;
             intactSeam = seam;
             notchStages = stages ?? Array.Empty<GameObject>();
+            readyToFall = configuredReadyToFall;
             upperCutCap = upperCap;
             stumpCutCap = stumpCap;
         }
