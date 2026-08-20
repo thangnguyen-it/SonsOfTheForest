@@ -4,6 +4,49 @@ Audit date: 2026-08-13. Intake root: `E:\SOTF_AssetIntake\TREE_QUALITY_INTAKE_01
 Binary source media remains outside the public repository. This document records provenance,
 technical findings and the production disposition; it does not redistribute the source files.
 
+## Current commercial provenance lock — R2-ART1-M1A-FIX2
+
+Verified on 2026-08-20 against the separate, locked intake
+`E:\SOTF_AssetIntake\R2_ART1_HERO_FOREST_01` and evidence root
+`E:\SOTF_AssetIntake\R2_ART1_LICENSE_BINDING_01`. The intake manifest has 75 records and
+SHA-256 `AB9A5A219216428A552B442C40F7B6AB9BFB32F1337B417F932B8EB19A9BE6CD`.
+
+The current source acquisition evidence binds each listed archive's original FBX byte-for-byte
+to its current source file. Listing captures establish title, author, canonical listing ID and
+CC BY 4.0; the associated CC BY 4.0 captures establish the exact license version. CC BY 4.0
+permits commercial adaptation subject to attribution, a license link and an indication of changes.
+This lock is provenance only: it neither imports media nor changes runtime content.
+
+| Candidate | Current verified source and author | Canonical URL | Archive/model SHA-256 | Commercial license | Current disposition |
+|---|---|---|---|---|---|
+| First Person arms | DJMaesen | https://sketchfab.com/3d-models/first-person-arms-e3c42c05b22944e5839deb8e003f0987 | `03CABD1797A90993F630544D1C7794E842EA074C221CCC8EE89511FB6DD61A76` | CC BY 4.0 | `ACCEPT_WITH_ATTRIBUTION` |
+| Fire axe | Solidbot | https://www.fab.com/listings/e60d73c8-2362-4fbb-b8ae-06463de5106a | `FB880E4940BC51AF2F21C8C71D7ED8CEB1D07D52CF2A74838584EDCF6CCE0A16` | CC BY 4.0 | `ACCEPT_WITH_ATTRIBUTION` |
+| Pine trees pack (lowpoly, game ready, LODs) | LOLIPOP | https://sketchfab.com/3d-models/pine-trees-pack-lowpoly-game-ready-lods-e1e9c07b8e2e445c943fec660beefba2 | `AB26F767D863FB88681EB78B5DA1CA8B6F55004F2BAF3BC778E0F88A6EB09C59` | CC BY 4.0 | `ACCEPT_WITH_ATTRIBUTION` |
+
+### Required attribution text
+
+- “First Person arms” by DJMaesen — https://sketchfab.com/3d-models/first-person-arms-e3c42c05b22944e5839deb8e003f0987 — CC BY 4.0. Modified/optimized for this project; no endorsement implied.
+- “Fire axe” by Solidbot — https://www.fab.com/listings/e60d73c8-2362-4fbb-b8ae-06463de5106a — CC BY 4.0. Modified/optimized for this project; no endorsement implied.
+- “Pine trees pack (lowpoly, game ready, LODs)” by LOLIPOP — https://sketchfab.com/3d-models/pine-trees-pack-lowpoly-game-ready-lods-e1e9c07b8e2e445c943fec660beefba2 — CC BY 4.0. Modified/optimized for this project; no endorsement implied.
+
+Poly Haven and ambientCG records remain CC0 under their existing provenance records.
+
+### Evidence binding
+
+- Arms: archive `first-person-arms .zip`, SHA-256 `B27681A14DF5E3B4628029C5A4B128E669CC2159022619008A6FFC1FA7680F8E`; member `source/fpsarms.fbx` matches the locked-intake source hash above.
+- Axe: archive `fire-axe .zip`, SHA-256 `5BD0DEEDF5AFF9FD97FA659643FE0ACB08E6839998DD9EE7EDE3699AA2E6D544`; member `source/hacha-bomberos-terminada.fbx` matches the locked-intake source hash above.
+- Pine: archive `pine-trees-pack-lowpoly-game-ready-lods.zip`, SHA-256 `FE8DA7ED245F9B2557DD8F93DC31FECB98D3B66F4B2844F3B5E1A0AE61EF9909`; member `source/Pine_pack.fbx` matches the existing project source hash above.
+
+The 2026-08-20 captures in the evidence root show Fire axe / Solidbot and Pine trees pack / LOLIPOP together with their canonical listing IDs. Existing captures in the same logical folders show the corresponding CC BY 4.0 listing/license chain. Evidence media and source archives remain outside Git.
+
+## Historical R2-FOREST1F audit — retained, superseded where stated
+
+The 2026-08-13 observations below are retained unchanged as history. Its commercial dispositions
+for the DJMaesen arms and Solidbot axe are `HISTORICAL / SUPERSEDED_BY_VERIFIED_SOURCE`: they
+described a prior intake without the current archive-and-listing binding. The historical LOLIPOP
+record is retained and confirmed by the current exact source binding. No historical source is
+deleted or rewritten.
+
 ## Decision table
 
 | Candidate | Evidence | Technical audit | License conclusion | Disposition |
@@ -26,14 +69,14 @@ research evidence, not redistributable art. Their SHA-256 values are:
 The audit used Blender 4.5.11 against source files read-only. Any subsequent Blender work uses a
 working copy and deterministic scripts. Source/original files are never overwritten.
 
-## Production boundary
+## Historical production boundary
 
-Tracked runtime content must have no direct reference to the local arms or axe hierarchy. The
+Tracked runtime content must have no direct reference to a third-party arms or axe hierarchy. The
 production contract therefore accepts an optional project-owned viewmodel override at a stable
-boundary and retains a non-broken project-authored fallback. A local visual-review build may
-contain the restricted candidates, but a distributable build must exclude them until a compatible
-license and acquisition record are supplied. Pine and TreeEnd003 may produce tracked derivatives
-with their provenance retained.
+boundary and retains a non-broken project-authored fallback. The prior restriction pending a
+compatible license/acquisition record is superseded for the three locked sources above; no asset
+has yet been imported or integrated by this documentation change. Pine and TreeEnd003 may produce
+tracked derivatives with their provenance retained.
 
 ## Evidence classification
 

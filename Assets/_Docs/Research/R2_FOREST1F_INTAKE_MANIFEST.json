@@ -1,8 +1,54 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "intakeId": "TREE_QUALITY_INTAKE_01",
   "rootOutsideRepository": "E:/SOTF_AssetIntake/TREE_QUALITY_INTAKE_01",
   "capturedUtc": "2026-08-13T00:00:00Z",
+  "commercialProvenanceLock": {
+    "lockId": "R2-ART1-M1A-FIX2",
+    "verifiedUtc": "2026-08-20T00:00:00Z",
+    "evidenceRootOutsideRepository": "E:/SOTF_AssetIntake/R2_ART1_LICENSE_BINDING_01",
+    "lockedIntakeRootOutsideRepository": "E:/SOTF_AssetIntake/R2_ART1_HERO_FOREST_01",
+    "lockedIntakeManifestSha256": "AB9A5A219216428A552B442C40F7B6AB9BFB32F1337B417F932B8EB19A9BE6CD",
+    "historicalRecordDisposition": "HISTORICAL_RETAINED_SUPERSEDED_WHERE_CURRENT_BINDING_EXISTS",
+    "sources": [
+      {
+        "title": "First Person arms",
+        "author": "DJMaesen",
+        "canonicalUrl": "https://sketchfab.com/3d-models/first-person-arms-e3c42c05b22944e5839deb8e003f0987",
+        "listingId": "e3c42c05b22944e5839deb8e003f0987",
+        "license": "CC BY 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+        "sourceFbxSha256": "03CABD1797A90993F630544D1C7794E842EA074C221CCC8EE89511FB6DD61A76",
+        "archiveSha256": "B27681A14DF5E3B4628029C5A4B128E669CC2159022619008A6FFC1FA7680F8E",
+        "archiveBinding": "EXACT_BINDING",
+        "attributionRequired": true
+      },
+      {
+        "title": "Fire axe",
+        "author": "Solidbot",
+        "canonicalUrl": "https://www.fab.com/listings/e60d73c8-2362-4fbb-b8ae-06463de5106a",
+        "listingId": "e60d73c8-2362-4fbb-b8ae-06463de5106a",
+        "license": "CC BY 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+        "sourceFbxSha256": "FB880E4940BC51AF2F21C8C71D7ED8CEB1D07D52CF2A74838584EDCF6CCE0A16",
+        "archiveSha256": "5BD0DEEDF5AFF9FD97FA659643FE0ACB08E6839998DD9EE7EDE3699AA2E6D544",
+        "archiveBinding": "EXACT_BINDING",
+        "attributionRequired": true
+      },
+      {
+        "title": "Pine trees pack (lowpoly, game ready, LODs)",
+        "author": "LOLIPOP",
+        "canonicalUrl": "https://sketchfab.com/3d-models/pine-trees-pack-lowpoly-game-ready-lods-e1e9c07b8e2e445c943fec660beefba2",
+        "listingId": "e1e9c07b8e2e445c943fec660beefba2",
+        "license": "CC BY 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+        "sourceFbxSha256": "AB26F767D863FB88681EB78B5DA1CA8B6F55004F2BAF3BC778E0F88A6EB09C59",
+        "archiveSha256": "FE8DA7ED245F9B2557DD8F93DC31FECB98D3B66F4B2844F3B5E1A0AE61EF9909",
+        "archiveBinding": "EXACT_BINDING",
+        "attributionRequired": true
+      }
+    ]
+  },
   "files": [
     { "path": "01_Axe_Solidbot/source/hacha-bomberos-terminada.fbx", "bytes": 67196, "sha256": "FB880E4940BC51AF2F21C8C71D7ED8CEB1D07D52CF2A74838584EDCF6CCE0A16" },
     { "path": "01_Axe_Solidbot/textures/Material_BaseColor.png", "bytes": 5371813, "sha256": "1A756730C2F97FC5D18B9A9CB05CB52E6C3234CD86C6115FD9660C2C7438EBE7" },

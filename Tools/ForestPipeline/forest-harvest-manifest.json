@@ -7,6 +7,43 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
     "derivativeUse": "Permitted with attribution; original pack files are never overwritten."
   },
+  "commercialProvenanceLock": {
+    "lockId": "R2-ART1-M1A-FIX2",
+    "status": "VERIFIED",
+    "evidenceRootOutsideRepository": "E:/SOTF_AssetIntake/R2_ART1_LICENSE_BINDING_01",
+    "sources": [
+      {
+        "title": "First Person arms",
+        "author": "DJMaesen",
+        "sourceUrl": "https://sketchfab.com/3d-models/first-person-arms-e3c42c05b22944e5839deb8e003f0987",
+        "license": "CC BY 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+        "sourceFbxSha256": "03CABD1797A90993F630544D1C7794E842EA074C221CCC8EE89511FB6DD61A76",
+        "sourceArchiveSha256": "B27681A14DF5E3B4628029C5A4B128E669CC2159022619008A6FFC1FA7680F8E",
+        "attribution": "Modified/optimized for this project; no endorsement implied."
+      },
+      {
+        "title": "Fire axe",
+        "author": "Solidbot",
+        "sourceUrl": "https://www.fab.com/listings/e60d73c8-2362-4fbb-b8ae-06463de5106a",
+        "license": "CC BY 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+        "sourceFbxSha256": "FB880E4940BC51AF2F21C8C71D7ED8CEB1D07D52CF2A74838584EDCF6CCE0A16",
+        "sourceArchiveSha256": "5BD0DEEDF5AFF9FD97FA659643FE0ACB08E6839998DD9EE7EDE3699AA2E6D544",
+        "attribution": "Modified/optimized for this project; no endorsement implied."
+      },
+      {
+        "title": "Pine trees pack (lowpoly, game ready, LODs)",
+        "author": "LOLIPOP",
+        "sourceUrl": "https://sketchfab.com/3d-models/pine-trees-pack-lowpoly-game-ready-lods-e1e9c07b8e2e445c943fec660beefba2",
+        "license": "CC BY 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+        "sourceFbxSha256": "AB26F767D863FB88681EB78B5DA1CA8B6F55004F2BAF3BC778E0F88A6EB09C59",
+        "sourceArchiveSha256": "FE8DA7ED245F9B2557DD8F93DC31FECB98D3B66F4B2844F3B5E1A0AE61EF9909",
+        "attribution": "Modified/optimized for this project; no endorsement implied."
+      }
+    ]
+  },
   "outputRoot": "Assets/_Game/Art/World/Forest/Harvest/Generated",
   "variants": [
     { "speciesId": "species.pine", "species": "Pine", "variantId": "PineLarge1", "runtimeVariantId": "variant.pine.large.1", "sourceFbx": "Assets/pine-trees-pack-lowpoly-game-ready-lods/source/Pine_pack.fbx", "sourceMesh": "Pine_large_1", "barkMaterial": "MAT_Pine_Bark", "cutHeight": 1.05, "trunkRadius": 0.36, "targetHeight": 18.0, "logYield": 4 },
